@@ -652,7 +652,13 @@ function Documentos({ docs, setDocs }) {
         <Modal title="Agregar Documento" onClose={() => setModal(false)}>
           <FormField label="Nombre del Documento"><Input value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} /></FormField>
           <FormField label="Categoría"><Select value={form.categoria} onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}>{cats.map((c) => <option key={c}>{c}</option>)}</Select></FormField>
-          <FormField label="Versión"><Input value={form.version} onChange={(e) => setForm((f) => ({ ...f, version: e.target.value }))} placeholder="v1" className="font-mono" /></FormField>
+          <FormField label="Versión">
+  <Input 
+    value={form.version || ""} 
+    onChange={(e) => setForm((f) => ({ ...f, version: e.target.value }))} 
+    placeholder="v1" 
+  />
+</FormField>
           <div className="mb-3 bg-gray-800 rounded-lg p-3">
             <div className="text-xs text-gray-400 mb-2 font-medium">Fuente</div>
             <div className="flex gap-2 mb-3">
