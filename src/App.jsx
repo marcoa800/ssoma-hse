@@ -376,10 +376,16 @@ function Directorio({ workers, setWorkers, role }) {
         <Modal title={modal === "edit" ? "Editar Trabajador" : "Registrar Trabajador"} onClose={() => setModal(null)}>
           <FormField label="Nombre Completo"><Input value={form.nombre || ""} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} /></FormField>
           <FormField label="DNI (solo números)">
-            <Input value={form.dni || ""} inputMode="numeric" maxLength={8}
-              onChange={(e) => { const val = e.target.value.replace(/\D/g, ""); setForm((f) => ({ ...f, dni: val })); }}
-              placeholder="12345678" className="font-mono" />
-          </FormField>
+  <Input 
+    value={form.dni || ""} 
+    maxLength={8}
+    onChange={(e) => {
+      const val = e.target.value.replace(/\D/g, "");
+      setForm((f) => ({ ...f, dni: val }));
+    }}
+    placeholder="12345678"
+  />
+</FormField>
           <FormField label="Cargo"><Input value={form.cargo || ""} onChange={(e) => setForm((f) => ({ ...f, cargo: e.target.value }))} /></FormField>
           <FormField label="Sede"><Input value="Lima" disabled className="opacity-50 cursor-not-allowed" /></FormField>
           <FormField label="Estado">
