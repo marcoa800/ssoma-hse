@@ -792,9 +792,30 @@ function Vigilancia({ workers }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    supabase.from("registros_medicos").select("*, trabajadores(nombre)").then(({ data }) => { setRecords(data || []); setLoading(false); });
-  }, []);
+ useEffect(() => {
+  supabase.auth.getSession().then(({ data: { session } }) => { 
+    setSession(session); 
+    setLoading(false); 
+  });
+  
+  supabase.auth.onAuthStateChange((event, session) => {
+    setSession(session);
+    if (event === 'SIGNED_IN') {
+      setLoading(false);
+    }
+  });
+
+  // Procesar magic link del hash de la URL
+  if (window.location.hash.includes('access_token')) {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setSession(session);
+        setLoading(false);
+        window.location.hash = '';
+      }
+    });
+  }
+}, []);
 
   const tabs = [{ id: "descansos", label: "Descansos Médicos" }, { id: "emos", label: "Programación EMOs" }, { id: "morbilidad", label: "Morbilidad" }];
   const now = new Date(); const in30 = new Date(); in30.setDate(in30.getDate() + 30);
