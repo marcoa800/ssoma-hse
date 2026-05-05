@@ -793,28 +793,29 @@ function Vigilancia({ workers }) {
   const [loading, setLoading] = useState(true);
 
  useEffect(() => {
-  supabase.auth.getSession().then(({ data: { session } }) => { 
-    setSession(session); 
-    setLoading(false); 
-  });
-  
-  supabase.auth.onAuthStateChange((event, session) => {
-    setSession(session);
-    if (event === 'SIGNED_IN') {
-      setLoading(false);
-    }
-  });
+  const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  const accessToken = hashParams.get('access_token');
+  const refreshToken = hashParams.get('refresh_token');
 
-  // Procesar magic link del hash de la URL
-  if (window.location.hash.includes('access_token')) {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+  if (accessToken && refreshToken) {
+    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .then(({ data: { session } }) => {
         setSession(session);
         setLoading(false);
-        window.location.hash = '';
-      }
+        window.history.replaceState(null, '', window.location.pathname);
+      });
+  } else {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
     });
   }
+
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    setSession(session);
+  });
+
+  return () => subscription.unsubscribe();
 }, []);
 
   const tabs = [{ id: "descansos", label: "Descansos Médicos" }, { id: "emos", label: "Programación EMOs" }, { id: "morbilidad", label: "Morbilidad" }];
