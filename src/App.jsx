@@ -5,7 +5,7 @@ import {
   BarChart2, Stethoscope, AlertTriangle,
   CheckCircle, XCircle, Info, Plus, Upload,
   Download, ChevronRight, ChevronLeft, Lock,
-  Trash2, LogOut, Filter
+  Trash2, LogOut, Filter, HelpCircle
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
@@ -31,6 +31,44 @@ function ToastContainer() {
       {toasts.map((t) => <div key={t.id} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium pointer-events-auto ${colors[t.type]}`}>{icons[t.type]} {t.msg}</div>)}
     </div>
   );
+}
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+function calcularEdad(fechaNac) {
+  if (!fechaNac) return null;
+  const hoy = new Date();
+  const nac = new Date(fechaNac);
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return edad;
+}
+
+function calcularVigencia(ultimaEmo, duracion) {
+  if (!ultimaEmo || !duracion) return null;
+  const fecha = new Date(ultimaEmo);
+  if (duracion === "Anual") fecha.setFullYear(fecha.getFullYear() + 1);
+  else if (duracion === "Bianual") fecha.setFullYear(fecha.getFullYear() + 2);
+  return fecha.toISOString().split("T")[0];
+}
+
+function excelDateToISO(val) {
+  if (!val) return null;
+  if (typeof val === "string" && val.includes("-")) return val;
+  if (typeof val === "string" && val.includes("/")) {
+    const parts = val.split("/");
+    if (parts.length === 3) {
+      const [d, m, y] = parts;
+      return `${y.length === 2 ? "20" + y : y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+    }
+  }
+  if (typeof val === "number") {
+    const date = new Date((val - 25569) * 86400 * 1000);
+    return date.toISOString().split("T")[0];
+  }
+  return null;
 }
 
 // ═══════════════════════════════════════════
@@ -86,6 +124,68 @@ function Btn({ children, variant = "default", size = "md", disabled, onClick, cl
 }
 
 // ═══════════════════════════════════════════
+// MODAL GUÍA DE IMPORTACIÓN
+// ═══════════════════════════════════════════
+function ImportGuideModal({ onClose }) {
+  const cols = [
+    { col: "APELLIDO Y NOMBRE", desc: "Nombre completo del trabajador", ejemplo: "García López Juan", req: true },
+    { col: "FECHA DE NACIMIENTO", desc: "Formato DD/MM/AAAA", ejemplo: "15/03/1990", req: false },
+    { col: "DOC. DE IDENTIDAD", desc: "DNI (solo números, 8 dígitos)", ejemplo: "12345678", req: true },
+    { col: "PUESTO", desc: "Cargo o puesto de trabajo", ejemplo: "Operador de Planta", req: false },
+    { col: "ULTIMA EMO", desc: "Fecha del último examen médico DD/MM/AAAA", ejemplo: "10/01/2025", req: false },
+    { col: "DURACION DE EMO", desc: "Anual o Bianual", ejemplo: "Anual", req: false },
+    { col: "ESTADO", desc: "Activo, Vacaciones o Inactivo", ejemplo: "Activo", req: false },
+    { col: "APTITUD", desc: "Apto, Apto con restricción, No apto, No evaluado", ejemplo: "Apto", req: false },
+    { col: "RESTRICCION", desc: "Detalle de restricción médica si aplica", ejemplo: "Restringir trabajo nocturno", req: false },
+    { col: "LECTURA 2026", desc: "Fecha de lectura de resultados EMO DD/MM/AAAA", ejemplo: "20/01/2025", req: false },
+    { col: "CELULAR", desc: "Número de celular (9 dígitos)", ejemplo: "999888777", req: false },
+    { col: "EPP RECIBIDO", desc: "SI o NO", ejemplo: "SI", req: false },
+    { col: "EPP DETALLE", desc: "Lista de EPP entregados", ejemplo: "Casco, guantes, lentes", req: false },
+    { col: "EPP FECHA", desc: "Fecha de entrega de EPP DD/MM/AAAA", ejemplo: "05/01/2025", req: false },
+  ];
+
+  const downloadTemplate = () => {
+    const headers = cols.map(c => c.col);
+    const example = cols.map(c => c.ejemplo);
+    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+    ws["!cols"] = headers.map(() => ({ wch: 22 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
+    XLSX.writeFile(wb, "plantilla_sabana_personal.xlsx");
+    showToast("Plantilla descargada", "success");
+  };
+
+  return (
+    <Modal title="Guía de Importación — Sábana de Personal" onClose={onClose} wide>
+      <div className="mb-4 px-3 py-2.5 rounded-lg bg-blue-900/20 border border-blue-900/40 text-xs text-blue-400">
+        El archivo Excel o CSV debe tener exactamente estos encabezados en la primera fila. Las columnas marcadas con <span className="text-red-400">*</span> son obligatorias.
+      </div>
+      <div className="overflow-x-auto mb-4">
+        <table className="w-full text-xs">
+          <thead><tr className="border-b border-gray-800"><th className="text-left text-gray-500 font-medium py-2 pr-4">Columna</th><th className="text-left text-gray-500 font-medium py-2 pr-4">Descripción</th><th className="text-left text-gray-500 font-medium py-2">Ejemplo</th></tr></thead>
+          <tbody>
+            {cols.map((c) => (
+              <tr key={c.col} className="border-b border-gray-800/50">
+                <td className="py-2 pr-4 font-mono text-blue-400 whitespace-nowrap">{c.col}{c.req && <span className="text-red-400 ml-1">*</span>}</td>
+                <td className="py-2 pr-4 text-gray-400">{c.desc}</td>
+                <td className="py-2 text-gray-600 font-mono">{c.ejemplo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mb-4 px-3 py-2.5 rounded-lg bg-amber-900/20 border border-amber-900/40 text-xs text-amber-400">
+        <strong>Nota:</strong> VIGENTE HASTA se calcula automáticamente sumando 1 año (Anual) o 2 años (Bianual) a la ULTIMA EMO. No es necesario incluirlo en el Excel.
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Btn onClick={onClose}>Cerrar</Btn>
+        <Btn variant="primary" onClick={downloadTemplate}><Download size={13} /> Descargar Plantilla Excel</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ═══════════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════════
 function Login() {
@@ -126,8 +226,8 @@ function Dashboard({ workers, trainings }) {
   const activos = workers.filter((w) => w.estado === "Activo").length;
   const conRestriccion = workers.filter((w) => w.aptitud === "Apto con restricción").length;
   const now = new Date(); const in30 = new Date(); in30.setDate(in30.getDate() + 30);
-  const emoVencer = workers.filter((w) => { const d = new Date(w.vencimiento_emo); return d >= now && d <= in30; }).length;
-  const emoVencidos = workers.filter((w) => w.vencimiento_emo && new Date(w.vencimiento_emo) < now);
+  const emoVencer = workers.filter((w) => { const vig = calcularVigencia(w.ultima_emo, w.duracion_emo); if (!vig) return false; const d = new Date(vig); return d >= now && d <= in30; }).length;
+  const emoVencidos = workers.filter((w) => { const vig = calcularVigencia(w.ultima_emo, w.duracion_emo); return vig && new Date(vig) < now; });
   const pctEpp = workers.length ? Math.round((workers.filter((w) => w.epp_recibido).length / workers.length) * 100) : 0;
   const pctAptitud = workers.length ? Math.round((workers.filter((w) => ["Apto", "Apto con restricción"].includes(w.aptitud)).length / workers.length) * 100) : 0;
   return (
@@ -136,13 +236,13 @@ function Dashboard({ workers, trainings }) {
         <KpiCard label="Personal Activo" value={activos} sub={`de ${workers.length} registrados`} accentColor="blue" />
         <KpiCard label="Aptos con Restricción" value={conRestriccion} sub="requieren seguimiento" accentColor="amber" />
         <KpiCard label="EMOs por Vencer" value={emoVencer} sub="próximos 30 días" accentColor="red" />
-        <KpiCard label="EPP Entregado" value={`${pctEpp}%`} sub={`${workers.filter(w=>w.epp_recibido).length} de ${workers.length}`} accentColor="emerald" />
+        <KpiCard label="EPP Entregado" value={`${pctEpp}%`} sub={`${workers.filter(w => w.epp_recibido).length} de ${workers.length}`} accentColor="emerald" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <div className="text-sm font-semibold text-white mb-4">Indicadores de Cumplimiento</div>
           <div className="space-y-3">
-            {[{ label: "% EPP entregado", value: pctEpp, color: "emerald" }, { label: "% Aptitud Médica Vigente", value: pctAptitud, color: "purple" }, { label: "% Capacitaciones realizadas", value: trainings.length ? Math.round((trainings.filter(t=>(t.asistencia_count||0)>0).length/trainings.length)*100) : 0, color: "blue" }].map((item) => (
+            {[{ label: "% EPP entregado", value: pctEpp, color: "emerald" }, { label: "% Aptitud Médica Vigente", value: pctAptitud, color: "purple" }, { label: "% Capacitaciones realizadas", value: trainings.length ? Math.round((trainings.filter(t => (t.asistencia_count || 0) > 0).length / trainings.length) * 100) : 0, color: "blue" }].map((item) => (
               <div key={item.label}><div className="flex justify-between text-xs text-gray-500 mb-1.5"><span>{item.label}</span><span className="text-white font-medium">{item.value}%</span></div><ProgressBar value={item.value} color={item.color} height="h-2" /></div>
             ))}
           </div>
@@ -157,9 +257,9 @@ function Dashboard({ workers, trainings }) {
       </div>
       {emoVencidos.length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2"><AlertTriangle size={15} className="text-red-400" /> Alertas Activas</div>
+          <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2"><AlertTriangle size={15} className="text-red-400" /> Alertas — EMO Vencido</div>
           <div className="space-y-2">
-            {emoVencidos.map((w) => (<div key={w.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-red-900/20 border border-red-900/40 text-sm"><AlertTriangle size={14} className="text-red-400 shrink-0" /><span className="text-white font-medium">{w.nombre}</span><span className="text-red-400">— EMO vencido: {w.vencimiento_emo}</span><Badge color="amber">{w.cargo}</Badge></div>))}
+            {emoVencidos.map((w) => (<div key={w.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-red-900/20 border border-red-900/40 text-sm"><AlertTriangle size={14} className="text-red-400 shrink-0" /><span className="text-white font-medium">{w.nombre}</span><span className="text-red-400">— Vigente hasta: {calcularVigencia(w.ultima_emo, w.duracion_emo)}</span><Badge color="amber">{w.cargo}</Badge></div>))}
           </div>
         </div>
       )}
@@ -173,17 +273,17 @@ function Dashboard({ workers, trainings }) {
 function Directorio({ workers, setWorkers, role }) {
   const [filter, setFilter] = useState({ text: "", estado: "", aptitud: "", cargo: "", epp: "" });
   const [modal, setModal] = useState(null);
+  const [showGuide, setShowGuide] = useState(false);
   const [form, setForm] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(null);
   const canSeeMedical = ["ADMIN", "MEDICO"].includes(role);
   const canEditEmo = role !== "SEGURIDAD";
-
   const cargos = [...new Set(workers.map((w) => w.cargo).filter(Boolean))].sort();
 
   const filtered = workers.filter((w) => {
     const t = filter.text.toLowerCase();
-    return (!t || w.nombre.toLowerCase().includes(t) || w.dni.includes(t))
+    return (!t || w.nombre.toLowerCase().includes(t) || (w.dni || "").includes(t))
       && (!filter.estado || w.estado === filter.estado)
       && (!filter.aptitud || w.aptitud === filter.aptitud)
       && (!filter.cargo || w.cargo === filter.cargo)
@@ -191,14 +291,24 @@ function Directorio({ workers, setWorkers, role }) {
   });
 
   const openModal = (worker = null) => {
-    setForm(worker || { nombre: "", dni: "", cargo: "", celular: "", sede: "Lima", estado: "Activo", tipo_emo: "Periódico", duracion_emo: "Anual", vencimiento_emo: "", aptitud: "No evaluado", restriccion_medica: "Ninguna", epp_recibido: false, epp_detalle: "", epp_fecha: "" });
+    setForm(worker || { nombre: "", dni: "", cargo: "", celular: "", sede: "Lima", estado: "Activo", fecha_nacimiento: "", ultima_emo: "", duracion_emo: "Anual", aptitud: "No evaluado", restriccion_medica: "Ninguna", lectura_emo: "", epp_recibido: false, epp_detalle: "", epp_fecha: "" });
     setModal(worker ? "edit" : "new");
   };
 
   const saveWorker = async () => {
     if (!form.nombre || !form.dni) { showToast("Nombre y DNI son requeridos", "error"); return; }
     setIsSaving(true);
-    const payload = { nombre: form.nombre, dni: form.dni, cargo: form.cargo, celular: form.celular || null, sede: "Lima", estado: form.estado, tipo_emo: form.tipo_emo, duracion_emo: form.duracion_emo || "Anual", vencimiento_emo: form.vencimiento_emo || null, aptitud: form.aptitud, restriccion_medica: form.restriccion_medica || "Ninguna", epp_recibido: form.epp_recibido || false, epp_detalle: form.epp_detalle || null, epp_fecha: form.epp_fecha || null };
+    const vigencia = calcularVigencia(form.ultima_emo, form.duracion_emo);
+    const edad = calcularEdad(form.fecha_nacimiento);
+    const payload = {
+      nombre: form.nombre, dni: form.dni, cargo: form.cargo || "", celular: form.celular || null,
+      sede: "Lima", estado: form.estado || "Activo",
+      fecha_nacimiento: form.fecha_nacimiento || null, edad,
+      ultima_emo: form.ultima_emo || null, duracion_emo: form.duracion_emo || "Anual",
+      vencimiento_emo: vigencia, lectura_emo: form.lectura_emo || null,
+      aptitud: form.aptitud || "No evaluado", restriccion_medica: form.restriccion_medica || "Ninguna",
+      epp_recibido: form.epp_recibido || false, epp_detalle: form.epp_detalle || null, epp_fecha: form.epp_fecha || null,
+    };
     if (modal === "edit") {
       const { error } = await supabase.from("trabajadores").update(payload).eq("id", form.id);
       if (error) { showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
@@ -219,33 +329,68 @@ function Directorio({ workers, setWorkers, role }) {
     const { error } = await supabase.from("trabajadores").delete().eq("id", id);
     if (error) { showToast("Error: " + error.message, "error"); setIsDeleting(null); return; }
     setWorkers((prev) => prev.filter((w) => w.id !== id));
-    showToast("Trabajador eliminado", "success");
-    setIsDeleting(null);
+    showToast("Trabajador eliminado", "success"); setIsDeleting(null);
   };
 
   const importCSV = (e) => {
     const file = e.target.files[0]; if (!file) return;
-    Papa.parse(file, {
-      header: true,
-      complete: async (results) => {
-        const rows = results.data.filter((r) => r.Nombre && r.DNI);
-        if (rows.length === 0) { showToast("CSV inválido: columnas 'Nombre' y 'DNI' requeridas", "error"); return; }
-        const inserts = rows.map((r) => ({ nombre: r.Nombre, dni: String(r.DNI).replace(/\D/g, ""), cargo: r.Cargo || "", celular: r.Celular || null, sede: "Lima", estado: r.Estado || "Activo", tipo_emo: r.TipoEMO || "Periódico", duracion_emo: r.DuracionEMO || "Anual", vencimiento_emo: r.VencimientoEMO || null, aptitud: r.Aptitud || "No evaluado", restriccion_medica: "Ninguna", epp_recibido: r.EPPRecibido === "SI" || r.EPPRecibido === "true", epp_detalle: r.EPPDetalle || null, epp_fecha: r.EPPFecha || null }));
-        const { data, error } = await supabase.from("trabajadores").insert(inserts).select();
-        if (error) { showToast("Error al importar: " + error.message, "error"); return; }
-        setWorkers((prev) => [...prev, ...data]);
-        showToast(`${data.length} trabajadores importados`, "success");
-      },
-    });
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const wb = XLSX.read(evt.target.result, { type: "binary", cellDates: false });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        await processImportRows(rows);
+      };
+      reader.readAsBinaryString(file);
+    } else {
+      Papa.parse(file, { header: true, complete: async (results) => { await processImportRows(results.data); } });
+    }
     e.target.value = "";
   };
 
+  const processImportRows = async (rows) => {
+    const valid = rows.filter((r) => r["APELLIDO Y NOMBRE"] && r["DOC. DE IDENTIDAD"]);
+    if (valid.length === 0) { showToast("Archivo inválido. Verifica los encabezados.", "error"); return; }
+    const inserts = valid.map((r) => {
+      const ultimaEmo = excelDateToISO(r["ULTIMA EMO"]);
+      const duracion = r["DURACION DE EMO"] || "Anual";
+      return {
+        nombre: r["APELLIDO Y NOMBRE"],
+        dni: String(r["DOC. DE IDENTIDAD"]).replace(/\D/g, "").slice(0, 8),
+        cargo: r["PUESTO"] || "",
+        celular: String(r["CELULAR"] || "").replace(/\D/g, "").slice(0, 12) || null,
+        sede: "Lima", estado: r["ESTADO"] || "Activo",
+        fecha_nacimiento: excelDateToISO(r["FECHA DE NACIMIENTO"]),
+        edad: calcularEdad(excelDateToISO(r["FECHA DE NACIMIENTO"])),
+        ultima_emo: ultimaEmo, duracion_emo: duracion,
+        vencimiento_emo: calcularVigencia(ultimaEmo, duracion),
+        lectura_emo: excelDateToISO(r["LECTURA 2026"]),
+        aptitud: r["APTITUD"] || "No evaluado",
+        restriccion_medica: r["RESTRICCION"] || "Ninguna",
+        epp_recibido: String(r["EPP RECIBIDO"] || "").toUpperCase() === "SI",
+        epp_detalle: r["EPP DETALLE"] || null,
+        epp_fecha: excelDateToISO(r["EPP FECHA"]),
+      };
+    });
+    const { data, error } = await supabase.from("trabajadores").insert(inserts).select();
+    if (error) { showToast("Error al importar: " + error.message, "error"); return; }
+    setWorkers((prev) => [...prev, ...data]);
+    showToast(`${data.length} trabajadores importados correctamente`, "success");
+  };
+
   const exportExcel = () => {
-    const data = filtered.map((w) => ({ Nombre: w.nombre, DNI: w.dni, Cargo: w.cargo, Celular: w.celular || "", Sede: w.sede, Estado: w.estado, "Tipo EMO": w.tipo_emo, "Duración EMO": w.duracion_emo, "Vencimiento EMO": w.vencimiento_emo || "", Aptitud: w.aptitud, "EPP Recibido": w.epp_recibido ? "SI" : "NO", "EPP Detalle": w.epp_detalle || "", "Fecha EPP": w.epp_fecha || "", ...(canSeeMedical ? { "Restricción Médica": w.restriccion_medica } : {}) }));
-    const ws = XLSX.utils.json_to_sheet(data);
+    const headers = ["APELLIDO Y NOMBRE", "FECHA DE NACIMIENTO", "EDAD", "DOC. DE IDENTIDAD", "PUESTO", "CELULAR", "ULTIMA EMO", "DURACION DE EMO", "VIGENTE HASTA", "ESTADO", "APTITUD", ...(canSeeMedical ? ["RESTRICCION"] : []), "LECTURA 2026", "EPP RECIBIDO", "EPP DETALLE", "EPP FECHA"];
+    const data = filtered.map((w) => {
+      const vigencia = calcularVigencia(w.ultima_emo, w.duracion_emo);
+      return [w.nombre, w.fecha_nacimiento || "", calcularEdad(w.fecha_nacimiento) || "", w.dni, w.cargo || "", w.celular || "", w.ultima_emo || "", w.duracion_emo || "", vigencia || "", w.estado, w.aptitud, ...(canSeeMedical ? [w.restriccion_medica || ""] : []), w.lectura_emo || "", w.epp_recibido ? "SI" : "NO", w.epp_detalle || "", w.epp_fecha || ""];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    ws["!cols"] = headers.map(() => ({ wch: 20 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Directorio");
-    XLSX.writeFile(wb, "directorio_trabajadores.xlsx");
+    XLSX.writeFile(wb, "sabana_personal_mprecicla.xlsx");
     showToast("Excel descargado", "success");
   };
 
@@ -253,11 +398,17 @@ function Directorio({ workers, setWorkers, role }) {
 
   return (
     <div>
+      {showGuide && <ImportGuideModal onClose={() => setShowGuide(false)} />}
+
       <div className="flex items-center justify-between mb-4">
-        <div><div className="text-sm font-semibold text-white">Personal Registrado</div><div className="text-xs text-gray-600">{filtered.length} de {workers.length} trabajadores · Lima</div></div>
-        <div className="flex gap-2">
-          <label className="cursor-pointer"><span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white transition-all cursor-pointer"><Upload size={13} /> Importar CSV</span><input type="file" accept=".csv" className="hidden" onChange={importCSV} /></label>
-          <Btn size="sm" onClick={exportExcel}><Download size={13} /> Exportar</Btn>
+        <div><div className="text-sm font-semibold text-white">Sábana de Personal</div><div className="text-xs text-gray-600">{filtered.length} de {workers.length} trabajadores · Lima</div></div>
+        <div className="flex gap-2 flex-wrap">
+          <Btn size="sm" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía de Importación</Btn>
+          <label className="cursor-pointer">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white transition-all cursor-pointer"><Upload size={13} /> Importar Excel/CSV</span>
+            <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={importCSV} />
+          </label>
+          <Btn size="sm" onClick={exportExcel}><Download size={13} /> Exportar Sábana</Btn>
           <Btn size="sm" variant="primary" onClick={() => openModal()}><Plus size={13} /> Registrar</Btn>
         </div>
       </div>
@@ -265,7 +416,7 @@ function Directorio({ workers, setWorkers, role }) {
       {/* FILTROS */}
       <div className="flex gap-2 flex-wrap mb-4">
         <Input placeholder="Buscar nombre o DNI..." value={filter.text} onChange={(e) => setFilter((f) => ({ ...f, text: e.target.value }))} style={{ flex: 1, minWidth: 160 }} />
-        <Select value={filter.cargo} onChange={(e) => setFilter((f) => ({ ...f, cargo: e.target.value }))} style={{ width: 170 }}>
+        <Select value={filter.cargo} onChange={(e) => setFilter((f) => ({ ...f, cargo: e.target.value }))} style={{ width: 180 }}>
           <option value="">Todos los puestos</option>
           {cargos.map((c) => <option key={c}>{c}</option>)}
         </Select>
@@ -273,9 +424,9 @@ function Directorio({ workers, setWorkers, role }) {
           <option value="">Todos los estados</option>
           {["Activo", "Vacaciones", "Inactivo"].map((s) => <option key={s}>{s}</option>)}
         </Select>
-        <Select value={filter.aptitud} onChange={(e) => setFilter((f) => ({ ...f, aptitud: e.target.value }))} style={{ width: 170 }}>
+        <Select value={filter.aptitud} onChange={(e) => setFilter((f) => ({ ...f, aptitud: e.target.value }))} style={{ width: 180 }}>
           <option value="">Toda aptitud</option>
-          {["Apto", "Apto con restricción", "No evaluado"].map((a) => <option key={a}>{a}</option>)}
+          {["Apto", "Apto con restricción", "No apto", "No evaluado"].map((a) => <option key={a}>{a}</option>)}
         </Select>
         <Select value={filter.epp} onChange={(e) => setFilter((f) => ({ ...f, epp: e.target.value }))} style={{ width: 140 }}>
           <option value="">EPP: Todos</option>
@@ -289,34 +440,38 @@ function Directorio({ workers, setWorkers, role }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800">
-                {["Nombre / DNI", "Puesto", "Celular", "Estado", "Aptitud", "EMO / Duración", "Vence EMO", "EPP", ...(canSeeMedical ? ["Restricción"] : []), ""].map((h) => (
-                  <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                {["Apellido y Nombre", "F. Nacimiento / Edad", "DNI", "Puesto", "Celular", "Última EMO", "Duración", "Vigente Hasta", "Estado", "Aptitud", "EPP", "Lectura EMO", ...(canSeeMedical ? ["Restricción"] : []), ""].map((h) => (
+                  <th key={h} className="text-left text-xs text-gray-600 font-medium px-3 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map((w) => {
-                const isVenc = w.vencimiento_emo && new Date(w.vencimiento_emo) < new Date();
+                const vigencia = calcularVigencia(w.ultima_emo, w.duracion_emo);
+                const isVenc = vigencia && new Date(vigencia) < new Date();
+                const in30 = new Date(); in30.setDate(in30.getDate() + 30);
+                const soonVenc = !isVenc && vigencia && new Date(vigencia) <= in30;
+                const edad = calcularEdad(w.fecha_nacimiento);
                 return (
                   <tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                    <td className="px-4 py-3"><div className="font-medium text-white whitespace-nowrap">{w.nombre}</div><div className="text-xs font-mono text-gray-600">{w.dni}</div></td>
-                    <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{w.cargo}</td>
-                    <td className="px-4 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">{w.celular || "—"}</td>
-                    <td className="px-4 py-3"><Badge color={w.estado === "Activo" ? "green" : "amber"}>{w.estado}</Badge></td>
-                    <td className="px-4 py-3"><Badge color={aptitudColor[w.aptitud] || "gray"}>{w.aptitud}</Badge></td>
-                    <td className="px-4 py-3"><div className="text-xs text-gray-400">{w.tipo_emo}</div><div className="text-xs text-gray-600">{w.duracion_emo || "Anual"}</div></td>
-                    <td className={`px-4 py-3 font-mono text-xs whitespace-nowrap ${isVenc ? "text-red-400" : "text-gray-500"}`}>{w.vencimiento_emo || "—"}</td>
-                    <td className="px-4 py-3">
-                      {w.epp_recibido ? (
-                        <div><Badge color="green">✓ Sí</Badge><div className="text-xs text-gray-600 mt-0.5">{w.epp_detalle || ""}</div><div className="text-xs text-gray-700">{w.epp_fecha || ""}</div></div>
-                      ) : <Badge color="gray">No</Badge>}
-                    </td>
-                    {canSeeMedical && <td className="px-4 py-3 text-xs">{w.restriccion_medica !== "Ninguna" ? <span className="text-amber-400">{w.restriccion_medica}</span> : <span className="text-gray-700">—</span>}</td>}
-                    <td className="px-4 py-3"><div className="flex gap-1"><Btn size="sm" onClick={() => openModal(w)}>Editar</Btn><Btn size="sm" variant="danger" disabled={isDeleting === w.id} onClick={() => deleteWorker(w.id)}><Trash2 size={12} /></Btn></div></td>
+                    <td className="px-3 py-3"><div className="font-medium text-white whitespace-nowrap">{w.nombre}</div></td>
+                    <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap font-mono">{w.fecha_nacimiento || "—"}{edad ? <div className="text-gray-600">{edad} años</div> : null}</td>
+                    <td className="px-3 py-3 font-mono text-xs text-gray-500">{w.dni}</td>
+                    <td className="px-3 py-3 text-gray-400 whitespace-nowrap">{w.cargo || "—"}</td>
+                    <td className="px-3 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">{w.celular || "—"}</td>
+                    <td className="px-3 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{w.ultima_emo || "—"}</td>
+                    <td className="px-3 py-3"><Badge color={w.duracion_emo === "Bianual" ? "purple" : "blue"}>{w.duracion_emo || "Anual"}</Badge></td>
+                    <td className={`px-3 py-3 font-mono text-xs whitespace-nowrap font-medium ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-400"}`}>{vigencia || "—"}</td>
+                    <td className="px-3 py-3"><Badge color={w.estado === "Activo" ? "green" : "amber"}>{w.estado}</Badge></td>
+                    <td className="px-3 py-3"><Badge color={aptitudColor[w.aptitud] || "gray"}>{w.aptitud}</Badge></td>
+                    <td className="px-3 py-3">{w.epp_recibido ? <div><Badge color="green">✓ Sí</Badge>{w.epp_detalle && <div className="text-xs text-gray-600 mt-0.5 max-w-32 truncate">{w.epp_detalle}</div>}</div> : <Badge color="gray">No</Badge>}</td>
+                    <td className="px-3 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{w.lectura_emo || "—"}</td>
+                    {canSeeMedical && <td className="px-3 py-3 text-xs max-w-32">{w.restriccion_medica && w.restriccion_medica !== "Ninguna" ? <span className="text-amber-400">{w.restriccion_medica}</span> : <span className="text-gray-700">—</span>}</td>}
+                    <td className="px-3 py-3"><div className="flex gap-1"><Btn size="sm" onClick={() => openModal(w)}>Editar</Btn><Btn size="sm" variant="danger" disabled={isDeleting === w.id} onClick={() => deleteWorker(w.id)}><Trash2 size={12} /></Btn></div></td>
                   </tr>
                 );
               })}
-              {filtered.length === 0 && <tr><td colSpan={12} className="px-4 py-8 text-center text-gray-600 text-sm">No se encontraron trabajadores</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={15} className="px-4 py-8 text-center text-gray-600 text-sm">No se encontraron trabajadores</td></tr>}
             </tbody>
           </table>
         </div>
@@ -326,21 +481,30 @@ function Directorio({ workers, setWorkers, role }) {
       {modal && (
         <Modal title={modal === "edit" ? "Editar Trabajador" : "Registrar Trabajador"} onClose={() => setModal(null)} wide>
           <div className="grid grid-cols-2 gap-x-4">
-            <div className="col-span-2"><FormField label="Nombre Completo"><Input value={form.nombre || ""} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} /></FormField></div>
+            <div className="col-span-2"><FormField label="Apellido y Nombre"><Input value={form.nombre || ""} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="García López Juan Carlos" /></FormField></div>
             <FormField label="DNI (solo números)"><Input value={form.dni || ""} maxLength={8} onChange={(e) => { const val = e.target.value.replace(/\D/g, ""); setForm((f) => ({ ...f, dni: val })); }} placeholder="12345678" /></FormField>
             <FormField label="Celular"><Input value={form.celular || ""} maxLength={12} onChange={(e) => { const val = e.target.value.replace(/\D/g, ""); setForm((f) => ({ ...f, celular: val })); }} placeholder="999888777" /></FormField>
             <FormField label="Puesto / Cargo"><Input value={form.cargo || ""} onChange={(e) => setForm((f) => ({ ...f, cargo: e.target.value }))} /></FormField>
-            <FormField label="Sede"><Input value="Lima" disabled className="opacity-50" /></FormField>
+            <FormField label="Fecha de Nacimiento"><Input type="date" value={form.fecha_nacimiento || ""} onChange={(e) => setForm((f) => ({ ...f, fecha_nacimiento: e.target.value }))} /></FormField>
             <FormField label="Estado"><Select value={form.estado || "Activo"} onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}><option>Activo</option><option>Vacaciones</option><option>Inactivo</option></Select></FormField>
+            <FormField label="Sede"><Input value="Lima" disabled className="opacity-50" /></FormField>
+          </div>
+
+          {/* EMO */}
+          <div className="border border-gray-800 rounded-xl p-3 mb-3">
+            <div className="text-xs font-semibold text-gray-300 mb-3">Examen Médico Ocupacional (EMO)</div>
             {canEditEmo ? (
-              <>
-                <FormField label="Tipo EMO"><Select value={form.tipo_emo || "Periódico"} onChange={(e) => setForm((f) => ({ ...f, tipo_emo: e.target.value }))}><option>Inicial</option><option>Periódico</option><option>Retiro</option></Select></FormField>
+              <div className="grid grid-cols-2 gap-x-4">
+                <FormField label="Última EMO"><Input type="date" value={form.ultima_emo || ""} onChange={(e) => setForm((f) => ({ ...f, ultima_emo: e.target.value }))} /></FormField>
                 <FormField label="Duración EMO"><Select value={form.duracion_emo || "Anual"} onChange={(e) => setForm((f) => ({ ...f, duracion_emo: e.target.value }))}><option>Anual</option><option>Bianual</option></Select></FormField>
-                <FormField label="Vencimiento EMO"><Input type="date" value={form.vencimiento_emo || ""} onChange={(e) => setForm((f) => ({ ...f, vencimiento_emo: e.target.value }))} /></FormField>
+                <FormField label="Vigente Hasta (calculado automático)">
+                  <Input value={calcularVigencia(form.ultima_emo, form.duracion_emo) || "—"} disabled className="opacity-60 bg-gray-700" />
+                </FormField>
+                <FormField label="Lectura de Resultados EMO"><Input type="date" value={form.lectura_emo || ""} onChange={(e) => setForm((f) => ({ ...f, lectura_emo: e.target.value }))} /></FormField>
                 <FormField label="Aptitud Médica"><Select value={form.aptitud || "No evaluado"} onChange={(e) => setForm((f) => ({ ...f, aptitud: e.target.value }))}><option>Apto</option><option>Apto con restricción</option><option>No apto</option><option>No evaluado</option></Select></FormField>
-              </>
+              </div>
             ) : (
-              <div className="col-span-2 mb-3 px-3 py-2.5 rounded-lg bg-amber-900/20 border border-amber-900/40 text-xs text-amber-400 flex items-center gap-2"><Lock size={12} /> Los campos de EMO solo pueden editarlos MEDICO o ADMIN</div>
+              <div className="px-3 py-2.5 rounded-lg bg-amber-900/20 border border-amber-900/40 text-xs text-amber-400 flex items-center gap-2"><Lock size={12} /> Los campos de EMO solo pueden editarlos MEDICO o ADMIN</div>
             )}
           </div>
 
@@ -348,22 +512,14 @@ function Directorio({ workers, setWorkers, role }) {
           <div className="border border-gray-800 rounded-xl p-3 mb-3">
             <div className="text-xs font-semibold text-gray-300 mb-3">Equipos de Protección Personal (EPP)</div>
             <div className="grid grid-cols-2 gap-x-4">
-              <FormField label="¿Recibió EPP?">
-                <Select value={form.epp_recibido ? "si" : "no"} onChange={(e) => setForm((f) => ({ ...f, epp_recibido: e.target.value === "si" }))}>
-                  <option value="no">No</option>
-                  <option value="si">Sí</option>
-                </Select>
-              </FormField>
+              <FormField label="¿Recibió EPP?"><Select value={form.epp_recibido ? "si" : "no"} onChange={(e) => setForm((f) => ({ ...f, epp_recibido: e.target.value === "si" }))}><option value="no">No</option><option value="si">Sí</option></Select></FormField>
               <FormField label="Fecha de entrega EPP"><Input type="date" value={form.epp_fecha || ""} onChange={(e) => setForm((f) => ({ ...f, epp_fecha: e.target.value }))} /></FormField>
               <div className="col-span-2"><FormField label="Detalle de EPP entregado"><Input value={form.epp_detalle || ""} onChange={(e) => setForm((f) => ({ ...f, epp_detalle: e.target.value }))} placeholder="Ej. Casco, guantes, lentes, chaleco..." /></FormField></div>
             </div>
           </div>
 
           {canSeeMedical && <FormField label="Detalle Restricción Médica" confidential><Input value={form.restriccion_medica || ""} onChange={(e) => setForm((f) => ({ ...f, restriccion_medica: e.target.value }))} /></FormField>}
-          <div className="flex gap-2 justify-end mt-4">
-            <Btn onClick={() => setModal(null)}>Cancelar</Btn>
-            <Btn variant="primary" disabled={isSaving} onClick={saveWorker}>{isSaving ? "Guardando..." : "Guardar"}</Btn>
-          </div>
+          <div className="flex gap-2 justify-end mt-4"><Btn onClick={() => setModal(null)}>Cancelar</Btn><Btn variant="primary" disabled={isSaving} onClick={saveWorker}>{isSaving ? "Guardando..." : "Guardar"}</Btn></div>
         </Modal>
       )}
     </div>
@@ -377,55 +533,45 @@ function Capacitaciones({ workers, trainings, setTrainings }) {
   const [detail, setDetail] = useState(null);
   const [attendance, setAttendance] = useState({});
   const [isDeleting, setIsDeleting] = useState(null);
-
   useEffect(() => { if (detail) loadAttendance(detail); }, [detail]);
-
-  const loadAttendance = async (trainingId) => {
-    const { data } = await supabase.from("asistencias").select("trabajador_id, presente").eq("capacitacion_id", trainingId);
+  const loadAttendance = async (id) => {
+    const { data } = await supabase.from("asistencias").select("trabajador_id, presente").eq("capacitacion_id", id);
     const map = {}; (data || []).forEach((a) => { map[a.trabajador_id] = a.presente; }); setAttendance(map);
   };
-
-  const toggleAttendance = async (trainingId, workerId, checked) => {
-    const { error } = await supabase.from("asistencias").upsert({ capacitacion_id: trainingId, trabajador_id: workerId, presente: checked }, { onConflict: "capacitacion_id,trabajador_id" });
+  const toggleAttendance = async (tid, wid, checked) => {
+    const { error } = await supabase.from("asistencias").upsert({ capacitacion_id: tid, trabajador_id: wid, presente: checked }, { onConflict: "capacitacion_id,trabajador_id" });
     if (error) { showToast("Error al guardar asistencia", "error"); return; }
-    setAttendance((prev) => ({ ...prev, [workerId]: checked }));
+    setAttendance((prev) => ({ ...prev, [wid]: checked }));
     showToast(checked ? "Asistencia marcada" : "Ausencia registrada", checked ? "success" : "info");
   };
-
   const deleteTraining = async (id) => {
     if (!confirm("¿Eliminar esta capacitación?")) return;
     setIsDeleting(id);
     const { error } = await supabase.from("capacitaciones").delete().eq("id", id);
     if (error) { showToast("Error al eliminar", "error"); setIsDeleting(null); return; }
-    setTrainings((prev) => prev.filter((t) => t.id !== id));
-    showToast("Capacitación eliminada", "success"); setIsDeleting(null);
+    setTrainings((prev) => prev.filter((t) => t.id !== id)); showToast("Capacitación eliminada", "success"); setIsDeleting(null);
   };
-
-  const importAttendanceCSV = (e, trainingId) => {
+  const importAttendanceCSV = (e, tid) => {
     const file = e.target.files[0]; if (!file) return;
     Papa.parse(file, { header: true, complete: async (results) => {
       const dnis = results.data.map((r) => String(r.DNI || r.dni || "").replace(/\D/g, "")).filter(Boolean);
-      if (dnis.length === 0) { showToast("CSV inválido: columna 'DNI' requerida", "error"); return; }
+      if (!dnis.length) { showToast("CSV inválido: columna 'DNI' requerida", "error"); return; }
       const matched = workers.filter((w) => dnis.includes(w.dni));
-      for (const w of matched) await supabase.from("asistencias").upsert({ capacitacion_id: trainingId, trabajador_id: w.id, presente: true }, { onConflict: "capacitacion_id,trabajador_id" });
-      await loadAttendance(trainingId);
+      for (const w of matched) await supabase.from("asistencias").upsert({ capacitacion_id: tid, trabajador_id: w.id, presente: true }, { onConflict: "capacitacion_id,trabajador_id" });
+      await loadAttendance(tid);
       showToast(`${matched.length} asistencias marcadas`, "success");
     }});
     e.target.value = "";
   };
-
   const exportAttendance = (t) => {
     const active = workers.filter((w) => w.estado === "Activo");
     const data = active.map((w) => ({ Nombre: w.nombre, DNI: w.dni, Cargo: w.cargo, Asistencia: attendance[w.id] ? "Presente" : "Ausente" }));
     const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Asistencia");
-    XLSX.writeFile(wb, `asistencia_${t.nombre.replace(/\s+/g, "_")}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, "Asistencia"); XLSX.writeFile(wb, `asistencia_${t.nombre.replace(/\s+/g, "_")}.xlsx`);
     showToast("Excel descargado", "success");
   };
-
   if (detail) {
-    const t = trainings.find((x) => x.id === detail);
-    if (!t) { setDetail(null); return null; }
+    const t = trainings.find((x) => x.id === detail); if (!t) { setDetail(null); return null; }
     const active = workers.filter((w) => w.estado === "Activo");
     const presentCount = Object.values(attendance).filter(Boolean).length;
     return (
@@ -447,7 +593,6 @@ function Capacitaciones({ workers, trainings, setTrainings }) {
       </div>
     );
   }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -457,8 +602,7 @@ function Capacitaciones({ workers, trainings, setTrainings }) {
           const fecha = prompt("Fecha (YYYY-MM-DD):"); if (!fecha) return;
           const { data, error } = await supabase.from("capacitaciones").insert([{ nombre, fecha, programados: workers.filter((w) => w.estado === "Activo").length }]).select().single();
           if (error) { showToast("Error: " + error.message, "error"); return; }
-          setTrainings((prev) => [...prev, { ...data, asistencia_count: 0 }]);
-          showToast("Capacitación creada", "success");
+          setTrainings((prev) => [...prev, { ...data, asistencia_count: 0 }]); showToast("Capacitación creada", "success");
         }}><Plus size={13} /> Nueva</Btn>
       </div>
       <div className="space-y-2">
@@ -482,13 +626,12 @@ function Capacitaciones({ workers, trainings, setTrainings }) {
 function Documentos({ docs, setDocs }) {
   const [catFilter, setCatFilter] = useState("");
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ nombre: "", categoria: "Seguridad", version: "v1", sourceType: "upload" });
+  const [form, setForm] = useState({ nombre: "", categoria: "Seguridad", version: "v1", sourceType: "url" });
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(null);
   const cats = ["Seguridad", "Salud", "Ambiente"];
   const filtered = docs.filter((d) => !catFilter || d.categoria === catFilter);
   const catColor = { Seguridad: "red", Salud: "blue", Ambiente: "green" };
-
   const saveDoc = async () => {
     if (!form.nombre) { showToast("El nombre es requerido", "error"); return; }
     setIsSaving(true);
@@ -496,26 +639,20 @@ function Documentos({ docs, setDocs }) {
     if (error) { showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
     setDocs((prev) => [data, ...prev]); showToast("Documento registrado", "success"); setIsSaving(false); setModal(false);
   };
-
   const deleteDoc = async (id) => {
     if (!confirm("¿Eliminar este documento?")) return;
     setIsDeleting(id);
     const { error } = await supabase.from("documentos").delete().eq("id", id);
-    if (error) { showToast("Error al eliminar", "error"); setIsDeleting(null); return; }
-    setDocs((prev) => prev.filter((d) => d.id !== id)); showToast("Documento eliminado", "success"); setIsDeleting(null);
+    if (error) { showToast("Error", "error"); setIsDeleting(null); return; }
+    setDocs((prev) => prev.filter((d) => d.id !== id)); showToast("Eliminado", "success"); setIsDeleting(null);
   };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <div><div className="text-sm font-semibold text-white">Centro Documental</div><div className="text-xs text-gray-600">Documentos del SIG — ISO 45001</div></div>
+        <div><div className="text-sm font-semibold text-white">Centro Documental</div><div className="text-xs text-gray-600">Documentos SIG — ISO 45001</div></div>
         <Btn size="sm" variant="primary" onClick={() => setModal(true)}><Plus size={13} /> Agregar</Btn>
       </div>
-      <div className="flex gap-1 border-b border-gray-800 mb-4">
-        {[{ label: `Todos (${docs.length})`, val: "" }, ...cats.map((c) => ({ label: `${c} (${docs.filter((d) => d.categoria === c).length})`, val: c }))].map((tab) => (
-          <button key={tab.val} onClick={() => setCatFilter(tab.val)} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${catFilter === tab.val ? "border-blue-500 text-blue-400" : "border-transparent text-gray-500 hover:text-gray-300"}`}>{tab.label}</button>
-        ))}
-      </div>
+      <div className="flex gap-1 border-b border-gray-800 mb-4">{[{ label: `Todos (${docs.length})`, val: "" }, ...cats.map((c) => ({ label: `${c} (${docs.filter((d) => d.categoria === c).length})`, val: c }))].map((tab) => (<button key={tab.val} onClick={() => setCatFilter(tab.val)} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${catFilter === tab.val ? "border-blue-500 text-blue-400" : "border-transparent text-gray-500 hover:text-gray-300"}`}>{tab.label}</button>))}</div>
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-gray-800">{["Documento", "Categoría", "Versión", "Fecha", ""].map((h) => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide">{h}</th>)}</tr></thead>
@@ -530,11 +667,7 @@ function Documentos({ docs, setDocs }) {
           <FormField label="Nombre del Documento"><Input value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} /></FormField>
           <FormField label="Categoría"><Select value={form.categoria} onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}>{cats.map((c) => <option key={c}>{c}</option>)}</Select></FormField>
           <FormField label="Versión"><Input value={form.version} onChange={(e) => setForm((f) => ({ ...f, version: e.target.value }))} placeholder="v1" /></FormField>
-          <div className="mb-3 bg-gray-800 rounded-lg p-3">
-            <div className="text-xs text-gray-400 mb-2 font-medium">Fuente</div>
-            <div className="flex gap-2 mb-3">{[{ val: "upload", label: "⬆ Subir Archivo" }, { val: "url", label: "🔗 URL Externa" }].map((opt) => (<button key={opt.val} onClick={() => setForm((f) => ({ ...f, sourceType: opt.val }))} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${form.sourceType === opt.val ? "border-blue-500 text-blue-400 bg-blue-900/20" : "border-gray-700 text-gray-500"}`}>{opt.label}</button>))}</div>
-            {form.sourceType === "upload" ? <><input type="file" accept=".pdf,.xlsx,.docx" className="w-full text-xs text-gray-400" /><div className="text-xs text-gray-600 mt-1.5">Se subirá a Supabase Storage.</div></> : <Input placeholder="https://..." value={form.url || ""} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} />}
-          </div>
+          <FormField label="URL del documento"><Input placeholder="https://..." value={form.url || ""} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} /></FormField>
           <div className="flex gap-2 justify-end mt-4"><Btn onClick={() => setModal(false)}>Cancelar</Btn><Btn variant="primary" disabled={isSaving} onClick={saveDoc}>{isSaving ? "Guardando..." : "Guardar"}</Btn></div>
         </Modal>
       )}
@@ -552,35 +685,28 @@ function KPIs({ kpis, setKpis }) {
   const [form, setForm] = useState({ nombre: "", mes: "", fecha: "", real: 0, meta: 100, unidad: "%" });
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(null);
-
   const meses = [...new Set(kpis.map((k) => k.mes).filter(Boolean))];
   const filtered = kpis.filter((k) => (!filterMes || k.mes === filterMes) && (!filterNombre || k.nombre.toLowerCase().includes(filterNombre.toLowerCase())));
   const isKpiMet = (k) => { const val = k.real ?? k.valor_real ?? 0; return k.meta === 0 ? val === 0 : (k.nombre.toLowerCase().includes("frecuencia") || k.nombre.toLowerCase().includes("accidente") ? val <= k.meta : val >= k.meta); };
-
   const saveKpi = async () => {
     if (!form.nombre) { showToast("El nombre es requerido", "error"); return; }
     setIsSaving(true);
     const { data, error } = await supabase.from("kpis").insert([{ nombre: form.nombre, mes: form.mes || "", fecha: form.fecha || null, valor_real: parseFloat(form.real) || 0, meta: parseFloat(form.meta) || 0, unidad: form.unidad || "" }]).select().single();
     if (error) { showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
-    setKpis((prev) => [...prev, { ...data, real: data.valor_real }]);
-    showToast("KPI registrado", "success"); setIsSaving(false); setModal(false);
+    setKpis((prev) => [...prev, { ...data, real: data.valor_real }]); showToast("KPI registrado", "success"); setIsSaving(false); setModal(false);
   };
-
   const deleteKpi = async (id) => {
     if (!confirm("¿Eliminar este KPI?")) return;
     setIsDeleting(id);
     const { error } = await supabase.from("kpis").delete().eq("id", id);
-    if (error) { showToast("Error al eliminar", "error"); setIsDeleting(null); return; }
+    if (error) { showToast("Error", "error"); setIsDeleting(null); return; }
     setKpis((prev) => prev.filter((k) => k.id !== id)); showToast("KPI eliminado", "success"); setIsDeleting(null);
   };
-
   const exportKpis = () => {
     const data = filtered.map((k) => { const val = k.real ?? k.valor_real ?? 0; return { Indicador: k.nombre, Mes: k.mes, Fecha: k.fecha || "", "Valor Real": val, Meta: k.meta, Unidad: k.unidad, Cumplido: isKpiMet(k) ? "Sí" : "No" }; });
     const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "KPIs"); XLSX.writeFile(wb, "kpis_ssoma.xlsx");
-    showToast("Excel descargado", "success");
+    XLSX.utils.book_append_sheet(wb, ws, "KPIs"); XLSX.writeFile(wb, "kpis_ssoma.xlsx"); showToast("Excel descargado", "success");
   };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -588,19 +714,16 @@ function KPIs({ kpis, setKpis }) {
         <div className="flex gap-2"><Btn size="sm" onClick={exportKpis}><Download size={13} /> Exportar</Btn><Btn size="sm" variant="primary" onClick={() => setModal(true)}><Plus size={13} /> Registrar Métrica</Btn></div>
       </div>
       <div className="flex gap-2 flex-wrap mb-4">
-        <div className="flex items-center gap-2"><Filter size={13} className="text-gray-600 shrink-0" /></div>
-        <Select value={filterMes} onChange={(e) => setFilterMes(e.target.value)} style={{ width: 160 }}>
-          <option value="">Todos los meses</option>
-          {meses.map((m) => <option key={m}>{m}</option>)}
-        </Select>
+        <Filter size={13} className="text-gray-600 shrink-0 self-center" />
+        <Select value={filterMes} onChange={(e) => setFilterMes(e.target.value)} style={{ width: 160 }}><option value="">Todos los meses</option>{meses.map((m) => <option key={m}>{m}</option>)}</Select>
         <Input placeholder="Buscar indicador..." value={filterNombre} onChange={(e) => setFilterNombre(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         {filtered.map((k) => { const val = k.real ?? k.valor_real ?? 0; const ok = isKpiMet(k); return (
           <div key={k.id} className={`bg-gray-900 border border-gray-800 border-l-4 rounded-xl p-4 relative ${ok ? "border-l-emerald-500" : "border-l-red-500"}`}>
-            <button onClick={() => deleteKpi(k.id)} disabled={isDeleting === k.id} className="absolute top-2 right-2 text-gray-700 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+            <button onClick={() => deleteKpi(k.id)} disabled={isDeleting === k.id} className="absolute top-2 right-2 text-gray-700 hover:text-red-400"><Trash2 size={12} /></button>
             <div className="text-xs text-gray-500 mb-1 pr-4">{k.nombre}</div>
-            <div className={`text-2xl font-semibold tracking-tight ${ok ? "text-emerald-400" : "text-red-400"}`}>{val}{k.unidad}</div>
+            <div className={`text-2xl font-semibold ${ok ? "text-emerald-400" : "text-red-400"}`}>{val}{k.unidad}</div>
             <div className="text-xs text-gray-600 mt-0.5">Meta: {k.meta}{k.unidad}</div>
             {k.mes && <div className="text-xs text-gray-700 mt-0.5">{k.mes}{k.fecha ? ` · ${k.fecha}` : ""}</div>}
             <div className="mt-2"><ProgressBar value={k.meta > 0 ? Math.min(Math.round((val / k.meta) * 100), 100) : 100} color={ok ? "emerald" : "red"} /></div>
@@ -608,11 +731,11 @@ function KPIs({ kpis, setKpis }) {
           </div>
         ); })}
       </div>
-      {filtered.length === 0 && <div className="text-center py-12 text-gray-600 text-sm">No hay KPIs. Haz clic en "Registrar Métrica" para agregar.</div>}
+      {filtered.length === 0 && <div className="text-center py-12 text-gray-600 text-sm">No hay KPIs. Haz clic en "Registrar Métrica".</div>}
       {modal && (
         <Modal title="Registrar Métrica" onClose={() => setModal(false)}>
           <FormField label="Nombre del Indicador"><Input value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Índice de Frecuencia" /></FormField>
-          <FormField label="Mes (Ej: Abril 2025)"><Input value={form.mes} onChange={(e) => setForm((f) => ({ ...f, mes: e.target.value }))} placeholder="Abril 2025" /></FormField>
+          <FormField label="Mes"><Input value={form.mes} onChange={(e) => setForm((f) => ({ ...f, mes: e.target.value }))} placeholder="Abril 2025" /></FormField>
           <FormField label="Fecha"><Input type="date" value={form.fecha} onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))} /></FormField>
           <div className="grid grid-cols-2 gap-2">
             <FormField label="Valor Real"><Input type="number" value={form.real} onChange={(e) => setForm((f) => ({ ...f, real: e.target.value }))} /></FormField>
@@ -630,10 +753,10 @@ function KPIs({ kpis, setKpis }) {
 // VIGILANCIA MÉDICA
 // ═══════════════════════════════════════════
 function Vigilancia({ workers }) {
-  const [tab, setTab] = useState("descansos");
+  const [tab, setTab] = useState("emos");
   const [records, setRecords] = useState([]);
   useEffect(() => { supabase.from("registros_medicos").select("*, trabajadores(nombre)").then(({ data }) => setRecords(data || [])); }, []);
-  const tabs = [{ id: "descansos", label: "Descansos Médicos" }, { id: "emos", label: "Programación EMOs" }, { id: "morbilidad", label: "Morbilidad" }];
+  const tabs = [{ id: "emos", label: "Programación EMOs" }, { id: "descansos", label: "Descansos Médicos" }, { id: "morbilidad", label: "Morbilidad" }];
   const now = new Date(); const in30 = new Date(); in30.setDate(in30.getDate() + 30);
   return (
     <div>
@@ -646,8 +769,21 @@ function Vigilancia({ workers }) {
       {tab === "emos" && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-gray-800">{["Trabajador", "Tipo EMO", "Duración", "Vencimiento", "Estado", "Aptitud"].map((h) => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide">{h}</th>)}</tr></thead>
-            <tbody>{[...workers].filter((w) => w.estado === "Activo").sort((a, b) => new Date(a.vencimiento_emo) - new Date(b.vencimiento_emo)).map((w) => { const isVenc = w.vencimiento_emo && new Date(w.vencimiento_emo) < now; const soonVenc = !isVenc && w.vencimiento_emo && new Date(w.vencimiento_emo) <= in30; return (<tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30"><td className="px-4 py-3 font-medium text-white">{w.nombre}</td><td className="px-4 py-3"><Badge color="blue">{w.tipo_emo}</Badge></td><td className="px-4 py-3 text-gray-400 text-xs">{w.duracion_emo || "Anual"}</td><td className={`px-4 py-3 font-mono text-xs ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-500"}`}>{w.vencimiento_emo || "—"}</td><td className="px-4 py-3"><Badge color={isVenc ? "red" : soonVenc ? "amber" : "green"}>{isVenc ? "Vencido" : soonVenc ? "Por vencer" : "Vigente"}</Badge></td><td className="px-4 py-3"><Badge color={w.aptitud === "Apto" ? "green" : w.aptitud === "Apto con restricción" ? "amber" : "gray"}>{w.aptitud}</Badge></td></tr>); })}</tbody>
+            <thead><tr className="border-b border-gray-800">{["Trabajador", "Última EMO", "Duración", "Vigente Hasta", "Lectura EMO", "Estado", "Aptitud"].map((h) => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>)}</tr></thead>
+            <tbody>{[...workers].filter((w) => w.estado === "Activo").sort((a, b) => { const va = calcularVigencia(a.ultima_emo, a.duracion_emo) || ""; const vb = calcularVigencia(b.ultima_emo, b.duracion_emo) || ""; return va.localeCompare(vb); }).map((w) => {
+              const vigencia = calcularVigencia(w.ultima_emo, w.duracion_emo);
+              const isVenc = vigencia && new Date(vigencia) < now;
+              const soonVenc = !isVenc && vigencia && new Date(vigencia) <= in30;
+              return (<tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                <td className="px-4 py-3 font-medium text-white">{w.nombre}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.ultima_emo || "—"}</td>
+                <td className="px-4 py-3"><Badge color={w.duracion_emo === "Bianual" ? "purple" : "blue"}>{w.duracion_emo || "Anual"}</Badge></td>
+                <td className={`px-4 py-3 font-mono text-xs font-medium ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-400"}`}>{vigencia || "—"}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.lectura_emo || "—"}</td>
+                <td className="px-4 py-3"><Badge color={isVenc ? "red" : soonVenc ? "amber" : "green"}>{isVenc ? "Vencido" : soonVenc ? "Por vencer" : "Vigente"}</Badge></td>
+                <td className="px-4 py-3"><Badge color={w.aptitud === "Apto" ? "green" : w.aptitud === "Apto con restricción" ? "amber" : "gray"}>{w.aptitud}</Badge></td>
+              </tr>);
+            })}</tbody>
           </table>
         </div>
       )}
@@ -655,7 +791,7 @@ function Vigilancia({ workers }) {
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-gray-800">{["Trabajador", "Tipo", "Inicio", "Fin", "Diagnóstico", "Médico"].map((h) => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide">{h}</th>)}</tr></thead>
-            <tbody>{records.filter((r) => r.tipo === "Descanso Médico").map((m) => (<tr key={m.id} className="border-b border-gray-800/50"><td className="px-4 py-3 font-medium text-white">{m.trabajadores?.nombre || "—"}</td><td className="px-4 py-3"><Badge color="red">{m.tipo}</Badge></td><td className="px-4 py-3 font-mono text-xs text-gray-600">{m.fecha_inicio}</td><td className="px-4 py-3 font-mono text-xs text-gray-600">{m.fecha_fin}</td><td className="px-4 py-3 text-gray-400">{m.diagnostico}</td><td className="px-4 py-3 text-gray-600">{m.medico_responsable}</td></tr>))}{records.filter((r) => r.tipo === "Descanso Médico").length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-600 text-sm">No hay descansos médicos registrados</td></tr>}</tbody>
+            <tbody>{records.filter((r) => r.tipo === "Descanso Médico").map((m) => (<tr key={m.id} className="border-b border-gray-800/50"><td className="px-4 py-3 font-medium text-white">{m.trabajadores?.nombre || "—"}</td><td className="px-4 py-3"><Badge color="red">{m.tipo}</Badge></td><td className="px-4 py-3 font-mono text-xs text-gray-600">{m.fecha_inicio}</td><td className="px-4 py-3 font-mono text-xs text-gray-600">{m.fecha_fin}</td><td className="px-4 py-3 text-gray-400">{m.diagnostico}</td><td className="px-4 py-3 text-gray-600">{m.medico_responsable}</td></tr>))}{!records.filter(r => r.tipo === "Descanso Médico").length && <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-600 text-sm">No hay descansos médicos registrados</td></tr>}</tbody>
           </table>
         </div>
       )}
@@ -710,9 +846,8 @@ export default function App() {
     if (p === "vigilancia" && role === "SEGURIDAD") { showToast("Acceso denegado: módulo exclusivo para MEDICO/ADMIN", "error"); return; }
     setPage(p);
   };
-
   const logout = async () => { await supabase.auth.signOut(); };
-  const pageTitles = { dashboard: "Dashboard General", directorio: "Directorio Maestro", capacitaciones: "Capacitaciones", documentos: "Centro Documental", kpis: "Gestión de KPIs", vigilancia: "Vigilancia Médica" };
+  const pageTitles = { dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones", documentos: "Centro Documental", kpis: "Gestión de KPIs", vigilancia: "Vigilancia Médica" };
   const roleColors = { ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800" };
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando...</div>;
