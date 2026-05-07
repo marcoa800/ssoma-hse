@@ -302,7 +302,14 @@ function SuperAdmin() {
       {modalEmpresa && (
         <Modal title="Nueva Empresa" onClose={() => setModalEmpresa(false)}>
           <FormField label="Nombre de la empresa"><Input value={formEmpresa.nombre} onChange={e => setFormEmpresa(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Hydro Global Perú SAC" /></FormField>
-          <FormField label="RUC"><Input value={formEmpresa.ruc} maxLength={11} onChange={e => setFormEmpresa(f => ({ ...f, ruc: e.target.value.replace(/\D/g, "") }))} placeholder="20123456789" className="font-mono" /></FormField>
+          <FormField label="RUC">
+  <Input 
+    value={formEmpresa.ruc || ""} 
+    maxLength={11} 
+    onChange={e => setFormEmpresa(f => ({ ...f, ruc: e.target.value.replace(/\D/g, "") }))} 
+    placeholder="20123456789" 
+  />
+</FormField>
           <FormField label="Sector">
             <Select value={formEmpresa.sector} onChange={e => setFormEmpresa(f => ({ ...f, sector: e.target.value }))}>
               <option value="">Seleccionar...</option>
