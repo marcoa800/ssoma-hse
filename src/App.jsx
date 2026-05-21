@@ -227,11 +227,23 @@ function SuperAdmin() {
 
   const saveUsuario = async () => {
     if (!formUsuario.email || !formUsuario.password || !formUsuario.empresa_id) { showToast("Email, contraseña y empresa son requeridos", "error"); return; }
+    if (formUsuario.password.length < 8) { showToast("La contraseña debe tener al menos 8 caracteres", "error"); return; }
     setIsSaving(true);
-    const { data, error } = await supabase.auth.admin.createUser({ email: formUsuario.email, password: formUsuario.password, email_confirm: true });
-    if (error) { showToast("Error al crear usuario: " + error.message, "error"); setIsSaving(false); return; }
-    await supabase.from("profiles").insert([{ id: data.user.id, nombre: formUsuario.nombre || formUsuario.email, rol: formUsuario.rol, empresa_id: formUsuario.empresa_id }]);
-    showToast("Usuario creado y vinculado a empresa", "success");
+    const { data, error } = await supabase.auth.signUp({
+      email: formUsuario.email,
+      password: formUsuario.password,
+      options: { emailRedirectTo: "https://ssoma-hse.vercel.app" },
+    });
+    if (error) { showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
+    if (!data.user) { showToast("No se pudo obtener el usuario creado", "error"); setIsSaving(false); return; }
+    const { error: profileError } = await supabase.from("profiles").insert([{
+      id: data.user.id,
+      nombre: formUsuario.nombre || formUsuario.email,
+      rol: formUsuario.rol,
+      empresa_id: formUsuario.empresa_id,
+    }]);
+    if (profileError) { showToast("Usuario creado pero error al asignar perfil: " + profileError.message, "error"); }
+    else { showToast("✅ Usuario creado. Se envió un email de confirmación a " + formUsuario.email, "success"); }
     setIsSaving(false); setModalUsuario(false);
     setFormUsuario({ email: "", password: "", nombre: "", rol: "SEGURIDAD", empresa_id: "" });
     loadUsuarios();
@@ -340,7 +352,9 @@ function SuperAdmin() {
 
       {modalUsuario && (
         <Modal title="Nuevo Usuario" onClose={() => setModalUsuario(false)}>
-          <div className="mb-3 px-3 py-2 rounded-lg bg-blue-900/20 border border-blue-900/40 text-xs text-blue-400">El usuario recibirá sus credenciales para acceder al sistema.</div>
+          <div className="mb-3 px-3 py-2 rounded-lg bg-blue-900/20 border border-blue-900/40 text-xs text-blue-400">
+            Se enviará un email de confirmación al usuario. Deberá hacer clic en el enlace antes de poder ingresar. La contraseña que ingreses aquí será su clave de acceso inicial.
+          </div>
           <FormField label="Nombre completo"><Input value={formUsuario.nombre} onChange={e => setFormUsuario(f => ({ ...f, nombre: e.target.value }))} placeholder="Dr. Juan Pérez" /></FormField>
           <FormField label="Email"><Input type="email" value={formUsuario.email} onChange={e => setFormUsuario(f => ({ ...f, email: e.target.value }))} placeholder="usuario@empresa.com" /></FormField>
           <FormField label="Contraseña temporal"><Input type="password" value={formUsuario.password} onChange={e => setFormUsuario(f => ({ ...f, password: e.target.value }))} placeholder="Mínimo 8 caracteres" /></FormField>
