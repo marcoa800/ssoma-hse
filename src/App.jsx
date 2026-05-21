@@ -2468,6 +2468,282 @@ function MorbilidadModulo({ workers, empresaId }) {
   );
 }
 
+function RadiacionUVModulo({ workers, empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    trabajador_id: "", fecha_evaluacion: "", zona_area: "",
+    horas_exposicion: "", indice_uv: "", epp_asignado: "",
+    fotoprotector: "Sí", proxima_revision: "", observaciones: "",
+  });
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("vigilancia_radiacion")
+      .select("*, trabajadores(nombre)")
+      .eq("empresa_id", empresaId)
+      .order("fecha_evaluacion", { ascending: false });
+    setRecords(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  function nivelUV(idx) {
+    const v = Number(idx);
+    if (v >= 11) return "Extremo";
+    if (v >= 8) return "Muy Alto";
+    if (v >= 6) return "Alto";
+    if (v >= 3) return "Moderado";
+    return "Bajo";
+  }
+  function nivelColor(n) {
+    return n === "Extremo" ? "purple" : n === "Muy Alto" ? "red" : n === "Alto" ? "amber" : n === "Moderado" ? "blue" : "green";
+  }
+
+  const altoRiesgo = records.filter(r => ["Alto", "Muy Alto", "Extremo"].includes(nivelUV(r.indice_uv)));
+  const now = new Date();
+  const delMes = records.filter(r => { const f = new Date(r.fecha_evaluacion + "T00:00:00"); return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear(); });
+
+  const resetForm = () => setForm({ trabajador_id: "", fecha_evaluacion: "", zona_area: "", horas_exposicion: "", indice_uv: "", epp_asignado: "", fotoprotector: "Sí", proxima_revision: "", observaciones: "" });
+
+  const handleSave = async () => {
+    if (!form.trabajador_id || !form.fecha_evaluacion) { showToast("Trabajador y fecha son obligatorios", "error"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("vigilancia_radiacion").insert({ ...form, horas_exposicion: Number(form.horas_exposicion) || 0, indice_uv: Number(form.indice_uv) || 0, empresa_id: empresaId });
+    if (error) { showToast("Error: " + error.message, "error"); }
+    else { showToast("Registro guardado", "success"); setShowModal(false); resetForm(); load(); }
+    setSaving(false);
+  };
+  const handleDelete = async (id) => { if (!confirm("¿Eliminar?")) return; await supabase.from("vigilancia_radiacion").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Radiación Ultravioleta</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Control de exposición a radiación UV solar en trabajadores de campo, campamentos y áreas exteriores. Basado en índice UV y horas de exposición diaria.</p>
+        </div>
+        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <KpiCard label="Bajo vigilancia" value={records.length} sub={`${delMes.length} evaluados este mes`} accentColor="blue" />
+        <KpiCard label="Riesgo Alto / Muy Alto / Extremo" value={altoRiesgo.length} sub="requieren EPP reforzado" accentColor="red" />
+        <KpiCard label="Con fotoprotector" value={records.filter(r => r.fotoprotector === "Sí").length} sub="de un total de " accentColor="green" />
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        {loading ? <div className="flex items-center justify-center py-16 text-gray-500 text-sm">Cargando...</div> : (
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-gray-800">
+              {["Trabajador", "Fecha", "Zona / Área", "Hrs Exp/día", "Índice UV", "Nivel", "EPP Asignado", "Fotoprotector", "Próx. Revisión", ""].map(h => (
+                <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {records.map(r => {
+                const nivel = nivelUV(r.indice_uv);
+                return (
+                  <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-400">{r.fecha_evaluacion}</td>
+                    <td className="px-4 py-3 text-gray-300 text-xs">{r.zona_area || "—"}</td>
+                    <td className="px-4 py-3 text-center text-gray-300 font-mono text-xs">{r.horas_exposicion ?? "—"}</td>
+                    <td className="px-4 py-3 text-center font-bold text-gray-200">{r.indice_uv ?? "—"}</td>
+                    <td className="px-4 py-3"><Badge color={nivelColor(nivel)}>{nivel}</Badge></td>
+                    <td className="px-4 py-3 text-gray-400 text-xs">{r.epp_asignado || "—"}</td>
+                    <td className="px-4 py-3"><Badge color={r.fotoprotector === "Sí" ? "green" : "red"}>{r.fotoprotector || "No"}</Badge></td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.proxima_revision || "—"}</td>
+                    <td className="px-4 py-3"><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></td>
+                  </tr>
+                );
+              })}
+              {!records.length && <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones registradas</td></tr>}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showModal && (
+        <Modal title="Nueva Evaluación Radiación UV" onClose={() => { setShowModal(false); resetForm(); }}>
+          <div className="space-y-4">
+            <FormField label="Trabajador *">
+              <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
+                <option value="">Seleccionar trabajador...</option>
+                {workers.map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+              </Select>
+            </FormField>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Fecha Evaluación *"><Input type="date" value={form.fecha_evaluacion} onChange={e => setForm(f => ({ ...f, fecha_evaluacion: e.target.value }))} /></FormField>
+              <FormField label="Zona / Área Trabajo"><Input value={form.zona_area} onChange={e => setForm(f => ({ ...f, zona_area: e.target.value }))} placeholder="Campamento norte, exterior..." /></FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Horas de Exposición / día"><Input type="number" min="0" max="24" step="0.5" value={form.horas_exposicion} onChange={e => setForm(f => ({ ...f, horas_exposicion: e.target.value }))} placeholder="Ej: 6" /></FormField>
+              <FormField label="Índice UV (0–11+)">
+                <Input type="number" min="0" max="20" step="0.1" value={form.indice_uv} onChange={e => setForm(f => ({ ...f, indice_uv: e.target.value }))} placeholder="Ej: 8" />
+                {form.indice_uv && <p className="text-xs mt-1" style={{color: nivelColor(nivelUV(form.indice_uv)) === "red" ? "#f87171" : nivelColor(nivelUV(form.indice_uv)) === "amber" ? "#fbbf24" : nivelColor(nivelUV(form.indice_uv)) === "green" ? "#4ade80" : "#c084fc"}}>Nivel: {nivelUV(form.indice_uv)}</p>}
+              </FormField>
+            </div>
+            <FormField label="EPP Asignado"><Input value={form.epp_asignado} onChange={e => setForm(f => ({ ...f, epp_asignado: e.target.value }))} placeholder="Lentes UV, sombrero ala ancha, camiseta manga larga..." /></FormField>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Fotoprotector">
+                <Select value={form.fotoprotector} onChange={e => setForm(f => ({ ...f, fotoprotector: e.target.value }))}>
+                  {["Sí", "No", "Pendiente de entrega"].map(t => <option key={t}>{t}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Próxima Revisión"><Input type="date" value={form.proxima_revision} onChange={e => setForm(f => ({ ...f, proxima_revision: e.target.value }))} /></FormField>
+            </div>
+            <FormField label="Observaciones"><Input value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Condiciones especiales, recomendaciones..." /></FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={() => { setShowModal(false); resetForm(); }}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function ProteccionRespiratoriaModulo({ workers, empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    trabajador_id: "", fecha_evaluacion: "", agente_exposicion: "",
+    tipo_respirador: "", prueba_ajuste: "Pendiente", fecha_prueba_ajuste: "",
+    espirometria: "Pendiente", fecha_espirometria: "", proxima_revision: "", observaciones: "",
+  });
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("vigilancia_respiratoria")
+      .select("*, trabajadores(nombre)")
+      .eq("empresa_id", empresaId)
+      .order("fecha_evaluacion", { ascending: false });
+    setRecords(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const ajusteAprobado = records.filter(r => r.prueba_ajuste === "Aprobado").length;
+  const espiroPendiente = records.filter(r => r.espirometria === "Pendiente").length;
+  const now = new Date();
+  const delMes = records.filter(r => { const f = new Date(r.fecha_evaluacion + "T00:00:00"); return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear(); });
+
+  const ajusteColor = (v) => v === "Aprobado" ? "green" : v === "Rechazado" ? "red" : "amber";
+  const espiroColor = (v) => v === "Normal" ? "green" : v === "Pendiente" ? "amber" : "red";
+
+  const resetForm = () => setForm({ trabajador_id: "", fecha_evaluacion: "", agente_exposicion: "", tipo_respirador: "", prueba_ajuste: "Pendiente", fecha_prueba_ajuste: "", espirometria: "Pendiente", fecha_espirometria: "", proxima_revision: "", observaciones: "" });
+
+  const handleSave = async () => {
+    if (!form.trabajador_id || !form.fecha_evaluacion) { showToast("Trabajador y fecha son obligatorios", "error"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("vigilancia_respiratoria").insert({ ...form, empresa_id: empresaId });
+    if (error) { showToast("Error: " + error.message, "error"); }
+    else { showToast("Registro guardado", "success"); setShowModal(false); resetForm(); load(); }
+    setSaving(false);
+  };
+  const handleDelete = async (id) => { if (!confirm("¿Eliminar?")) return; await supabase.from("vigilancia_respiratoria").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Protección Respiratoria</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Programa de protección respiratoria para trabajadores expuestos a polvos, gases, vapores y agentes inhalables. Control de prueba de ajuste y espirometría.</p>
+        </div>
+        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nuevo Registro</Btn>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <KpiCard label="Bajo programa" value={records.length} sub={`${delMes.length} evaluados este mes`} accentColor="blue" />
+        <KpiCard label="Prueba de ajuste aprobada" value={records.length ? `${Math.round(ajusteAprobado / records.length * 100)}%` : "—"} sub={`${ajusteAprobado} de ${records.length} trabajadores`} accentColor="green" />
+        <KpiCard label="Espirometría pendiente" value={espiroPendiente} sub="requieren evaluación pulmonar" accentColor="amber" />
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        {loading ? <div className="flex items-center justify-center py-16 text-gray-500 text-sm">Cargando...</div> : (
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-gray-800">
+              {["Trabajador", "Fecha", "Agente Exposición", "Tipo Respirador", "Prueba Ajuste", "F. Ajuste", "Espirometría", "F. Espiro", "Próx. Control", ""].map(h => (
+                <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {records.map(r => (
+                <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-400">{r.fecha_evaluacion}</td>
+                  <td className="px-4 py-3 text-gray-300 text-xs">{r.agente_exposicion || "—"}</td>
+                  <td className="px-4 py-3 text-gray-400 text-xs">{r.tipo_respirador || "—"}</td>
+                  <td className="px-4 py-3"><Badge color={ajusteColor(r.prueba_ajuste)}>{r.prueba_ajuste}</Badge></td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_prueba_ajuste || "—"}</td>
+                  <td className="px-4 py-3"><Badge color={espiroColor(r.espirometria)}>{r.espirometria}</Badge></td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_espirometria || "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.proxima_revision || "—"}</td>
+                  <td className="px-4 py-3"><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></td>
+                </tr>
+              ))}
+              {!records.length && <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-600 text-sm">Sin registros de protección respiratoria</td></tr>}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showModal && (
+        <Modal title="Nuevo Registro — Protección Respiratoria" onClose={() => { setShowModal(false); resetForm(); }}>
+          <div className="space-y-4">
+            <FormField label="Trabajador *">
+              <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
+                <option value="">Seleccionar trabajador...</option>
+                {workers.map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+              </Select>
+            </FormField>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Fecha Evaluación *"><Input type="date" value={form.fecha_evaluacion} onChange={e => setForm(f => ({ ...f, fecha_evaluacion: e.target.value }))} /></FormField>
+              <FormField label="Agente de Exposición"><Input value={form.agente_exposicion} onChange={e => setForm(f => ({ ...f, agente_exposicion: e.target.value }))} placeholder="Sílice, polvo madera, gases..." /></FormField>
+            </div>
+            <FormField label="Tipo de Respirador">
+              <Select value={form.tipo_respirador} onChange={e => setForm(f => ({ ...f, tipo_respirador: e.target.value }))}>
+                <option value="">Seleccionar...</option>
+                {["Semifacial filtrante N95","Semifacial filtrante FFP2","Semifacial con filtros intercambiables","Cara completa","Respirador de escape","Equipo autónomo (SCBA)","Línea de aire"].map(t => <option key={t}>{t}</option>)}
+              </Select>
+            </FormField>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Prueba de Ajuste">
+                <Select value={form.prueba_ajuste} onChange={e => setForm(f => ({ ...f, prueba_ajuste: e.target.value }))}>
+                  {["Pendiente","Aprobado","Rechazado"].map(t => <option key={t}>{t}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Fecha Prueba Ajuste"><Input type="date" value={form.fecha_prueba_ajuste} onChange={e => setForm(f => ({ ...f, fecha_prueba_ajuste: e.target.value }))} /></FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Espirometría">
+                <Select value={form.espirometria} onChange={e => setForm(f => ({ ...f, espirometria: e.target.value }))}>
+                  {["Pendiente","Normal","Restricción leve","Restricción moderada","Obstrucción leve","Obstrucción moderada","Obstrucción severa"].map(t => <option key={t}>{t}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Fecha Espirometría"><Input type="date" value={form.fecha_espirometria} onChange={e => setForm(f => ({ ...f, fecha_espirometria: e.target.value }))} /></FormField>
+            </div>
+            <FormField label="Próxima Revisión"><Input type="date" value={form.proxima_revision} onChange={e => setForm(f => ({ ...f, proxima_revision: e.target.value }))} /></FormField>
+            <FormField label="Observaciones"><Input value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Restricciones, seguimiento, cambio de filtros..." /></FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={() => { setShowModal(false); resetForm(); }}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function Vigilancia({ workers, empresaId }) {
   const [tab, setTab] = useState("emos");
   const [records, setRecords] = useState([]);
@@ -2498,18 +2774,6 @@ function Vigilancia({ workers, empresaId }) {
     },
   ];
 
-  const programConfig = {
-    radiacion: {
-      title: "Radiación Ultravioleta",
-      desc: "Control de exposición a radiación UV solar en trabajadores de campo, campamentos y áreas exteriores.",
-      columns: ["Trabajador", "Zona / Área", "Horas Exposición/día", "Índice UV", "EPP Asignado", "Última Revisión"],
-    },
-    respiratoria: {
-      title: "Protección Respiratoria",
-      desc: "Programa de protección respiratoria para trabajadores expuestos a polvos, gases, vapores y otros agentes inhalables.",
-      columns: ["Trabajador", "Agente Exposición", "Tipo Respirador", "Prueba de Ajuste", "Espirometría", "Fecha Control"],
-    },
-  };
 
   function ProgramaPlaceholder({ config }) {
     return (
@@ -2627,11 +2891,8 @@ function Vigilancia({ workers, empresaId }) {
         {tab === "gestante" && <GestanteModulo workers={workers} empresaId={empresaId} />}
         {tab === "fatiga" && <FatigaModulo workers={workers} empresaId={empresaId} />}
         {tab === "estilos" && <EstilosVidaModulo workers={workers} empresaId={empresaId} />}
-
-        {/* Programas de Vigilancia — placeholders restantes */}
-        {Object.entries(programConfig).map(([key, config]) =>
-          tab === key && <ProgramaPlaceholder key={key} config={config} />
-        )}
+        {tab === "radiacion" && <RadiacionUVModulo workers={workers} empresaId={empresaId} />}
+        {tab === "respiratoria" && <ProteccionRespiratoriaModulo workers={workers} empresaId={empresaId} />}
       </div>
     </div>
   );
