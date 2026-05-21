@@ -2600,19 +2600,22 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
+  const [editing, setEditing] = useState(null);
+  const initForm = {
     trabajador_id: "", fecha_evaluacion: "", agente_exposicion: "",
     tipo_respirador: "", prueba_ajuste: "Pendiente", fecha_prueba_ajuste: "",
     espirometria: "Pendiente", fecha_espirometria: "", proxima_revision: "", observaciones: "",
-  });
+  };
+  const [form, setForm] = useState(initForm);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("vigilancia_respiratoria")
       .select("*, trabajadores(nombre)")
       .eq("empresa_id", empresaId)
       .order("fecha_evaluacion", { ascending: false });
+    if (error) showToast("Error al cargar datos: " + error.message, "error");
     setRecords(data || []);
     setLoading(false);
   };
@@ -2626,8 +2629,7 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
   const ajusteColor = (v) => v === "Aprobado" ? "green" : v === "Rechazado" ? "red" : "amber";
   const espiroColor = (v) => v === "Normal" ? "green" : v === "Pendiente" ? "amber" : "red";
 
-  const [editing, setEditing] = useState(null);
-  const resetForm = () => setForm({ trabajador_id: "", fecha_evaluacion: "", agente_exposicion: "", tipo_respirador: "", prueba_ajuste: "Pendiente", fecha_prueba_ajuste: "", espirometria: "Pendiente", fecha_espirometria: "", proxima_revision: "", observaciones: "" });
+  const resetForm = () => setForm(initForm);
   const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, agente_exposicion: r.agente_exposicion || "", tipo_respirador: r.tipo_respirador || "", prueba_ajuste: r.prueba_ajuste || "Pendiente", fecha_prueba_ajuste: r.fecha_prueba_ajuste || "", espirometria: r.espirometria || "Pendiente", fecha_espirometria: r.fecha_espirometria || "", proxima_revision: r.proxima_revision || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
   const closeModal = () => { setShowModal(false); setEditing(null); resetForm(); };
 
