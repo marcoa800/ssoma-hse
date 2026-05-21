@@ -6,7 +6,7 @@ import {
   CheckCircle, XCircle, Info, Plus, Upload,
   Download, ChevronRight, ChevronLeft, Lock,
   Trash2, LogOut, Filter, HelpCircle, Building2,
-  Settings, UserPlus, Eye, EyeOff
+  Settings, UserPlus, Eye, EyeOff, Pencil
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
@@ -113,6 +113,21 @@ function Btn({ children, variant = "default", size = "md", disabled, onClick, cl
   const sizes = { sm: "px-3 py-1.5 text-xs", md: "px-4 py-2 text-sm" };
   const variants = { default: "bg-transparent border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white", primary: "bg-blue-600 text-white hover:bg-blue-500 border border-transparent", danger: "bg-red-900/40 text-red-400 border border-red-800 hover:bg-red-900", success: "bg-emerald-900/40 text-emerald-400 border border-emerald-800 hover:bg-emerald-900" };
   return <button className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} disabled={disabled} onClick={onClick}>{children}</button>;
+}
+
+function ExportBtn({ data, filename, cols }) {
+  const handle = () => {
+    if (!data || !data.length) { showToast("Sin datos para exportar", "info"); return; }
+    const rows = cols
+      ? data.map(r => { const obj = {}; cols.forEach(([key, label]) => { obj[label] = r[key] ?? ""; }); return obj; })
+      : data;
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Datos");
+    XLSX.writeFile(wb, `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    showToast("Excel exportado correctamente", "success");
+  };
+  return <Btn size="sm" variant="default" onClick={handle}><Download size={13} /> Exportar Excel</Btn>;
 }
 
 // ═══════════════════════════════════════════
@@ -880,11 +895,9 @@ function FatigaModulo({ workers, empresaId }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0],
-    turno: "Día", score_epworth: "", horas_sueno_promedio: "",
-    nivel_actividad: "Moderado", observaciones: "", medico_responsable: "",
-  });
+  const [editing, setEditing] = useState(null);
+  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], turno: "Día", score_epworth: "", horas_sueno_promedio: "", nivel_actividad: "Moderado", observaciones: "", medico_responsable: "" };
+  const [form, setForm] = useState(initForm);
 
   const load = async () => {
     setLoading(true);
@@ -907,29 +920,21 @@ function FatigaModulo({ workers, empresaId }) {
     return { label: "Severo", color: "red" };
   };
 
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, turno: r.turno || "Día", score_epworth: String(r.score_epworth ?? ""), horas_sueno_promedio: r.horas_sueno_promedio ? String(r.horas_sueno_promedio) : "", nivel_actividad: r.nivel_actividad || "Moderado", observaciones: r.observaciones || "", medico_responsable: r.medico_responsable || "" }); setEditing(r.id); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+  const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_fatiga").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
+
   const handleSave = async () => {
     if (!form.trabajador_id || form.score_epworth === "" || !form.fecha_evaluacion) {
       showToast("Completa los campos obligatorios", "error"); return;
     }
     setSaving(true);
-    const { error } = await supabase.from("vigilancia_fatiga").insert({
-      empresa_id: empresaId,
-      trabajador_id: form.trabajador_id,
-      fecha_evaluacion: form.fecha_evaluacion,
-      turno: form.turno,
-      score_epworth: Number(form.score_epworth),
-      horas_sueno_promedio: form.horas_sueno_promedio ? Number(form.horas_sueno_promedio) : null,
-      nivel_actividad: form.nivel_actividad,
-      nivel_riesgo: getNivel(form.score_epworth).label,
-      observaciones: form.observaciones,
-      medico_responsable: form.medico_responsable,
-    });
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, turno: form.turno, score_epworth: Number(form.score_epworth), horas_sueno_promedio: form.horas_sueno_promedio ? Number(form.horas_sueno_promedio) : null, nivel_actividad: form.nivel_actividad, nivel_riesgo: getNivel(form.score_epworth).label, observaciones: form.observaciones, medico_responsable: form.medico_responsable };
+    const { error } = editing ? await supabase.from("vigilancia_fatiga").update(payload).eq("id", editing) : await supabase.from("vigilancia_fatiga").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
-    showToast("Evaluación registrada", "success");
-    setShowModal(false);
-    setForm({ trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], turno: "Día", score_epworth: "", horas_sueno_promedio: "", nivel_actividad: "Moderado", observaciones: "", medico_responsable: "" });
-    load();
+    showToast(editing ? "Registro actualizado" : "Evaluación registrada", "success");
+    closeModal(); load();
   };
 
   const now = new Date();
@@ -944,7 +949,10 @@ function FatigaModulo({ workers, empresaId }) {
           <h3 className="text-white font-semibold text-sm mb-1">Fatiga y Somnolencia</h3>
           <p className="text-gray-500 text-xs max-w-xl">Monitoreo mediante la Escala de Epworth (0–24). Registro de horas de sueño y nivel de riesgo por turno.</p>
         </div>
-        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Turno: r.turno, "Score Epworth": r.score_epworth, "Horas Sueño": r.horas_sueno_promedio || "", "Nivel Riesgo": r.nivel_riesgo || "", Observaciones: r.observaciones || "", Médico: r.medico_responsable || "" }))} filename="fatiga_somnolencia" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-5">
@@ -967,7 +975,7 @@ function FatigaModulo({ workers, empresaId }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              {["Trabajador", "Fecha", "Turno", "Score Epworth", "Horas Sueño", "Nivel Riesgo", "Observaciones"].map(h => (
+              {["Trabajador", "Fecha", "Turno", "Score Epworth", "Horas Sueño", "Nivel Riesgo", "Observaciones", ""].map(h => (
                 <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -989,18 +997,19 @@ function FatigaModulo({ workers, empresaId }) {
                   <td className="px-4 py-3 text-gray-400 text-xs">{r.horas_sueno_promedio ? `${r.horas_sueno_promedio}h` : "—"}</td>
                   <td className="px-4 py-3"><Badge color={nivel.color}>{nivel.label}</Badge></td>
                   <td className="px-4 py-3 text-gray-500 text-xs max-w-xs truncate">{r.observaciones || "—"}</td>
+                  <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
                 </tr>
               );
             })}
             {!loading && !records.length && (
-              <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones registradas. Usa "Nueva Evaluación" para comenzar.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones registradas. Usa "Nueva Evaluación" para comenzar.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {showModal && (
-        <Modal title="Nueva Evaluación — Fatiga y Somnolencia" onClose={() => setShowModal(false)} wide>
+        <Modal title={editing ? "Editar — Fatiga y Somnolencia" : "Nueva Evaluación — Fatiga y Somnolencia"} onClose={closeModal} wide>
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4 text-xs text-gray-400">
             <p className="font-semibold text-gray-300 mb-1">Escala de Epworth — Referencia</p>
             <div className="grid grid-cols-4 gap-2">
@@ -1049,8 +1058,8 @@ function FatigaModulo({ workers, empresaId }) {
             </FormField>
           </div>
           <div className="flex gap-2 mt-5 justify-end">
-            <Btn variant="default" onClick={() => setShowModal(false)}>Cancelar</Btn>
-            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : "Guardar Evaluación"}</Btn>
+            <Btn variant="default" onClick={closeModal}>Cancelar</Btn>
+            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar Evaluación"}</Btn>
           </div>
         </Modal>
       )}
@@ -1063,13 +1072,9 @@ function PsicosocialModulo({ workers, empresaId }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0],
-    instrumento: "ISTAS21", puntaje: "", nivel_riesgo: "Medio",
-    dimension_principal: "", derivacion: "No aplica",
-    fecha_derivacion: "", seguimiento: "",
-    medico_responsable: "", observaciones: "",
-  });
+  const [editing, setEditing] = useState(null);
+  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], instrumento: "ISTAS21", puntaje: "", nivel_riesgo: "Medio", dimension_principal: "", derivacion: "No aplica", fecha_derivacion: "", seguimiento: "", medico_responsable: "", observaciones: "" };
+  const [form, setForm] = useState(initForm);
 
   const load = async () => {
     setLoading(true);
@@ -1098,31 +1103,21 @@ function PsicosocialModulo({ workers, empresaId }) {
     return "purple";
   };
 
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, instrumento: r.instrumento || "ISTAS21", puntaje: r.puntaje != null ? String(r.puntaje) : "", nivel_riesgo: r.nivel_riesgo || "Medio", dimension_principal: r.dimension_principal || "", derivacion: r.derivacion || "No aplica", fecha_derivacion: r.fecha_derivacion || "", seguimiento: r.seguimiento || "", medico_responsable: r.medico_responsable || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+  const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_psicosocial").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
+
   const handleSave = async () => {
     if (!form.trabajador_id || !form.fecha_evaluacion) {
       showToast("Selecciona trabajador y fecha", "error"); return;
     }
     setSaving(true);
-    const { error } = await supabase.from("vigilancia_psicosocial").insert({
-      empresa_id: empresaId,
-      trabajador_id: form.trabajador_id,
-      fecha_evaluacion: form.fecha_evaluacion,
-      instrumento: form.instrumento,
-      puntaje: form.puntaje ? parseFloat(form.puntaje) : null,
-      nivel_riesgo: form.nivel_riesgo,
-      dimension_principal: form.dimension_principal,
-      derivacion: form.derivacion,
-      fecha_derivacion: form.fecha_derivacion || null,
-      seguimiento: form.seguimiento,
-      medico_responsable: form.medico_responsable,
-      observaciones: form.observaciones,
-    });
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, instrumento: form.instrumento, puntaje: form.puntaje ? parseFloat(form.puntaje) : null, nivel_riesgo: form.nivel_riesgo, dimension_principal: form.dimension_principal, derivacion: form.derivacion, fecha_derivacion: form.fecha_derivacion || null, seguimiento: form.seguimiento, medico_responsable: form.medico_responsable, observaciones: form.observaciones };
+    const { error } = editing ? await supabase.from("vigilancia_psicosocial").update(payload).eq("id", editing) : await supabase.from("vigilancia_psicosocial").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
-    showToast("Evaluación registrada", "success");
-    setShowModal(false);
-    setForm({ trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], instrumento: "ISTAS21", puntaje: "", nivel_riesgo: "Medio", dimension_principal: "", derivacion: "No aplica", fecha_derivacion: "", seguimiento: "", medico_responsable: "", observaciones: "" });
-    load();
+    showToast(editing ? "Registro actualizado" : "Evaluación registrada", "success");
+    closeModal(); load();
   };
 
   const now = new Date();
@@ -1139,7 +1134,8 @@ function PsicosocialModulo({ workers, empresaId }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[10px] px-2 py-1 rounded bg-red-900/40 text-red-400 border border-red-800 font-mono">CONFIDENCIAL</span>
-          <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Instrumento: r.instrumento, Puntaje: r.puntaje ?? "", "Nivel Riesgo": r.nivel_riesgo, "Dimensión Principal": r.dimension_principal || "", Derivación: r.derivacion || "", Médico: r.medico_responsable || "" }))} filename="psicosocial" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
         </div>
       </div>
 
@@ -1163,13 +1159,13 @@ function PsicosocialModulo({ workers, empresaId }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              {["Trabajador", "Fecha", "Instrumento", "Puntaje", "Nivel Riesgo", "Dimensión Principal", "Derivación"].map(h => (
+              {["Trabajador", "Fecha", "Instrumento", "Puntaje", "Nivel Riesgo", "Dimensión Principal", "Derivación", ""].map(h => (
                 <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
             {!loading && records.map(r => (
               <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                 <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
@@ -1179,17 +1175,18 @@ function PsicosocialModulo({ workers, empresaId }) {
                 <td className="px-4 py-3"><Badge color={getNivelColor(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge></td>
                 <td className="px-4 py-3 text-gray-400 text-xs">{r.dimension_principal || "—"}</td>
                 <td className="px-4 py-3"><Badge color={getDerivacionColor(r.derivacion)}>{r.derivacion || "No aplica"}</Badge></td>
+                <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
               </tr>
             ))}
             {!loading && !records.length && (
-              <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {showModal && (
-        <Modal title="Nueva Evaluación — Psicosocial / Salud Mental" onClose={() => setShowModal(false)} wide>
+        <Modal title={editing ? "Editar — Psicosocial / Salud Mental" : "Nueva Evaluación — Psicosocial / Salud Mental"} onClose={closeModal} wide>
           <div className="bg-red-900/20 border border-red-800 rounded-lg p-3 mb-4 flex items-center gap-2">
             <span className="text-[10px] px-2 py-1 rounded bg-red-900/40 text-red-400 border border-red-800 font-mono shrink-0">CONFIDENCIAL</span>
             <p className="text-xs text-red-400">La información registrada es de carácter médico confidencial y de uso exclusivo del equipo de salud.</p>
@@ -1260,8 +1257,8 @@ function PsicosocialModulo({ workers, empresaId }) {
             </FormField>
           </div>
           <div className="flex gap-2 mt-5 justify-end">
-            <Btn variant="default" onClick={() => setShowModal(false)}>Cancelar</Btn>
-            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : "Guardar Evaluación"}</Btn>
+            <Btn variant="default" onClick={closeModal}>Cancelar</Btn>
+            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar Evaluación"}</Btn>
           </div>
         </Modal>
       )}
@@ -1274,12 +1271,9 @@ function DisergonomiaModulo({ workers, empresaId }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0],
-    area_puesto: "", tipo_riesgo: "Postural", metodo_evaluacion: "REBA",
-    puntuacion: "", nivel_riesgo: "Medio", medidas_adoptadas: "",
-    proximo_control: "", medico_responsable: "", observaciones: "",
-  });
+  const [editing, setEditing] = useState(null);
+  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], area_puesto: "", tipo_riesgo: "Postural", metodo_evaluacion: "REBA", puntuacion: "", nivel_riesgo: "Medio", medidas_adoptadas: "", proximo_control: "", medico_responsable: "", observaciones: "" };
+  const [form, setForm] = useState(initForm);
 
   const load = async () => {
     setLoading(true);
@@ -1302,31 +1296,21 @@ function DisergonomiaModulo({ workers, empresaId }) {
     return "gray";
   };
 
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, area_puesto: r.area_puesto || "", tipo_riesgo: r.tipo_riesgo || "Postural", metodo_evaluacion: r.metodo_evaluacion || "REBA", puntuacion: r.puntuacion != null ? String(r.puntuacion) : "", nivel_riesgo: r.nivel_riesgo || "Medio", medidas_adoptadas: r.medidas_adoptadas || "", proximo_control: r.proximo_control || "", medico_responsable: r.medico_responsable || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+  const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_disergonomia").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
+
   const handleSave = async () => {
     if (!form.trabajador_id || !form.fecha_evaluacion) {
       showToast("Selecciona trabajador y fecha", "error"); return;
     }
     setSaving(true);
-    const { error } = await supabase.from("vigilancia_disergonomia").insert({
-      empresa_id: empresaId,
-      trabajador_id: form.trabajador_id,
-      fecha_evaluacion: form.fecha_evaluacion,
-      area_puesto: form.area_puesto,
-      tipo_riesgo: form.tipo_riesgo,
-      metodo_evaluacion: form.metodo_evaluacion,
-      puntuacion: form.puntuacion ? parseFloat(form.puntuacion) : null,
-      nivel_riesgo: form.nivel_riesgo,
-      medidas_adoptadas: form.medidas_adoptadas,
-      proximo_control: form.proximo_control || null,
-      medico_responsable: form.medico_responsable,
-      observaciones: form.observaciones,
-    });
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, area_puesto: form.area_puesto, tipo_riesgo: form.tipo_riesgo, metodo_evaluacion: form.metodo_evaluacion, puntuacion: form.puntuacion ? parseFloat(form.puntuacion) : null, nivel_riesgo: form.nivel_riesgo, medidas_adoptadas: form.medidas_adoptadas, proximo_control: form.proximo_control || null, medico_responsable: form.medico_responsable, observaciones: form.observaciones };
+    const { error } = editing ? await supabase.from("vigilancia_disergonomia").update(payload).eq("id", editing) : await supabase.from("vigilancia_disergonomia").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
-    showToast("Evaluación registrada", "success");
-    setShowModal(false);
-    setForm({ trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], area_puesto: "", tipo_riesgo: "Postural", metodo_evaluacion: "REBA", puntuacion: "", nivel_riesgo: "Medio", medidas_adoptadas: "", proximo_control: "", medico_responsable: "", observaciones: "" });
-    load();
+    showToast(editing ? "Registro actualizado" : "Evaluación registrada", "success");
+    closeModal(); load();
   };
 
   const now = new Date();
@@ -1341,7 +1325,10 @@ function DisergonomiaModulo({ workers, empresaId }) {
           <h3 className="text-white font-semibold text-sm mb-1">Riesgos Disergonómicos</h3>
           <p className="text-gray-500 text-xs max-w-xl">Evaluación de riesgos posturales, carga física y movimientos repetitivos. Métodos REBA, RULA, OWAS, NIOSH. (R.M. 375-2008-TR)</p>
         </div>
-        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, "Área/Puesto": r.area_puesto || "", "Tipo Riesgo": r.tipo_riesgo, Método: r.metodo_evaluacion, Puntuación: r.puntuacion ?? "", "Nivel Riesgo": r.nivel_riesgo, "Medidas Adoptadas": r.medidas_adoptadas || "", "Próx. Control": r.proximo_control || "" }))} filename="disergonomia" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-5">
@@ -1364,13 +1351,13 @@ function DisergonomiaModulo({ workers, empresaId }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              {["Trabajador", "Área / Puesto", "Tipo Riesgo", "Método", "Puntuación", "Nivel Riesgo", "Medidas Adoptadas"].map(h => (
+              {["Trabajador", "Área / Puesto", "Tipo Riesgo", "Método", "Puntuación", "Nivel Riesgo", "Medidas Adoptadas", ""].map(h => (
                 <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
             {!loading && records.map(r => (
               <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                 <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
@@ -1382,17 +1369,18 @@ function DisergonomiaModulo({ workers, empresaId }) {
                 <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate">
                   {r.medidas_adoptadas || <span className="text-red-500 text-xs">Sin registrar</span>}
                 </td>
+                <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
               </tr>
             ))}
             {!loading && !records.length && (
-              <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {showModal && (
-        <Modal title="Nueva Evaluación — Disergonomía" onClose={() => setShowModal(false)} wide>
+        <Modal title={editing ? "Editar — Disergonomía" : "Nueva Evaluación — Disergonomía"} onClose={closeModal} wide>
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4 text-xs text-gray-400">
             <p className="font-semibold text-gray-300 mb-1">Niveles de riesgo</p>
             <div className="grid grid-cols-4 gap-2">
@@ -1459,8 +1447,8 @@ function DisergonomiaModulo({ workers, empresaId }) {
             </FormField>
           </div>
           <div className="flex gap-2 mt-5 justify-end">
-            <Btn variant="default" onClick={() => setShowModal(false)}>Cancelar</Btn>
-            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : "Guardar Evaluación"}</Btn>
+            <Btn variant="default" onClick={closeModal}>Cancelar</Btn>
+            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar Evaluación"}</Btn>
           </div>
         </Modal>
       )}
@@ -1473,13 +1461,9 @@ function AuditivaModulo({ workers, empresaId }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0],
-    area_puesto: "", db_exposicion: "", tipo_epp: "",
-    fecha_audiometria: "", resultado_audiometria: "Normal",
-    oido_derecho_db: "", oido_izquierdo_db: "",
-    proximo_control: "", medico_responsable: "", observaciones: "",
-  });
+  const [editing, setEditing] = useState(null);
+  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], area_puesto: "", db_exposicion: "", tipo_epp: "", fecha_audiometria: "", resultado_audiometria: "Normal", oido_derecho_db: "", oido_izquierdo_db: "", proximo_control: "", medico_responsable: "", observaciones: "" };
+  const [form, setForm] = useState(initForm);
 
   const load = async () => {
     setLoading(true);
@@ -1516,32 +1500,21 @@ function AuditivaModulo({ workers, empresaId }) {
     return diff >= 0 && diff <= 30 * 24 * 60 * 60 * 1000;
   });
 
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, area_puesto: r.area_puesto || "", db_exposicion: r.db_exposicion != null ? String(r.db_exposicion) : "", tipo_epp: r.tipo_epp || "", fecha_audiometria: r.fecha_audiometria || "", resultado_audiometria: r.resultado_audiometria || "Normal", oido_derecho_db: r.oido_derecho_db != null ? String(r.oido_derecho_db) : "", oido_izquierdo_db: r.oido_izquierdo_db != null ? String(r.oido_izquierdo_db) : "", proximo_control: r.proximo_control || "", medico_responsable: r.medico_responsable || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+  const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_auditiva").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
+
   const handleSave = async () => {
     if (!form.trabajador_id || !form.fecha_evaluacion) {
       showToast("Selecciona trabajador y fecha", "error"); return;
     }
     setSaving(true);
-    const { error } = await supabase.from("vigilancia_auditiva").insert({
-      empresa_id: empresaId,
-      trabajador_id: form.trabajador_id,
-      fecha_evaluacion: form.fecha_evaluacion,
-      area_puesto: form.area_puesto,
-      db_exposicion: form.db_exposicion ? parseFloat(form.db_exposicion) : null,
-      tipo_epp: form.tipo_epp,
-      fecha_audiometria: form.fecha_audiometria || null,
-      resultado_audiometria: form.resultado_audiometria,
-      oido_derecho_db: form.oido_derecho_db ? parseFloat(form.oido_derecho_db) : null,
-      oido_izquierdo_db: form.oido_izquierdo_db ? parseFloat(form.oido_izquierdo_db) : null,
-      proximo_control: form.proximo_control || null,
-      medico_responsable: form.medico_responsable,
-      observaciones: form.observaciones,
-    });
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, area_puesto: form.area_puesto, db_exposicion: form.db_exposicion ? parseFloat(form.db_exposicion) : null, tipo_epp: form.tipo_epp, fecha_audiometria: form.fecha_audiometria || null, resultado_audiometria: form.resultado_audiometria, oido_derecho_db: form.oido_derecho_db ? parseFloat(form.oido_derecho_db) : null, oido_izquierdo_db: form.oido_izquierdo_db ? parseFloat(form.oido_izquierdo_db) : null, proximo_control: form.proximo_control || null, medico_responsable: form.medico_responsable, observaciones: form.observaciones };
+    const { error } = editing ? await supabase.from("vigilancia_auditiva").update(payload).eq("id", editing) : await supabase.from("vigilancia_auditiva").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
-    showToast("Evaluación registrada", "success");
-    setShowModal(false);
-    setForm({ trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], area_puesto: "", db_exposicion: "", tipo_epp: "", fecha_audiometria: "", resultado_audiometria: "Normal", oido_derecho_db: "", oido_izquierdo_db: "", proximo_control: "", medico_responsable: "", observaciones: "" });
-    load();
+    showToast(editing ? "Registro actualizado" : "Evaluación registrada", "success");
+    closeModal(); load();
   };
 
   const now = new Date();
@@ -1556,7 +1529,10 @@ function AuditivaModulo({ workers, empresaId }) {
           <h3 className="text-white font-semibold text-sm mb-1">Protección Auditiva</h3>
           <p className="text-gray-500 text-xs max-w-xl">Programa de conservación de la audición. Control de exposición al ruido (dB) y seguimiento audiométrico. (R.M. 375-2008-TR)</p>
         </div>
-        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, "Área/Puesto": r.area_puesto || "", "dB Exposición": r.db_exposicion ?? "", "Tipo EPP": r.tipo_epp || "", "Resultado Audiometría": r.resultado_audiometria || "", "OD (dB)": r.oido_derecho_db ?? "", "OI (dB)": r.oido_izquierdo_db ?? "", "Próx. Control": r.proximo_control || "" }))} filename="proteccion_auditiva" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-5">
@@ -1579,13 +1555,13 @@ function AuditivaModulo({ workers, empresaId }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              {["Trabajador", "Área / Puesto", "dB Exposición", "EPP Auditivo", "Audiometría", "Resultado", "Próx. Control"].map(h => (
+              {["Trabajador", "Área / Puesto", "dB Exposición", "EPP Auditivo", "Audiometría", "Resultado", "Próx. Control", ""].map(h => (
                 <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
             {!loading && records.map(r => (
               <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                 <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
@@ -1599,17 +1575,18 @@ function AuditivaModulo({ workers, empresaId }) {
                 <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_audiometria || "—"}</td>
                 <td className="px-4 py-3"><Badge color={getResultadoColor(r.resultado_audiometria)}>{r.resultado_audiometria || "—"}</Badge></td>
                 <td className={`px-4 py-3 font-mono text-xs ${proximosControl.find(p => p.id === r.id) ? "text-amber-400 font-semibold" : "text-gray-500"}`}>{r.proximo_control || "—"}</td>
+                <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
               </tr>
             ))}
             {!loading && !records.length && (
-              <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {showModal && (
-        <Modal title="Nueva Evaluación — Protección Auditiva" onClose={() => setShowModal(false)} wide>
+        <Modal title={editing ? "Editar — Protección Auditiva" : "Nueva Evaluación — Protección Auditiva"} onClose={closeModal} wide>
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4 text-xs text-gray-400">
             <p className="font-semibold text-gray-300 mb-1">Referencia de exposición al ruido</p>
             <div className="grid grid-cols-3 gap-2">
@@ -1677,8 +1654,8 @@ function AuditivaModulo({ workers, empresaId }) {
             </FormField>
           </div>
           <div className="flex gap-2 mt-5 justify-end">
-            <Btn variant="default" onClick={() => setShowModal(false)}>Cancelar</Btn>
-            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : "Guardar Evaluación"}</Btn>
+            <Btn variant="default" onClick={closeModal}>Cancelar</Btn>
+            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar Evaluación"}</Btn>
           </div>
         </Modal>
       )}
@@ -1691,12 +1668,9 @@ function GestanteModulo({ workers, empresaId }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    trabajador_id: "", fecha_registro: new Date().toISOString().split("T")[0],
-    semana_gestacional: "", fecha_probable_parto: "",
-    estado: "Gestante", restricciones: "", proximo_control: "",
-    medico_responsable: "", observaciones: "",
-  });
+  const [editing, setEditing] = useState(null);
+  const initForm = { trabajador_id: "", fecha_registro: new Date().toISOString().split("T")[0], semana_gestacional: "", fecha_probable_parto: "", estado: "Gestante", restricciones: "", proximo_control: "", medico_responsable: "", observaciones: "" };
+  const [form, setForm] = useState(initForm);
 
   const load = async () => {
     setLoading(true);
@@ -1725,29 +1699,21 @@ function GestanteModulo({ workers, empresaId }) {
     return dias;
   };
 
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_registro: r.fecha_registro, semana_gestacional: r.semana_gestacional != null ? String(r.semana_gestacional) : "", fecha_probable_parto: r.fecha_probable_parto || "", estado: r.estado || "Gestante", restricciones: r.restricciones || "", proximo_control: r.proximo_control || "", medico_responsable: r.medico_responsable || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+  const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_gestante").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
+
   const handleSave = async () => {
     if (!form.trabajador_id || !form.fecha_registro) {
       showToast("Selecciona trabajadora y fecha", "error"); return;
     }
     setSaving(true);
-    const { error } = await supabase.from("vigilancia_gestante").insert({
-      empresa_id: empresaId,
-      trabajador_id: form.trabajador_id,
-      fecha_registro: form.fecha_registro,
-      semana_gestacional: form.semana_gestacional ? parseInt(form.semana_gestacional) : null,
-      fecha_probable_parto: form.fecha_probable_parto || null,
-      estado: form.estado,
-      restricciones: form.restricciones,
-      proximo_control: form.proximo_control || null,
-      medico_responsable: form.medico_responsable,
-      observaciones: form.observaciones,
-    });
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_registro: form.fecha_registro, semana_gestacional: form.semana_gestacional ? parseInt(form.semana_gestacional) : null, fecha_probable_parto: form.fecha_probable_parto || null, estado: form.estado, restricciones: form.restricciones, proximo_control: form.proximo_control || null, medico_responsable: form.medico_responsable, observaciones: form.observaciones };
+    const { error } = editing ? await supabase.from("vigilancia_gestante").update(payload).eq("id", editing) : await supabase.from("vigilancia_gestante").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
-    showToast("Registro guardado", "success");
-    setShowModal(false);
-    setForm({ trabajador_id: "", fecha_registro: new Date().toISOString().split("T")[0], semana_gestacional: "", fecha_probable_parto: "", estado: "Gestante", restricciones: "", proximo_control: "", medico_responsable: "", observaciones: "" });
-    load();
+    showToast(editing ? "Registro actualizado" : "Registro guardado", "success");
+    closeModal(); load();
   };
 
   const activas = records.filter(r => r.estado === "Gestante");
@@ -1768,7 +1734,10 @@ function GestanteModulo({ workers, empresaId }) {
           <h3 className="text-white font-semibold text-sm mb-1">Vigilancia de la Trabajadora Gestante</h3>
           <p className="text-gray-500 text-xs max-w-xl">Seguimiento médico en gestación, lactancia y post-parto. Restricciones laborales y controles prenatales. (Ley 29783)</p>
         </div>
-        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Ficha</Btn>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajadora: r.trabajadores?.nombre || "", Fecha: r.fecha_registro, "Sem. Gestacional": r.semana_gestacional ?? "", "F. Probable Parto": r.fecha_probable_parto || "", Estado: r.estado, Restricciones: r.restricciones || "", "Próx. Control": r.proximo_control || "", Médico: r.medico_responsable || "" }))} filename="gestante" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Ficha</Btn>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-5">
@@ -1791,13 +1760,13 @@ function GestanteModulo({ workers, empresaId }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              {["Trabajadora", "Estado", "Semana Gest.", "F. Probable Parto", "Restricciones", "Próx. Control", "Médico"].map(h => (
+              {["Trabajadora", "Estado", "Semana Gest.", "F. Probable Parto", "Restricciones", "Próx. Control", "Médico", ""].map(h => (
                 <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
             {!loading && records.map(r => {
               const dias = diasParaParto(r.fecha_probable_parto);
               return (
@@ -1816,18 +1785,19 @@ function GestanteModulo({ workers, empresaId }) {
                   <td className="px-4 py-3 text-gray-400 text-xs max-w-[160px] truncate">{r.restricciones || <span className="text-gray-600">Ninguna</span>}</td>
                   <td className={`px-4 py-3 font-mono text-xs ${proximasControl.find(p => p.id === r.id) ? "text-amber-400 font-semibold" : "text-gray-500"}`}>{r.proximo_control || "—"}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{r.medico_responsable || "—"}</td>
+                  <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
                 </tr>
               );
             })}
             {!loading && !records.length && (
-              <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600 text-sm">Sin registros. Usa "Nueva Ficha" para comenzar.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin registros. Usa "Nueva Ficha" para comenzar.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {showModal && (
-        <Modal title="Nueva Ficha — Trabajadora Gestante" onClose={() => setShowModal(false)} wide>
+        <Modal title={editing ? "Editar Ficha — Trabajadora Gestante" : "Nueva Ficha — Trabajadora Gestante"} onClose={closeModal} wide>
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Trabajadora *">
               <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
@@ -1863,8 +1833,8 @@ function GestanteModulo({ workers, empresaId }) {
             </FormField>
           </div>
           <div className="flex gap-2 mt-5 justify-end">
-            <Btn variant="default" onClick={() => setShowModal(false)}>Cancelar</Btn>
-            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : "Guardar Ficha"}</Btn>
+            <Btn variant="default" onClick={closeModal}>Cancelar</Btn>
+            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar Ficha"}</Btn>
           </div>
         </Modal>
       )}
@@ -1877,13 +1847,9 @@ function EstilosVidaModulo({ workers, empresaId }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0],
-    peso: "", talla: "", perimetro_abdominal: "",
-    presion_sistolica: "", presion_diastolica: "", glucosa: "",
-    fumador: false, consume_alcohol: false, sedentario: false,
-    nivel_actividad: "Moderado", observaciones: "", medico_responsable: "",
-  });
+  const [editing, setEditing] = useState(null);
+  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], peso: "", talla: "", perimetro_abdominal: "", presion_sistolica: "", presion_diastolica: "", glucosa: "", fumador: false, consume_alcohol: false, sedentario: false, nivel_actividad: "Moderado", observaciones: "", medico_responsable: "" };
+  const [form, setForm] = useState(initForm);
 
   const load = async () => {
     setLoading(true);
@@ -1937,31 +1903,16 @@ function EstilosVidaModulo({ workers, empresaId }) {
     }
     const imc = calcIMC(form.peso, form.talla);
     setSaving(true);
-    const { error } = await supabase.from("vigilancia_estilos_vida").insert({
-      empresa_id: empresaId,
-      trabajador_id: form.trabajador_id,
-      fecha_evaluacion: form.fecha_evaluacion,
-      peso: form.peso ? parseFloat(form.peso) : null,
-      talla: form.talla ? parseFloat(form.talla) : null,
-      imc: imc ? parseFloat(imc) : null,
-      perimetro_abdominal: form.perimetro_abdominal ? parseFloat(form.perimetro_abdominal) : null,
-      presion_sistolica: form.presion_sistolica ? parseInt(form.presion_sistolica) : null,
-      presion_diastolica: form.presion_diastolica ? parseInt(form.presion_diastolica) : null,
-      glucosa: form.glucosa ? parseFloat(form.glucosa) : null,
-      fumador: form.fumador,
-      consume_alcohol: form.consume_alcohol,
-      sedentario: form.sedentario,
-      nivel_actividad: form.nivel_actividad,
-      observaciones: form.observaciones,
-      medico_responsable: form.medico_responsable,
-    });
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, peso: form.peso ? parseFloat(form.peso) : null, talla: form.talla ? parseFloat(form.talla) : null, imc: imc ? parseFloat(imc) : null, perimetro_abdominal: form.perimetro_abdominal ? parseFloat(form.perimetro_abdominal) : null, presion_sistolica: form.presion_sistolica ? parseInt(form.presion_sistolica) : null, presion_diastolica: form.presion_diastolica ? parseInt(form.presion_diastolica) : null, glucosa: form.glucosa ? parseFloat(form.glucosa) : null, fumador: form.fumador, consume_alcohol: form.consume_alcohol, sedentario: form.sedentario, nivel_actividad: form.nivel_actividad, observaciones: form.observaciones, medico_responsable: form.medico_responsable };
+    const { error } = editing ? await supabase.from("vigilancia_estilos_vida").update(payload).eq("id", editing) : await supabase.from("vigilancia_estilos_vida").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
-    showToast("Evaluación registrada", "success");
-    setShowModal(false);
-    setForm({ trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], peso: "", talla: "", perimetro_abdominal: "", presion_sistolica: "", presion_diastolica: "", glucosa: "", fumador: false, consume_alcohol: false, sedentario: false, nivel_actividad: "Moderado", observaciones: "", medico_responsable: "" });
-    load();
+    showToast(editing ? "Registro actualizado" : "Evaluación registrada", "success");
+    closeModal(); load();
   };
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, peso: r.peso != null ? String(r.peso) : "", talla: r.talla != null ? String(r.talla) : "", perimetro_abdominal: r.perimetro_abdominal != null ? String(r.perimetro_abdominal) : "", presion_sistolica: r.presion_sistolica != null ? String(r.presion_sistolica) : "", presion_diastolica: r.presion_diastolica != null ? String(r.presion_diastolica) : "", glucosa: r.glucosa != null ? String(r.glucosa) : "", fumador: r.fumador || false, consume_alcohol: r.consume_alcohol || false, sedentario: r.sedentario || false, nivel_actividad: r.nivel_actividad || "Moderado", observaciones: r.observaciones || "", medico_responsable: r.medico_responsable || "" }); setEditing(r.id); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+  const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_estilos_vida").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
 
   const now = new Date();
   const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
@@ -1975,7 +1926,10 @@ function EstilosVidaModulo({ workers, empresaId }) {
           <h3 className="text-white font-semibold text-sm mb-1">Estilos de Vida Saludable</h3>
           <p className="text-gray-500 text-xs max-w-xl">IMC, presión arterial, glucosa y hábitos de riesgo. Cálculo automático de categorías según rangos clínicos.</p>
         </div>
-        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Peso: r.peso ?? "", Talla: r.talla ?? "", IMC: r.imc ?? "", "Perímetro Abd.": r.perimetro_abdominal ?? "", "PA Sistólica": r.presion_sistolica ?? "", "PA Diastólica": r.presion_diastolica ?? "", Glucosa: r.glucosa ?? "", Fumador: r.fumador ? "Sí" : "No", Alcohol: r.consume_alcohol ? "Sí" : "No", Sedentario: r.sedentario ? "Sí" : "No" }))} filename="estilos_vida" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-5">
@@ -1988,7 +1942,7 @@ function EstilosVidaModulo({ workers, empresaId }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              {["Trabajador", "Fecha", "IMC", "Categoría", "Presión Art.", "Glucosa", "Hábitos Riesgo"].map(h => (
+              {["Trabajador", "Fecha", "IMC", "Categoría", "Presión Art.", "Glucosa", "Hábitos Riesgo", ""].map(h => (
                 <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -2025,18 +1979,19 @@ function EstilosVidaModulo({ workers, empresaId }) {
                   <td className="px-4 py-3">
                     {habitos.length ? habitos.map(h => <Badge key={h} color="orange">{h}</Badge>) : <span className="text-gray-600 text-xs">Ninguno</span>}
                   </td>
+                  <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
                 </tr>
               );
             })}
             {!loading && !records.length && (
-              <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {showModal && (
-        <Modal title="Nueva Evaluación — Estilos de Vida Saludable" onClose={() => setShowModal(false)} wide>
+        <Modal title={editing ? "Editar — Estilos de Vida Saludable" : "Nueva Evaluación — Estilos de Vida Saludable"} onClose={closeModal} wide>
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Trabajador *">
               <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
@@ -2113,8 +2068,8 @@ function EstilosVidaModulo({ workers, empresaId }) {
             </FormField>
           </div>
           <div className="flex gap-2 mt-5 justify-end">
-            <Btn variant="default" onClick={() => setShowModal(false)}>Cancelar</Btn>
-            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : "Guardar Evaluación"}</Btn>
+            <Btn variant="default" onClick={closeModal}>Cancelar</Btn>
+            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar Evaluación"}</Btn>
           </div>
         </Modal>
       )}
@@ -2170,16 +2125,21 @@ function DescansosMedicosModulo({ workers, empresaId }) {
   const diasMes = mesActual.reduce((acc, r) => acc + diasDescanso(r), 0);
   const proximos = records.filter(r => estadoDescanso(r) === "Próximo a vencer");
 
+  const [editing, setEditing] = useState(null);
   const resetForm = () => setForm({ trabajador_id: "", fecha_inicio: "", fecha_fin: "", tipo_reposo: "Domiciliario", diagnostico: "", cie10: "", medico_responsable: "", centro_medico: "", observaciones: "" });
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_inicio: r.fecha_inicio, fecha_fin: r.fecha_fin, tipo_reposo: r.tipo_reposo || "Domiciliario", diagnostico: r.diagnostico || "", cie10: r.cie10 || "", medico_responsable: r.medico_responsable || "", centro_medico: r.centro_medico || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); resetForm(); };
 
   const handleSave = async () => {
     if (!form.trabajador_id || !form.fecha_inicio || !form.fecha_fin) {
       showToast("Trabajador, fecha inicio y fin son obligatorios", "error"); return;
     }
     setSaving(true);
-    const { error } = await supabase.from("vigilancia_descansos").insert({ ...form, empresa_id: empresaId });
+    const { error } = editing
+      ? await supabase.from("vigilancia_descansos").update({ ...form }).eq("id", editing)
+      : await supabase.from("vigilancia_descansos").insert({ ...form, empresa_id: empresaId });
     if (error) { showToast("Error: " + error.message, "error"); }
-    else { showToast("Descanso registrado", "success"); setShowModal(false); resetForm(); load(); }
+    else { showToast(editing ? "Registro actualizado" : "Descanso registrado", "success"); closeModal(); load(); }
     setSaving(false);
   };
 
@@ -2198,7 +2158,10 @@ function DescansosMedicosModulo({ workers, empresaId }) {
           <h3 className="text-white font-semibold text-sm mb-1">Descansos Médicos</h3>
           <p className="text-gray-500 text-xs max-w-xl">Registro y seguimiento de reposos médicos del personal. Control de días activos y vencimientos.</p>
         </div>
-        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nuevo Descanso</Btn>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", "Tipo Reposo": r.tipo_reposo, Inicio: r.fecha_inicio, Fin: r.fecha_fin, Días: diasDescanso(r), Diagnóstico: r.diagnostico || "", "CIE-10": r.cie10 || "", "Centro Médico": r.centro_medico || "", Estado: estadoDescanso(r), Médico: r.medico_responsable || "" }))} filename="descansos_medicos" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); resetForm(); setShowModal(true); }}><Plus size={13} /> Nuevo Descanso</Btn>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-5">
@@ -2233,9 +2196,7 @@ function DescansosMedicosModulo({ workers, empresaId }) {
                     <td className="px-4 py-3 text-gray-500 text-xs">{r.centro_medico || "—"}</td>
                     <td className="px-4 py-3"><Badge color={badgeColor(estado)}>{estado}</Badge></td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{r.medico_responsable || "—"}</td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
-                    </td>
+                    <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
                   </tr>
                 );
               })}
@@ -2248,7 +2209,7 @@ function DescansosMedicosModulo({ workers, empresaId }) {
       </div>
 
       {showModal && (
-        <Modal title="Nuevo Descanso Médico" onClose={() => { setShowModal(false); resetForm(); }}>
+        <Modal title={editing ? "Editar Descanso Médico" : "Nuevo Descanso Médico"} onClose={closeModal}>
           <div className="space-y-4">
             <FormField label="Trabajador *">
               <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
@@ -2289,8 +2250,8 @@ function DescansosMedicosModulo({ workers, empresaId }) {
               <Input value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Restricciones laborales, seguimiento requerido..." />
             </FormField>
             <div className="flex justify-end gap-2 pt-2">
-              <Btn variant="ghost" onClick={() => { setShowModal(false); resetForm(); }}>Cancelar</Btn>
-              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
+              <Btn variant="ghost" onClick={closeModal}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar"}</Btn>
             </div>
           </div>
         </Modal>
@@ -2338,18 +2299,22 @@ function MorbilidadModulo({ workers, empresaId }) {
     return top ? top[0].substring(0, 20) + (top[0].length > 20 ? "…" : "") : "—";
   })();
 
+  const [editing, setEditing] = useState(null);
   const resetForm = () => setForm({ trabajador_id: "", fecha_consulta: "", diagnostico: "", cie10: "", tipo_atencion: "Consulta", tipo_morbilidad: "No laboral", dias_reposo: "0", medico_responsable: "", observaciones: "" });
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_consulta: r.fecha_consulta, diagnostico: r.diagnostico || "", cie10: r.cie10 || "", tipo_atencion: r.tipo_atencion || "Consulta", tipo_morbilidad: r.tipo_morbilidad || "No laboral", dias_reposo: String(r.dias_reposo ?? 0), medico_responsable: r.medico_responsable || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); resetForm(); };
 
   const handleSave = async () => {
     if (!form.trabajador_id || !form.fecha_consulta || !form.diagnostico) {
       showToast("Trabajador, fecha y diagnóstico son obligatorios", "error"); return;
     }
     setSaving(true);
-    const { error } = await supabase.from("vigilancia_morbilidad").insert({
-      ...form, dias_reposo: Number(form.dias_reposo) || 0, empresa_id: empresaId,
-    });
+    const payload = { ...form, dias_reposo: Number(form.dias_reposo) || 0, empresa_id: empresaId };
+    const { error } = editing
+      ? await supabase.from("vigilancia_morbilidad").update(payload).eq("id", editing)
+      : await supabase.from("vigilancia_morbilidad").insert(payload);
     if (error) { showToast("Error: " + error.message, "error"); }
-    else { showToast("Registro guardado", "success"); setShowModal(false); resetForm(); load(); }
+    else { showToast(editing ? "Registro actualizado" : "Registro guardado", "success"); closeModal(); load(); }
     setSaving(false);
   };
 
@@ -2369,7 +2334,10 @@ function MorbilidadModulo({ workers, empresaId }) {
           <h3 className="text-white font-semibold text-sm mb-1">Morbilidad</h3>
           <p className="text-gray-500 text-xs max-w-xl">Registro de consultas médicas, diagnósticos y ausentismo laboral. Identifica las causas más frecuentes de morbilidad en el centro de trabajo.</p>
         </div>
-        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Consulta</Btn>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_consulta, Diagnóstico: r.diagnostico, "CIE-10": r.cie10 || "", "Tipo Atención": r.tipo_atencion, "Tipo Morbilidad": r.tipo_morbilidad, "Días Reposo": r.dias_reposo ?? 0, Médico: r.medico_responsable || "" }))} filename="morbilidad" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); resetForm(); setShowModal(true); }}><Plus size={13} /> Nueva Consulta</Btn>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-5">
@@ -2401,9 +2369,7 @@ function MorbilidadModulo({ workers, empresaId }) {
                   <td className="px-4 py-3"><Badge color={tipoColor(r.tipo_morbilidad)}>{r.tipo_morbilidad}</Badge></td>
                   <td className="px-4 py-3 text-center font-mono text-xs text-gray-300">{r.dias_reposo ?? 0}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{r.medico_responsable || "—"}</td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
-                  </td>
+                  <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
                 </tr>
               ))}
               {!records.length && (
@@ -2415,7 +2381,7 @@ function MorbilidadModulo({ workers, empresaId }) {
       </div>
 
       {showModal && (
-        <Modal title="Nueva Consulta / Registro de Morbilidad" onClose={() => { setShowModal(false); resetForm(); }}>
+        <Modal title={editing ? "Editar Consulta de Morbilidad" : "Nueva Consulta / Registro de Morbilidad"} onClose={closeModal}>
           <div className="space-y-4">
             <FormField label="Trabajador *">
               <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
@@ -2458,8 +2424,8 @@ function MorbilidadModulo({ workers, empresaId }) {
               <Input value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Tratamiento indicado, seguimiento..." />
             </FormField>
             <div className="flex justify-end gap-2 pt-2">
-              <Btn variant="ghost" onClick={() => { setShowModal(false); resetForm(); }}>Cancelar</Btn>
-              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
+              <Btn variant="ghost" onClick={closeModal}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar"}</Btn>
             </div>
           </div>
         </Modal>
@@ -2507,14 +2473,18 @@ function RadiacionUVModulo({ workers, empresaId }) {
   const now = new Date();
   const delMes = records.filter(r => { const f = new Date(r.fecha_evaluacion + "T00:00:00"); return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear(); });
 
+  const [editing, setEditing] = useState(null);
   const resetForm = () => setForm({ trabajador_id: "", fecha_evaluacion: "", zona_area: "", horas_exposicion: "", indice_uv: "", epp_asignado: "", fotoprotector: "Sí", proxima_revision: "", observaciones: "" });
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, zona_area: r.zona_area || "", horas_exposicion: r.horas_exposicion != null ? String(r.horas_exposicion) : "", indice_uv: r.indice_uv != null ? String(r.indice_uv) : "", epp_asignado: r.epp_asignado || "", fotoprotector: r.fotoprotector || "Sí", proxima_revision: r.proxima_revision || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); resetForm(); };
 
   const handleSave = async () => {
     if (!form.trabajador_id || !form.fecha_evaluacion) { showToast("Trabajador y fecha son obligatorios", "error"); return; }
     setSaving(true);
-    const { error } = await supabase.from("vigilancia_radiacion").insert({ ...form, horas_exposicion: Number(form.horas_exposicion) || 0, indice_uv: Number(form.indice_uv) || 0, empresa_id: empresaId });
+    const payload = { ...form, horas_exposicion: Number(form.horas_exposicion) || 0, indice_uv: Number(form.indice_uv) || 0, empresa_id: empresaId };
+    const { error } = editing ? await supabase.from("vigilancia_radiacion").update(payload).eq("id", editing) : await supabase.from("vigilancia_radiacion").insert(payload);
     if (error) { showToast("Error: " + error.message, "error"); }
-    else { showToast("Registro guardado", "success"); setShowModal(false); resetForm(); load(); }
+    else { showToast(editing ? "Registro actualizado" : "Registro guardado", "success"); closeModal(); load(); }
     setSaving(false);
   };
   const handleDelete = async (id) => { if (!confirm("¿Eliminar?")) return; await supabase.from("vigilancia_radiacion").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
@@ -2526,7 +2496,10 @@ function RadiacionUVModulo({ workers, empresaId }) {
           <h3 className="text-white font-semibold text-sm mb-1">Radiación Ultravioleta</h3>
           <p className="text-gray-500 text-xs max-w-xl">Control de exposición a radiación UV solar en trabajadores de campo, campamentos y áreas exteriores. Basado en índice UV y horas de exposición diaria.</p>
         </div>
-        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, "Zona/Área": r.zona_area || "", "Hrs Exp/día": r.horas_exposicion ?? "", "Índice UV": r.indice_uv ?? "", Nivel: nivelUV(r.indice_uv), "EPP Asignado": r.epp_asignado || "", Fotoprotector: r.fotoprotector || "", "Próx. Revisión": r.proxima_revision || "" }))} filename="radiacion_uv" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); resetForm(); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-5">
@@ -2557,7 +2530,7 @@ function RadiacionUVModulo({ workers, empresaId }) {
                     <td className="px-4 py-3 text-gray-400 text-xs">{r.epp_asignado || "—"}</td>
                     <td className="px-4 py-3"><Badge color={r.fotoprotector === "Sí" ? "green" : "red"}>{r.fotoprotector || "No"}</Badge></td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.proxima_revision || "—"}</td>
-                    <td className="px-4 py-3"><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></td>
+                    <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
                   </tr>
                 );
               })}
@@ -2568,7 +2541,7 @@ function RadiacionUVModulo({ workers, empresaId }) {
       </div>
 
       {showModal && (
-        <Modal title="Nueva Evaluación Radiación UV" onClose={() => { setShowModal(false); resetForm(); }}>
+        <Modal title={editing ? "Editar — Radiación UV" : "Nueva Evaluación Radiación UV"} onClose={closeModal}>
           <div className="space-y-4">
             <FormField label="Trabajador *">
               <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
@@ -2598,8 +2571,8 @@ function RadiacionUVModulo({ workers, empresaId }) {
             </div>
             <FormField label="Observaciones"><Input value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Condiciones especiales, recomendaciones..." /></FormField>
             <div className="flex justify-end gap-2 pt-2">
-              <Btn variant="ghost" onClick={() => { setShowModal(false); resetForm(); }}>Cancelar</Btn>
-              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
+              <Btn variant="ghost" onClick={closeModal}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar"}</Btn>
             </div>
           </div>
         </Modal>
@@ -2639,14 +2612,18 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
   const ajusteColor = (v) => v === "Aprobado" ? "green" : v === "Rechazado" ? "red" : "amber";
   const espiroColor = (v) => v === "Normal" ? "green" : v === "Pendiente" ? "amber" : "red";
 
+  const [editing, setEditing] = useState(null);
   const resetForm = () => setForm({ trabajador_id: "", fecha_evaluacion: "", agente_exposicion: "", tipo_respirador: "", prueba_ajuste: "Pendiente", fecha_prueba_ajuste: "", espirometria: "Pendiente", fecha_espirometria: "", proxima_revision: "", observaciones: "" });
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, agente_exposicion: r.agente_exposicion || "", tipo_respirador: r.tipo_respirador || "", prueba_ajuste: r.prueba_ajuste || "Pendiente", fecha_prueba_ajuste: r.fecha_prueba_ajuste || "", espirometria: r.espirometria || "Pendiente", fecha_espirometria: r.fecha_espirometria || "", proxima_revision: r.proxima_revision || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); resetForm(); };
 
   const handleSave = async () => {
     if (!form.trabajador_id || !form.fecha_evaluacion) { showToast("Trabajador y fecha son obligatorios", "error"); return; }
     setSaving(true);
-    const { error } = await supabase.from("vigilancia_respiratoria").insert({ ...form, empresa_id: empresaId });
+    const payload = { ...form, empresa_id: empresaId };
+    const { error } = editing ? await supabase.from("vigilancia_respiratoria").update(payload).eq("id", editing) : await supabase.from("vigilancia_respiratoria").insert(payload);
     if (error) { showToast("Error: " + error.message, "error"); }
-    else { showToast("Registro guardado", "success"); setShowModal(false); resetForm(); load(); }
+    else { showToast(editing ? "Registro actualizado" : "Registro guardado", "success"); closeModal(); load(); }
     setSaving(false);
   };
   const handleDelete = async (id) => { if (!confirm("¿Eliminar?")) return; await supabase.from("vigilancia_respiratoria").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
@@ -2658,7 +2635,10 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
           <h3 className="text-white font-semibold text-sm mb-1">Protección Respiratoria</h3>
           <p className="text-gray-500 text-xs max-w-xl">Programa de protección respiratoria para trabajadores expuestos a polvos, gases, vapores y agentes inhalables. Control de prueba de ajuste y espirometría.</p>
         </div>
-        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nuevo Registro</Btn>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, "Agente Exposición": r.agente_exposicion || "", "Tipo Respirador": r.tipo_respirador || "", "Prueba Ajuste": r.prueba_ajuste, "F. Ajuste": r.fecha_prueba_ajuste || "", Espirometría: r.espirometria, "F. Espiro": r.fecha_espirometria || "", "Próx. Control": r.proxima_revision || "" }))} filename="proteccion_respiratoria" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); resetForm(); setShowModal(true); }}><Plus size={13} /> Nuevo Registro</Btn>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-5">
@@ -2687,7 +2667,7 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
                   <td className="px-4 py-3"><Badge color={espiroColor(r.espirometria)}>{r.espirometria}</Badge></td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_espirometria || "—"}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.proxima_revision || "—"}</td>
-                  <td className="px-4 py-3"><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></td>
+                  <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
                 </tr>
               ))}
               {!records.length && <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-600 text-sm">Sin registros de protección respiratoria</td></tr>}
@@ -2697,7 +2677,7 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
       </div>
 
       {showModal && (
-        <Modal title="Nuevo Registro — Protección Respiratoria" onClose={() => { setShowModal(false); resetForm(); }}>
+        <Modal title={editing ? "Editar — Protección Respiratoria" : "Nuevo Registro — Protección Respiratoria"} onClose={closeModal}>
           <div className="space-y-4">
             <FormField label="Trabajador *">
               <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
@@ -2734,8 +2714,8 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
             <FormField label="Próxima Revisión"><Input type="date" value={form.proxima_revision} onChange={e => setForm(f => ({ ...f, proxima_revision: e.target.value }))} /></FormField>
             <FormField label="Observaciones"><Input value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Restricciones, seguimiento, cambio de filtros..." /></FormField>
             <div className="flex justify-end gap-2 pt-2">
-              <Btn variant="ghost" onClick={() => { setShowModal(false); resetForm(); }}>Cancelar</Btn>
-              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
+              <Btn variant="ghost" onClick={closeModal}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar"}</Btn>
             </div>
           </div>
         </Modal>
