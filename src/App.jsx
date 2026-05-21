@@ -1058,6 +1058,256 @@ function FatigaModulo({ workers, empresaId }) {
   );
 }
 
+function EstilosVidaModulo({ workers, empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0],
+    peso: "", talla: "", perimetro_abdominal: "",
+    presion_sistolica: "", presion_diastolica: "", glucosa: "",
+    fumador: false, consume_alcohol: false, sedentario: false,
+    nivel_actividad: "Moderado", observaciones: "", medico_responsable: "",
+  });
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("vigilancia_estilos_vida")
+      .select("*, trabajadores(nombre)")
+      .eq("empresa_id", empresaId)
+      .order("fecha_evaluacion", { ascending: false });
+    setRecords(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const calcIMC = (peso, talla) => {
+    const p = parseFloat(peso); const t = parseFloat(talla);
+    if (!p || !t || t <= 0) return null;
+    return (p / (t * t)).toFixed(1);
+  };
+
+  const getIMCCategoria = (imc) => {
+    const v = parseFloat(imc);
+    if (!v) return { label: "—", color: "gray" };
+    if (v < 18.5) return { label: "Bajo peso", color: "blue" };
+    if (v < 25) return { label: "Normal", color: "green" };
+    if (v < 30) return { label: "Sobrepeso", color: "amber" };
+    return { label: "Obesidad", color: "red" };
+  };
+
+  const getPresionCategoria = (sis, dia) => {
+    const s = parseInt(sis); const d = parseInt(dia);
+    if (!s || !d) return { label: "—", color: "gray" };
+    if (s >= 140 || d >= 90) return { label: "HTA Grado 2", color: "red" };
+    if (s >= 130 || d >= 80) return { label: "HTA Grado 1", color: "amber" };
+    return { label: "Normal", color: "green" };
+  };
+
+  const getGlucosaCategoria = (g) => {
+    const v = parseFloat(g);
+    if (!v) return { label: "—", color: "gray" };
+    if (v >= 126) return { label: "Diabetes", color: "red" };
+    if (v >= 100) return { label: "Prediabetes", color: "amber" };
+    return { label: "Normal", color: "green" };
+  };
+
+  const imcPreview = calcIMC(form.peso, form.talla);
+
+  const handleSave = async () => {
+    if (!form.trabajador_id || !form.fecha_evaluacion) {
+      showToast("Selecciona trabajador y fecha", "error"); return;
+    }
+    const imc = calcIMC(form.peso, form.talla);
+    setSaving(true);
+    const { error } = await supabase.from("vigilancia_estilos_vida").insert({
+      empresa_id: empresaId,
+      trabajador_id: form.trabajador_id,
+      fecha_evaluacion: form.fecha_evaluacion,
+      peso: form.peso ? parseFloat(form.peso) : null,
+      talla: form.talla ? parseFloat(form.talla) : null,
+      imc: imc ? parseFloat(imc) : null,
+      perimetro_abdominal: form.perimetro_abdominal ? parseFloat(form.perimetro_abdominal) : null,
+      presion_sistolica: form.presion_sistolica ? parseInt(form.presion_sistolica) : null,
+      presion_diastolica: form.presion_diastolica ? parseInt(form.presion_diastolica) : null,
+      glucosa: form.glucosa ? parseFloat(form.glucosa) : null,
+      fumador: form.fumador,
+      consume_alcohol: form.consume_alcohol,
+      sedentario: form.sedentario,
+      nivel_actividad: form.nivel_actividad,
+      observaciones: form.observaciones,
+      medico_responsable: form.medico_responsable,
+    });
+    setSaving(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast("Evaluación registrada", "success");
+    setShowModal(false);
+    setForm({ trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], peso: "", talla: "", perimetro_abdominal: "", presion_sistolica: "", presion_diastolica: "", glucosa: "", fumador: false, consume_alcohol: false, sedentario: false, nivel_actividad: "Moderado", observaciones: "", medico_responsable: "" });
+    load();
+  };
+
+  const now = new Date();
+  const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+  const conSobrepeso = records.filter(r => r.imc && r.imc >= 25);
+  const conHabitos = records.filter(r => r.fumador || r.consume_alcohol);
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Estilos de Vida Saludable</h3>
+          <p className="text-gray-500 text-xs max-w-xl">IMC, presión arterial, glucosa y hábitos de riesgo. Cálculo automático de categorías según rangos clínicos.</p>
+        </div>
+        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <KpiCard label="Evaluaciones este mes" value={thisMes.length} sub="Registros del mes actual" accentColor="blue" />
+        <KpiCard label="Sobrepeso / Obesidad" value={conSobrepeso.length} sub="IMC ≥ 25" accentColor="amber" />
+        <KpiCard label="Con hábitos de riesgo" value={conHabitos.length} sub="Fumador y/o alcohol" accentColor="red" />
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-800">
+              {["Trabajador", "Fecha", "IMC", "Categoría", "Presión Art.", "Glucosa", "Hábitos Riesgo"].map(h => (
+                <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && records.map(r => {
+              const imcCat = getIMCCategoria(r.imc);
+              const presCat = getPresionCategoria(r.presion_sistolica, r.presion_diastolica);
+              const glucCat = getGlucosaCategoria(r.glucosa);
+              const habitos = [r.fumador && "Fumador", r.consume_alcohol && "Alcohol", r.sedentario && "Sedentario"].filter(Boolean);
+              return (
+                <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_evaluacion}</td>
+                  <td className="px-4 py-3 font-mono font-bold text-sm text-gray-200">{r.imc ?? "—"}</td>
+                  <td className="px-4 py-3"><Badge color={imcCat.color}>{imcCat.label}</Badge></td>
+                  <td className="px-4 py-3">
+                    {r.presion_sistolica ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs text-gray-300">{r.presion_sistolica}/{r.presion_diastolica}</span>
+                        <Badge color={presCat.color}>{presCat.label}</Badge>
+                      </span>
+                    ) : <span className="text-gray-600">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.glucosa ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs text-gray-300">{r.glucosa}</span>
+                        <Badge color={glucCat.color}>{glucCat.label}</Badge>
+                      </span>
+                    ) : <span className="text-gray-600">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {habitos.length ? habitos.map(h => <Badge key={h} color="orange">{h}</Badge>) : <span className="text-gray-600 text-xs">Ninguno</span>}
+                  </td>
+                </tr>
+              );
+            })}
+            {!loading && !records.length && (
+              <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <Modal title="Nueva Evaluación — Estilos de Vida Saludable" onClose={() => setShowModal(false)} wide>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Trabajador *">
+              <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
+                <option value="">Seleccionar...</option>
+                {workers.filter(w => w.estado === "Activo").map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Fecha de Evaluación *">
+              <Input type="date" value={form.fecha_evaluacion} onChange={e => setForm({ ...form, fecha_evaluacion: e.target.value })} />
+            </FormField>
+
+            <div className="col-span-2">
+              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">Antropometría</p>
+              <div className="grid grid-cols-3 gap-3">
+                <FormField label="Peso (kg)">
+                  <Input type="number" step="0.1" placeholder="70.5" value={form.peso} onChange={e => setForm({ ...form, peso: e.target.value })} />
+                </FormField>
+                <FormField label="Talla (m)">
+                  <Input type="number" step="0.01" placeholder="1.70" value={form.talla} onChange={e => setForm({ ...form, talla: e.target.value })} />
+                </FormField>
+                <FormField label="IMC (calculado)">
+                  <div className="flex items-center gap-2 h-9 px-3 bg-gray-800 border border-gray-700 rounded-lg">
+                    <span className={`font-mono font-bold text-sm ${imcPreview ? getIMCCategoria(imcPreview).color === "red" ? "text-red-400" : getIMCCategoria(imcPreview).color === "amber" ? "text-amber-400" : getIMCCategoria(imcPreview).color === "green" ? "text-emerald-400" : "text-blue-400" : "text-gray-600"}`}>
+                      {imcPreview ?? "—"}
+                    </span>
+                    {imcPreview && <Badge color={getIMCCategoria(imcPreview).color}>{getIMCCategoria(imcPreview).label}</Badge>}
+                  </div>
+                </FormField>
+              </div>
+              <FormField label="Perímetro Abdominal (cm)">
+                <Input type="number" step="0.5" placeholder="90" value={form.perimetro_abdominal} onChange={e => setForm({ ...form, perimetro_abdominal: e.target.value })} />
+              </FormField>
+            </div>
+
+            <div className="col-span-2">
+              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">Signos Vitales / Laboratorio</p>
+              <div className="grid grid-cols-3 gap-3">
+                <FormField label="Presión Sistólica (mmHg)">
+                  <Input type="number" placeholder="120" value={form.presion_sistolica} onChange={e => setForm({ ...form, presion_sistolica: e.target.value })} />
+                </FormField>
+                <FormField label="Presión Diastólica (mmHg)">
+                  <Input type="number" placeholder="80" value={form.presion_diastolica} onChange={e => setForm({ ...form, presion_diastolica: e.target.value })} />
+                </FormField>
+                <FormField label="Glucosa en Ayunas (mg/dL)">
+                  <Input type="number" placeholder="90" value={form.glucosa} onChange={e => setForm({ ...form, glucosa: e.target.value })} />
+                </FormField>
+              </div>
+            </div>
+
+            <div className="col-span-2">
+              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">Hábitos y Estilo de Vida</p>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Nivel de Actividad Física">
+                  <Select value={form.nivel_actividad} onChange={e => setForm({ ...form, nivel_actividad: e.target.value })}>
+                    <option>Sedentario</option><option>Leve</option><option>Moderado</option><option>Intenso</option>
+                  </Select>
+                </FormField>
+                <div className="flex flex-col justify-end gap-2 pb-1">
+                  {[["fumador", "Fumador"], ["consume_alcohol", "Consume alcohol"], ["sedentario", "Sedentario"]].map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={form[key]} onChange={e => setForm({ ...form, [key]: e.target.checked })} className="w-3.5 h-3.5 rounded accent-blue-500" />
+                      <span className="text-xs text-gray-400">{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <FormField label="Médico Responsable">
+              <Input placeholder="Nombre del médico" value={form.medico_responsable} onChange={e => setForm({ ...form, medico_responsable: e.target.value })} />
+            </FormField>
+            <FormField label="Observaciones / Recomendaciones">
+              <Input placeholder="Dieta, ejercicio, derivaciones..." value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} />
+            </FormField>
+          </div>
+          <div className="flex gap-2 mt-5 justify-end">
+            <Btn variant="default" onClick={() => setShowModal(false)}>Cancelar</Btn>
+            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : "Guardar Evaluación"}</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function Vigilancia({ workers, empresaId }) {
   const [tab, setTab] = useState("emos");
   const [records, setRecords] = useState([]);
@@ -1118,11 +1368,6 @@ function Vigilancia({ workers, empresaId }) {
       title: "Riesgos Psicosociales y Salud Mental",
       desc: "Evaluación de factores de riesgo psicosocial, estrés laboral y bienestar mental. (RM 312-2011/MINSA)",
       columns: ["Trabajador", "Instrumento Evaluado", "Puntaje", "Nivel Riesgo", "Derivación", "Fecha Evaluación"],
-    },
-    estilos: {
-      title: "Estilos de Vida Saludable",
-      desc: "Registro de indicadores de salud general: IMC, presión arterial, glucosa, hábitos y actividad física.",
-      columns: ["Trabajador", "IMC", "Presión Arterial", "Glucosa (mg/dL)", "Hábitos de Riesgo", "Fecha Control"],
     },
   };
 
@@ -1275,8 +1520,9 @@ function Vigilancia({ workers, empresaId }) {
           </div>
         )}
 
-        {/* Fatiga y Somnolencia — módulo completo */}
+        {/* Módulos completos */}
         {tab === "fatiga" && <FatigaModulo workers={workers} empresaId={empresaId} />}
+        {tab === "estilos" && <EstilosVidaModulo workers={workers} empresaId={empresaId} />}
 
         {/* Programas de Vigilancia — placeholders restantes */}
         {Object.entries(programConfig).map(([key, config]) =>
