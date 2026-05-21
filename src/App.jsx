@@ -1058,6 +1058,205 @@ function FatigaModulo({ workers, empresaId }) {
   );
 }
 
+function DisergonomiaModulo({ workers, empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0],
+    area_puesto: "", tipo_riesgo: "Postural", metodo_evaluacion: "REBA",
+    puntuacion: "", nivel_riesgo: "Medio", medidas_adoptadas: "",
+    proximo_control: "", medico_responsable: "", observaciones: "",
+  });
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("vigilancia_disergonomia")
+      .select("*, trabajadores(nombre)")
+      .eq("empresa_id", empresaId)
+      .order("fecha_evaluacion", { ascending: false });
+    setRecords(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const getNivelColor = (nivel) => {
+    if (nivel === "Bajo") return "green";
+    if (nivel === "Medio") return "amber";
+    if (nivel === "Alto") return "orange";
+    if (nivel === "Muy Alto") return "red";
+    return "gray";
+  };
+
+  const handleSave = async () => {
+    if (!form.trabajador_id || !form.fecha_evaluacion) {
+      showToast("Selecciona trabajador y fecha", "error"); return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("vigilancia_disergonomia").insert({
+      empresa_id: empresaId,
+      trabajador_id: form.trabajador_id,
+      fecha_evaluacion: form.fecha_evaluacion,
+      area_puesto: form.area_puesto,
+      tipo_riesgo: form.tipo_riesgo,
+      metodo_evaluacion: form.metodo_evaluacion,
+      puntuacion: form.puntuacion ? parseFloat(form.puntuacion) : null,
+      nivel_riesgo: form.nivel_riesgo,
+      medidas_adoptadas: form.medidas_adoptadas,
+      proximo_control: form.proximo_control || null,
+      medico_responsable: form.medico_responsable,
+      observaciones: form.observaciones,
+    });
+    setSaving(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast("Evaluación registrada", "success");
+    setShowModal(false);
+    setForm({ trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], area_puesto: "", tipo_riesgo: "Postural", metodo_evaluacion: "REBA", puntuacion: "", nivel_riesgo: "Medio", medidas_adoptadas: "", proximo_control: "", medico_responsable: "", observaciones: "" });
+    load();
+  };
+
+  const now = new Date();
+  const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+  const altoRiesgo = records.filter(r => r.nivel_riesgo === "Alto" || r.nivel_riesgo === "Muy Alto");
+  const sinMedidas = records.filter(r => (r.nivel_riesgo === "Alto" || r.nivel_riesgo === "Muy Alto") && !r.medidas_adoptadas);
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Riesgos Disergonómicos</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Evaluación de riesgos posturales, carga física y movimientos repetitivos. Métodos REBA, RULA, OWAS, NIOSH. (R.M. 375-2008-TR)</p>
+        </div>
+        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <KpiCard label="Evaluaciones este mes" value={thisMes.length} sub="Registros del mes actual" accentColor="blue" />
+        <KpiCard label="Riesgo Alto / Muy Alto" value={altoRiesgo.length} sub="Requieren intervención" accentColor="amber" />
+        <KpiCard label="Sin medidas adoptadas" value={sinMedidas.length} sub="Alto riesgo sin control" accentColor="red" />
+      </div>
+
+      {sinMedidas.length > 0 && (
+        <div className="bg-red-900/20 border border-red-800 rounded-xl p-4 mb-4 flex items-start gap-3">
+          <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-red-400 text-xs font-semibold mb-1">{sinMedidas.length} trabajador(es) con riesgo alto sin medidas correctivas registradas</p>
+            <p className="text-red-600 text-xs">Implementar controles de ingeniería o administrativos y actualizar el registro.</p>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-800">
+              {["Trabajador", "Área / Puesto", "Tipo Riesgo", "Método", "Puntuación", "Nivel Riesgo", "Medidas Adoptadas"].map(h => (
+                <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && records.map(r => (
+              <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
+                <td className="px-4 py-3 text-gray-400 text-xs">{r.area_puesto || "—"}</td>
+                <td className="px-4 py-3"><Badge color="blue">{r.tipo_riesgo}</Badge></td>
+                <td className="px-4 py-3 text-gray-400 text-xs font-mono">{r.metodo_evaluacion || "—"}</td>
+                <td className="px-4 py-3 font-mono font-bold text-gray-200">{r.puntuacion ?? "—"}</td>
+                <td className="px-4 py-3"><Badge color={getNivelColor(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge></td>
+                <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate">
+                  {r.medidas_adoptadas || <span className="text-red-500 text-xs">Sin registrar</span>}
+                </td>
+              </tr>
+            ))}
+            {!loading && !records.length && (
+              <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <Modal title="Nueva Evaluación — Disergonomía" onClose={() => setShowModal(false)} wide>
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4 text-xs text-gray-400">
+            <p className="font-semibold text-gray-300 mb-1">Niveles de riesgo</p>
+            <div className="grid grid-cols-4 gap-2">
+              <span className="text-emerald-400">Bajo: Aceptable</span>
+              <span className="text-amber-400">Medio: Mejorar</span>
+              <span className="text-orange-400">Alto: Pronto</span>
+              <span className="text-red-400">Muy Alto: Inmediato ⚠</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Trabajador *">
+              <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
+                <option value="">Seleccionar...</option>
+                {workers.filter(w => w.estado === "Activo").map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Fecha de Evaluación *">
+              <Input type="date" value={form.fecha_evaluacion} onChange={e => setForm({ ...form, fecha_evaluacion: e.target.value })} />
+            </FormField>
+            <FormField label="Área / Puesto de Trabajo">
+              <Input placeholder="Ej: Almacén / Estibador" value={form.area_puesto} onChange={e => setForm({ ...form, area_puesto: e.target.value })} />
+            </FormField>
+            <FormField label="Tipo de Riesgo">
+              <Select value={form.tipo_riesgo} onChange={e => setForm({ ...form, tipo_riesgo: e.target.value })}>
+                <option>Postural</option>
+                <option>Carga física</option>
+                <option>Movimientos repetitivos</option>
+                <option>Vibración</option>
+                <option>Pantalla de visualización</option>
+              </Select>
+            </FormField>
+            <FormField label="Método de Evaluación">
+              <Select value={form.metodo_evaluacion} onChange={e => setForm({ ...form, metodo_evaluacion: e.target.value })}>
+                <option>REBA</option>
+                <option>RULA</option>
+                <option>OWAS</option>
+                <option>NIOSH</option>
+                <option>Check List OCRA</option>
+                <option>Otro</option>
+              </Select>
+            </FormField>
+            <FormField label="Puntuación obtenida">
+              <Input type="number" step="0.1" placeholder="7" value={form.puntuacion} onChange={e => setForm({ ...form, puntuacion: e.target.value })} />
+            </FormField>
+            <FormField label="Nivel de Riesgo">
+              <Select value={form.nivel_riesgo} onChange={e => setForm({ ...form, nivel_riesgo: e.target.value })}>
+                <option>Bajo</option>
+                <option>Medio</option>
+                <option>Alto</option>
+                <option>Muy Alto</option>
+              </Select>
+            </FormField>
+            <FormField label="Próximo Control">
+              <Input type="date" value={form.proximo_control} onChange={e => setForm({ ...form, proximo_control: e.target.value })} />
+            </FormField>
+            <FormField label="Medidas Adoptadas">
+              <Input placeholder="Ej: Capacitación postural, faja lumbar, rediseño de puesto..." value={form.medidas_adoptadas} onChange={e => setForm({ ...form, medidas_adoptadas: e.target.value })} />
+            </FormField>
+            <FormField label="Médico / Ergónomo Responsable">
+              <Input placeholder="Nombre del profesional" value={form.medico_responsable} onChange={e => setForm({ ...form, medico_responsable: e.target.value })} />
+            </FormField>
+            <FormField label="Observaciones">
+              <Input placeholder="Notas adicionales..." value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} />
+            </FormField>
+          </div>
+          <div className="flex gap-2 mt-5 justify-end">
+            <Btn variant="default" onClick={() => setShowModal(false)}>Cancelar</Btn>
+            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : "Guardar Evaluación"}</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function AuditivaModulo({ workers, empresaId }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1743,11 +1942,6 @@ function Vigilancia({ workers, empresaId }) {
   ];
 
   const programConfig = {
-    disergonomia: {
-      title: "Riesgos Disergonómicos",
-      desc: "Evaluación y seguimiento de trabajadores expuestos a riesgos posturales, carga física y factores disergonómicos. (R.M. 375-2008-TR)",
-      columns: ["Trabajador", "Puesto", "Método Evaluación", "Nivel de Riesgo", "Medidas Adoptadas", "Fecha Control"],
-    },
     radiacion: {
       title: "Radiación Ultravioleta",
       desc: "Control de exposición a radiación UV solar en trabajadores de campo, campamentos y áreas exteriores.",
@@ -1915,6 +2109,7 @@ function Vigilancia({ workers, empresaId }) {
         )}
 
         {/* Módulos completos */}
+        {tab === "disergonomia" && <DisergonomiaModulo workers={workers} empresaId={empresaId} />}
         {tab === "auditiva" && <AuditivaModulo workers={workers} empresaId={empresaId} />}
         {tab === "gestante" && <GestanteModulo workers={workers} empresaId={empresaId} />}
         {tab === "fatiga" && <FatigaModulo workers={workers} empresaId={empresaId} />}
