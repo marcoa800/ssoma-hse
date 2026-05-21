@@ -2299,6 +2299,175 @@ function DescansosMedicosModulo({ workers, empresaId }) {
   );
 }
 
+function MorbilidadModulo({ workers, empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    trabajador_id: "", fecha_consulta: "", diagnostico: "", cie10: "",
+    tipo_atencion: "Consulta", tipo_morbilidad: "No laboral",
+    dias_reposo: "0", medico_responsable: "", observaciones: "",
+  });
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("vigilancia_morbilidad")
+      .select("*, trabajadores(nombre, area)")
+      .eq("empresa_id", empresaId)
+      .order("fecha_consulta", { ascending: false });
+    setRecords(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const now = new Date();
+  const delMes = records.filter(r => {
+    const f = new Date(r.fecha_consulta + "T00:00:00");
+    return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear();
+  });
+  const diasPerdidosMes = delMes.reduce((acc, r) => acc + (Number(r.dias_reposo) || 0), 0);
+
+  const dxFrecuente = (() => {
+    if (!records.length) return "—";
+    const freq = {};
+    records.forEach(r => { if (r.diagnostico) freq[r.diagnostico] = (freq[r.diagnostico] || 0) + 1; });
+    const top = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
+    return top ? top[0].substring(0, 20) + (top[0].length > 20 ? "…" : "") : "—";
+  })();
+
+  const resetForm = () => setForm({ trabajador_id: "", fecha_consulta: "", diagnostico: "", cie10: "", tipo_atencion: "Consulta", tipo_morbilidad: "No laboral", dias_reposo: "0", medico_responsable: "", observaciones: "" });
+
+  const handleSave = async () => {
+    if (!form.trabajador_id || !form.fecha_consulta || !form.diagnostico) {
+      showToast("Trabajador, fecha y diagnóstico son obligatorios", "error"); return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("vigilancia_morbilidad").insert({
+      ...form, dias_reposo: Number(form.dias_reposo) || 0, empresa_id: empresaId,
+    });
+    if (error) { showToast("Error: " + error.message, "error"); }
+    else { showToast("Registro guardado", "success"); setShowModal(false); resetForm(); load(); }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("¿Eliminar este registro?")) return;
+    await supabase.from("vigilancia_morbilidad").delete().eq("id", id);
+    showToast("Registro eliminado", "info"); load();
+  };
+
+  const tipoColor = (t) => t === "Accidente de trabajo" ? "red" : t === "Laboral" ? "amber" : "blue";
+  const atencionColor = (t) => t === "Hospitalización" ? "red" : t === "Emergencia" ? "amber" : "green";
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Morbilidad</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Registro de consultas médicas, diagnósticos y ausentismo laboral. Identifica las causas más frecuentes de morbilidad en el centro de trabajo.</p>
+        </div>
+        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Consulta</Btn>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <KpiCard label="Consultas este mes" value={delMes.length} sub={`${records.length} total registradas`} accentColor="blue" />
+        <KpiCard label="Dx más frecuente" value={dxFrecuente} sub="diagnóstico con más recurrencias" accentColor="purple" />
+        <KpiCard label="Días perdidos (mes)" value={diasPerdidosMes} sub="días de reposo acumulados" accentColor="red" />
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-gray-500 text-sm">Cargando...</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-800">
+                {["Trabajador", "Fecha", "Diagnóstico", "CIE-10", "Tipo Atención", "Tipo Morbilidad", "Días Reposo", "Médico", ""].map(h => (
+                  <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {records.map(r => (
+                <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-400">{r.fecha_consulta}</td>
+                  <td className="px-4 py-3 text-gray-300 text-xs max-w-[160px] truncate">{r.diagnostico}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.cie10 || "—"}</td>
+                  <td className="px-4 py-3"><Badge color={atencionColor(r.tipo_atencion)}>{r.tipo_atencion}</Badge></td>
+                  <td className="px-4 py-3"><Badge color={tipoColor(r.tipo_morbilidad)}>{r.tipo_morbilidad}</Badge></td>
+                  <td className="px-4 py-3 text-center font-mono text-xs text-gray-300">{r.dias_reposo ?? 0}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{r.medico_responsable || "—"}</td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                  </td>
+                </tr>
+              ))}
+              {!records.length && (
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">Sin registros de morbilidad aún</td></tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showModal && (
+        <Modal title="Nueva Consulta / Registro de Morbilidad" onClose={() => { setShowModal(false); resetForm(); }}>
+          <div className="space-y-4">
+            <FormField label="Trabajador *">
+              <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
+                <option value="">Seleccionar trabajador...</option>
+                {workers.map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+              </Select>
+            </FormField>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Fecha Consulta *">
+                <Input type="date" value={form.fecha_consulta} onChange={e => setForm(f => ({ ...f, fecha_consulta: e.target.value }))} />
+              </FormField>
+              <FormField label="Código CIE-10">
+                <Input value={form.cie10} onChange={e => setForm(f => ({ ...f, cie10: e.target.value }))} placeholder="Ej: J06.9, M54.5" />
+              </FormField>
+            </div>
+            <FormField label="Diagnóstico *">
+              <Input value={form.diagnostico} onChange={e => setForm(f => ({ ...f, diagnostico: e.target.value }))} placeholder="Descripción del diagnóstico médico" />
+            </FormField>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Tipo de Atención">
+                <Select value={form.tipo_atencion} onChange={e => setForm(f => ({ ...f, tipo_atencion: e.target.value }))}>
+                  {["Consulta", "Emergencia", "Hospitalización", "Tópico empresa"].map(t => <option key={t}>{t}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Tipo de Morbilidad">
+                <Select value={form.tipo_morbilidad} onChange={e => setForm(f => ({ ...f, tipo_morbilidad: e.target.value }))}>
+                  {["No laboral", "Laboral", "Accidente de trabajo", "Enfermedad profesional"].map(t => <option key={t}>{t}</option>)}
+                </Select>
+              </FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Días de Reposo">
+                <Input type="number" min="0" value={form.dias_reposo} onChange={e => setForm(f => ({ ...f, dias_reposo: e.target.value }))} placeholder="0" />
+              </FormField>
+              <FormField label="Médico Responsable">
+                <Input value={form.medico_responsable} onChange={e => setForm(f => ({ ...f, medico_responsable: e.target.value }))} placeholder="Dr. Apellidos" />
+              </FormField>
+            </div>
+            <FormField label="Observaciones">
+              <Input value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Tratamiento indicado, seguimiento..." />
+            </FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={() => { setShowModal(false); resetForm(); }}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function Vigilancia({ workers, empresaId }) {
   const [tab, setTab] = useState("emos");
   const [records, setRecords] = useState([]);
@@ -2449,31 +2618,7 @@ function Vigilancia({ workers, empresaId }) {
         {tab === "descansos" && <DescansosMedicosModulo workers={workers} empresaId={empresaId} />}
 
         {/* Morbilidad */}
-        {tab === "morbilidad" && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-white font-semibold text-sm mb-1">Morbilidad</h3>
-                <p className="text-gray-500 text-xs">Registro y análisis de causas de morbilidad laboral en el centro de trabajo.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge color="amber">EN CONSTRUCCIÓN</Badge>
-                <Btn size="sm" variant="primary" onClick={() => showToast("Función en desarrollo", "info")}><Plus size={13} /> Nuevo</Btn>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4 mb-5">
-              <KpiCard label="Consultas este mes" value="—" sub="Sin datos aún" accentColor="blue" />
-              <KpiCard label="Dx más frecuente" value="—" sub="Sin datos aún" accentColor="purple" />
-              <KpiCard label="Días perdidos" value="—" sub="Sin datos aún" accentColor="red" />
-            </div>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-gray-800">{["Trabajador", "Fecha", "Diagnóstico (CIE-10)", "Tipo Atención", "Días Reposo", "Médico"].map(h => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>)}</tr></thead>
-                <tbody><tr><td colSpan={6} className="px-4 py-12 text-center text-gray-600 text-sm">Sin registros de morbilidad aún.</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {tab === "morbilidad" && <MorbilidadModulo workers={workers} empresaId={empresaId} />}
 
         {/* Módulos completos */}
         {tab === "psicosocial" && <PsicosocialModulo workers={workers} empresaId={empresaId} />}
