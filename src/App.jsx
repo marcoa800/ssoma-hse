@@ -875,50 +875,414 @@ function KPIs({ kpis, setKpis, empresaId }) {
 // ═══════════════════════════════════════════
 // VIGILANCIA MÉDICA
 // ═══════════════════════════════════════════
-function Vigilancia({ workers }) {
+function FatigaModulo({ workers, empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0],
+    turno: "Día", score_epworth: "", horas_sueno_promedio: "",
+    nivel_actividad: "Moderado", observaciones: "", medico_responsable: "",
+  });
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("vigilancia_fatiga")
+      .select("*, trabajadores(nombre)")
+      .eq("empresa_id", empresaId)
+      .order("fecha_evaluacion", { ascending: false });
+    setRecords(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const getNivel = (score) => {
+    const s = Number(score);
+    if (s <= 5) return { label: "Sin somnolencia", color: "green" };
+    if (s <= 10) return { label: "Leve", color: "blue" };
+    if (s <= 16) return { label: "Moderado", color: "amber" };
+    return { label: "Severo", color: "red" };
+  };
+
+  const handleSave = async () => {
+    if (!form.trabajador_id || form.score_epworth === "" || !form.fecha_evaluacion) {
+      showToast("Completa los campos obligatorios", "error"); return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("vigilancia_fatiga").insert({
+      empresa_id: empresaId,
+      trabajador_id: form.trabajador_id,
+      fecha_evaluacion: form.fecha_evaluacion,
+      turno: form.turno,
+      score_epworth: Number(form.score_epworth),
+      horas_sueno_promedio: form.horas_sueno_promedio ? Number(form.horas_sueno_promedio) : null,
+      nivel_actividad: form.nivel_actividad,
+      nivel_riesgo: getNivel(form.score_epworth).label,
+      observaciones: form.observaciones,
+      medico_responsable: form.medico_responsable,
+    });
+    setSaving(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast("Evaluación registrada", "success");
+    setShowModal(false);
+    setForm({ trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], turno: "Día", score_epworth: "", horas_sueno_promedio: "", nivel_actividad: "Moderado", observaciones: "", medico_responsable: "" });
+    load();
+  };
+
+  const now = new Date();
+  const severos = records.filter(r => r.score_epworth >= 17);
+  const moderados = records.filter(r => r.score_epworth >= 11 && r.score_epworth <= 16);
+  const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Fatiga y Somnolencia</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Monitoreo mediante la Escala de Epworth (0–24). Registro de horas de sueño y nivel de riesgo por turno.</p>
+        </div>
+        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <KpiCard label="Evaluaciones este mes" value={thisMes.length} sub="Registros del mes actual" accentColor="blue" />
+        <KpiCard label="Riesgo Moderado" value={moderados.length} sub="Score Epworth 11–16" accentColor="amber" />
+        <KpiCard label="Riesgo Severo" value={severos.length} sub="Epworth ≥ 17 — Alerta" accentColor="red" />
+      </div>
+
+      {severos.length > 0 && (
+        <div className="bg-red-900/20 border border-red-800 rounded-xl p-4 mb-4 flex items-start gap-3">
+          <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-red-400 text-xs font-semibold mb-1">{severos.length} trabajador(es) con somnolencia severa (Epworth ≥ 17)</p>
+            <p className="text-red-600 text-xs">Restricción recomendada: no operar maquinaria ni conducir hasta reevaluación médica.</p>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-800">
+              {["Trabajador", "Fecha", "Turno", "Score Epworth", "Horas Sueño", "Nivel Riesgo", "Observaciones"].map(h => (
+                <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && records.map(r => {
+              const nivel = getNivel(r.score_epworth);
+              return (
+                <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_evaluacion}</td>
+                  <td className="px-4 py-3"><Badge color="gray">{r.turno}</Badge></td>
+                  <td className="px-4 py-3">
+                    <span className={`font-mono font-bold ${r.score_epworth >= 17 ? "text-red-400" : r.score_epworth >= 11 ? "text-amber-400" : r.score_epworth >= 6 ? "text-blue-400" : "text-emerald-400"}`}>
+                      {r.score_epworth} / 24
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 text-xs">{r.horas_sueno_promedio ? `${r.horas_sueno_promedio}h` : "—"}</td>
+                  <td className="px-4 py-3"><Badge color={nivel.color}>{nivel.label}</Badge></td>
+                  <td className="px-4 py-3 text-gray-500 text-xs max-w-xs truncate">{r.observaciones || "—"}</td>
+                </tr>
+              );
+            })}
+            {!loading && !records.length && (
+              <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones registradas. Usa "Nueva Evaluación" para comenzar.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <Modal title="Nueva Evaluación — Fatiga y Somnolencia" onClose={() => setShowModal(false)} wide>
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4 text-xs text-gray-400">
+            <p className="font-semibold text-gray-300 mb-1">Escala de Epworth — Referencia</p>
+            <div className="grid grid-cols-4 gap-2">
+              <span className="text-emerald-400">0–5: Sin somnolencia</span>
+              <span className="text-blue-400">6–10: Leve</span>
+              <span className="text-amber-400">11–16: Moderado</span>
+              <span className="text-red-400">17–24: Severo ⚠</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Trabajador *">
+              <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
+                <option value="">Seleccionar...</option>
+                {workers.filter(w => w.estado === "Activo").map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Fecha de Evaluación *">
+              <Input type="date" value={form.fecha_evaluacion} onChange={e => setForm({ ...form, fecha_evaluacion: e.target.value })} />
+            </FormField>
+            <FormField label="Turno">
+              <Select value={form.turno} onChange={e => setForm({ ...form, turno: e.target.value })}>
+                <option>Día</option><option>Noche</option><option>Rotativo</option>
+              </Select>
+            </FormField>
+            <FormField label="Actividad Física">
+              <Select value={form.nivel_actividad} onChange={e => setForm({ ...form, nivel_actividad: e.target.value })}>
+                <option>Sedentario</option><option>Leve</option><option>Moderado</option><option>Intenso</option>
+              </Select>
+            </FormField>
+            <FormField label="Score Epworth (0–24) *">
+              <Input type="number" min="0" max="24" placeholder="0" value={form.score_epworth} onChange={e => setForm({ ...form, score_epworth: e.target.value })} />
+              {form.score_epworth !== "" && (
+                <p className={`text-xs mt-1 font-medium ${getNivel(form.score_epworth).color === "red" ? "text-red-400" : getNivel(form.score_epworth).color === "amber" ? "text-amber-400" : getNivel(form.score_epworth).color === "blue" ? "text-blue-400" : "text-emerald-400"}`}>
+                  → {getNivel(form.score_epworth).label}
+                </p>
+              )}
+            </FormField>
+            <FormField label="Horas Sueño Promedio (últimos 7 días)">
+              <Input type="number" min="0" max="24" step="0.5" placeholder="7.5" value={form.horas_sueno_promedio} onChange={e => setForm({ ...form, horas_sueno_promedio: e.target.value })} />
+            </FormField>
+            <FormField label="Médico Responsable">
+              <Input placeholder="Nombre del médico" value={form.medico_responsable} onChange={e => setForm({ ...form, medico_responsable: e.target.value })} />
+            </FormField>
+            <FormField label="Observaciones / Restricciones">
+              <Input placeholder="Restricciones, derivaciones, notas..." value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} />
+            </FormField>
+          </div>
+          <div className="flex gap-2 mt-5 justify-end">
+            <Btn variant="default" onClick={() => setShowModal(false)}>Cancelar</Btn>
+            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : "Guardar Evaluación"}</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function Vigilancia({ workers, empresaId }) {
   const [tab, setTab] = useState("emos");
   const [records, setRecords] = useState([]);
   useEffect(() => { supabase.from("registros_medicos").select("*, trabajadores(nombre)").then(({ data }) => setRecords(data || [])); }, []);
-  const tabs = [{ id: "emos", label: "Programación EMOs" }, { id: "descansos", label: "Descansos Médicos" }, { id: "morbilidad", label: "Morbilidad" }];
   const now = new Date(); const in30 = new Date(); in30.setDate(in30.getDate() + 30);
-  return (
-    <div>
-      <div className="flex items-center gap-3 mb-4">
-        <div className="text-sm font-semibold text-white">Vigilancia Médica</div>
-        <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-purple-900/40 text-purple-400 border border-purple-800"><Lock size={11} /> MEDICO / ADMIN</span>
-        <Btn size="sm" variant="primary" className="ml-auto" onClick={() => showToast("Función en desarrollo", "info")}><Plus size={13} /> Nuevo Registro</Btn>
+
+  const grupos = [
+    {
+      label: "REGISTROS CLÍNICOS",
+      items: [
+        { id: "emos", label: "Programación EMOs" },
+        { id: "descansos", label: "Descansos Médicos" },
+        { id: "morbilidad", label: "Morbilidad" },
+      ],
+    },
+    {
+      label: "PROGRAMAS DE VIGILANCIA",
+      items: [
+        { id: "gestante", label: "Trabajadora Gestante" },
+        { id: "auditiva", label: "Protección Auditiva" },
+        { id: "disergonomia", label: "Disergonomía" },
+        { id: "radiacion", label: "Radiación UV" },
+        { id: "fatiga", label: "Fatiga y Somnolencia" },
+        { id: "respiratoria", label: "Prot. Respiratoria" },
+        { id: "psicosocial", label: "Psicosocial / Salud Mental" },
+        { id: "estilos", label: "Estilos de Vida" },
+      ],
+    },
+  ];
+
+  const programConfig = {
+    gestante: {
+      title: "Vigilancia de la Trabajadora Gestante",
+      desc: "Seguimiento médico y ajuste de condiciones laborales para trabajadoras en gestación, lactancia o post-parto. (Ley 29783, RM 312-2011/MINSA)",
+      columns: ["Trabajadora", "Semana Gestacional", "Fecha Probable Parto", "Restricciones", "Próx. Control", "Estado"],
+    },
+    auditiva: {
+      title: "Protección Auditiva",
+      desc: "Programa de conservación de la audición. Control de exposición al ruido y seguimiento audiométrico según R.M. 375-2008-TR.",
+      columns: ["Trabajador", "Área / Puesto", "dB Exposición", "Última Audiometría", "Resultado", "Próx. Control"],
+    },
+    disergonomia: {
+      title: "Riesgos Disergonómicos",
+      desc: "Evaluación y seguimiento de trabajadores expuestos a riesgos posturales, carga física y factores disergonómicos. (R.M. 375-2008-TR)",
+      columns: ["Trabajador", "Puesto", "Método Evaluación", "Nivel de Riesgo", "Medidas Adoptadas", "Fecha Control"],
+    },
+    radiacion: {
+      title: "Radiación Ultravioleta",
+      desc: "Control de exposición a radiación UV solar en trabajadores de campo, campamentos y áreas exteriores.",
+      columns: ["Trabajador", "Zona / Área", "Horas Exposición/día", "Índice UV", "EPP Asignado", "Última Revisión"],
+    },
+    respiratoria: {
+      title: "Protección Respiratoria",
+      desc: "Programa de protección respiratoria para trabajadores expuestos a polvos, gases, vapores y otros agentes inhalables.",
+      columns: ["Trabajador", "Agente Exposición", "Tipo Respirador", "Prueba de Ajuste", "Espirometría", "Fecha Control"],
+    },
+    psicosocial: {
+      title: "Riesgos Psicosociales y Salud Mental",
+      desc: "Evaluación de factores de riesgo psicosocial, estrés laboral y bienestar mental. (RM 312-2011/MINSA)",
+      columns: ["Trabajador", "Instrumento Evaluado", "Puntaje", "Nivel Riesgo", "Derivación", "Fecha Evaluación"],
+    },
+    estilos: {
+      title: "Estilos de Vida Saludable",
+      desc: "Registro de indicadores de salud general: IMC, presión arterial, glucosa, hábitos y actividad física.",
+      columns: ["Trabajador", "IMC", "Presión Arterial", "Glucosa (mg/dL)", "Hábitos de Riesgo", "Fecha Control"],
+    },
+  };
+
+  function ProgramaPlaceholder({ config }) {
+    return (
+      <div>
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <h3 className="text-white font-semibold text-sm mb-1">{config.title}</h3>
+            <p className="text-gray-500 text-xs max-w-xl">{config.desc}</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-4">
+            <Badge color="amber">EN CONSTRUCCIÓN</Badge>
+            <Btn size="sm" variant="primary" onClick={() => showToast("Función en desarrollo", "info")}><Plus size={13} /> Nuevo Registro</Btn>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4 mb-5">
+          <KpiCard label="Bajo vigilancia" value="—" sub="Sin datos aún" accentColor="blue" />
+          <KpiCard label="Evaluaciones este mes" value="—" sub="Sin datos aún" accentColor="amber" />
+          <KpiCard label="Alertas activas" value="—" sub="Sin datos aún" accentColor="red" />
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-800">
+                {config.columns.map(col => (
+                  <th key={col} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colSpan={config.columns.length} className="px-4 py-12 text-center text-gray-600 text-sm">
+                  Sin registros. Módulo en construcción.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div className="flex gap-1 border-b border-gray-800 mb-4">{tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${tab === t.id ? "border-blue-500 text-blue-400" : "border-transparent text-gray-500 hover:text-gray-300"}`}>{t.label}</button>)}</div>
-      {tab === "emos" && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-gray-800">{["Trabajador", "Última EMO", "Duración", "Vigente Hasta", "Lectura EMO", "Estado", "Aptitud"].map(h => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>)}</tr></thead>
-            <tbody>{[...workers].filter(w => w.estado === "Activo").sort((a, b) => { const va = calcularVigencia(a.ultima_emo, a.duracion_emo) || ""; const vb = calcularVigencia(b.ultima_emo, b.duracion_emo) || ""; return va.localeCompare(vb); }).map(w => {
-              const vigencia = calcularVigencia(w.ultima_emo, w.duracion_emo);
-              const isVenc = vigencia && new Date(vigencia) < now;
-              const soonVenc = !isVenc && vigencia && new Date(vigencia) <= in30;
-              return (<tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                <td className="px-4 py-3 font-medium text-white">{w.nombre}</td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.ultima_emo || "—"}</td>
-                <td className="px-4 py-3"><Badge color={w.duracion_emo === "Bianual" ? "purple" : "blue"}>{w.duracion_emo || "Anual"}</Badge></td>
-                <td className={`px-4 py-3 font-mono text-xs font-medium ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-400"}`}>{vigencia || "—"}</td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.lectura_emo || "—"}</td>
-                <td className="px-4 py-3"><Badge color={isVenc ? "red" : soonVenc ? "amber" : "green"}>{isVenc ? "Vencido" : soonVenc ? "Por vencer" : "Vigente"}</Badge></td>
-                <td className="px-4 py-3"><Badge color={w.aptitud === "Apto" ? "green" : w.aptitud === "Apto con restricción" ? "amber" : "gray"}>{w.aptitud}</Badge></td>
-              </tr>);
-            })}</tbody>
-          </table>
+    );
+  }
+
+  return (
+    <div className="flex gap-6">
+      {/* Mini-sidebar de navegación interna */}
+      <div className="w-52 shrink-0">
+        {grupos.map(grupo => (
+          <div key={grupo.label} className="mb-5">
+            <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest px-2 mb-2">{grupo.label}</p>
+            <div className="space-y-0.5">
+              {grupo.items.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setTab(item.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${tab === item.id ? "bg-blue-900/40 text-blue-400 font-medium" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Contenido principal */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="text-sm font-semibold text-white">Vigilancia Médica</div>
+          <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-purple-900/40 text-purple-400 border border-purple-800"><Lock size={11} /> MEDICO / ADMIN</span>
         </div>
-      )}
-      {tab === "descansos" && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-gray-800">{["Trabajador", "Tipo", "Inicio", "Fin", "Diagnóstico", "Médico"].map(h => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide">{h}</th>)}</tr></thead>
-            <tbody>{records.filter(r => r.tipo === "Descanso Médico").map(m => (<tr key={m.id} className="border-b border-gray-800/50"><td className="px-4 py-3 font-medium text-white">{m.trabajadores?.nombre || "—"}</td><td className="px-4 py-3"><Badge color="red">{m.tipo}</Badge></td><td className="px-4 py-3 font-mono text-xs text-gray-600">{m.fecha_inicio}</td><td className="px-4 py-3 font-mono text-xs text-gray-600">{m.fecha_fin}</td><td className="px-4 py-3 text-gray-400">{m.diagnostico}</td><td className="px-4 py-3 text-gray-600">{m.medico_responsable}</td></tr>))}{!records.filter(r => r.tipo === "Descanso Médico").length && <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-600 text-sm">No hay descansos médicos registrados</td></tr>}</tbody>
-          </table>
-        </div>
-      )}
-      {tab === "morbilidad" && <div className="text-center py-12 text-gray-600 text-sm">Módulo de morbilidad en desarrollo</div>}
+
+        {/* EMOs */}
+        {tab === "emos" && (
+          <div>
+            <div className="mb-4">
+              <h3 className="text-white font-semibold text-sm mb-1">Programación de EMOs</h3>
+              <p className="text-gray-500 text-xs">Seguimiento de vigencia de Exámenes Médico Ocupacionales por trabajador activo.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-4 mb-5">
+              <KpiCard label="EMOs Vigentes" value={workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) >= now && w.estado === "Activo"; }).length} sub="Trabajadores activos" accentColor="emerald" />
+              <KpiCard label="Por Vencer (30 días)" value={workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) >= now && new Date(v) <= in30 && w.estado === "Activo"; }).length} sub="Requieren atención" accentColor="amber" />
+              <KpiCard label="Vencidos" value={workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) < now && w.estado === "Activo"; }).length} sub="Trabajadores activos" accentColor="red" />
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-gray-800">{["Trabajador", "Última EMO", "Duración", "Vigente Hasta", "Lectura EMO", "Estado", "Aptitud"].map(h => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>)}</tr></thead>
+                <tbody>{[...workers].filter(w => w.estado === "Activo").sort((a, b) => { const va = calcularVigencia(a.ultima_emo, a.duracion_emo) || ""; const vb = calcularVigencia(b.ultima_emo, b.duracion_emo) || ""; return va.localeCompare(vb); }).map(w => {
+                  const vigencia = calcularVigencia(w.ultima_emo, w.duracion_emo);
+                  const isVenc = vigencia && new Date(vigencia) < now;
+                  const soonVenc = !isVenc && vigencia && new Date(vigencia) <= in30;
+                  return (<tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="px-4 py-3 font-medium text-white">{w.nombre}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.ultima_emo || "—"}</td>
+                    <td className="px-4 py-3"><Badge color={w.duracion_emo === "Bianual" ? "purple" : "blue"}>{w.duracion_emo || "Anual"}</Badge></td>
+                    <td className={`px-4 py-3 font-mono text-xs font-medium ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-400"}`}>{vigencia || "—"}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.lectura_emo || "—"}</td>
+                    <td className="px-4 py-3"><Badge color={isVenc ? "red" : soonVenc ? "amber" : "green"}>{isVenc ? "Vencido" : soonVenc ? "Por vencer" : "Vigente"}</Badge></td>
+                    <td className="px-4 py-3"><Badge color={w.aptitud === "Apto" ? "green" : w.aptitud === "Apto con restricción" ? "amber" : "gray"}>{w.aptitud}</Badge></td>
+                  </tr>);
+                })}</tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Descansos Médicos */}
+        {tab === "descansos" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-white font-semibold text-sm mb-1">Descansos Médicos</h3>
+                <p className="text-gray-500 text-xs">Registro de reposos médicos emitidos al personal.</p>
+              </div>
+              <Btn size="sm" variant="primary" onClick={() => showToast("Función en desarrollo", "info")}><Plus size={13} /> Nuevo</Btn>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-gray-800">{["Trabajador", "Tipo", "Inicio", "Fin", "Diagnóstico", "Médico"].map(h => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide">{h}</th>)}</tr></thead>
+                <tbody>{records.filter(r => r.tipo === "Descanso Médico").map(m => (<tr key={m.id} className="border-b border-gray-800/50"><td className="px-4 py-3 font-medium text-white">{m.trabajadores?.nombre || "—"}</td><td className="px-4 py-3"><Badge color="red">{m.tipo}</Badge></td><td className="px-4 py-3 font-mono text-xs text-gray-600">{m.fecha_inicio}</td><td className="px-4 py-3 font-mono text-xs text-gray-600">{m.fecha_fin}</td><td className="px-4 py-3 text-gray-400">{m.diagnostico}</td><td className="px-4 py-3 text-gray-600">{m.medico_responsable}</td></tr>))}{!records.filter(r => r.tipo === "Descanso Médico").length && <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-600 text-sm">No hay descansos médicos registrados</td></tr>}</tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Morbilidad */}
+        {tab === "morbilidad" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-white font-semibold text-sm mb-1">Morbilidad</h3>
+                <p className="text-gray-500 text-xs">Registro y análisis de causas de morbilidad laboral en el centro de trabajo.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge color="amber">EN CONSTRUCCIÓN</Badge>
+                <Btn size="sm" variant="primary" onClick={() => showToast("Función en desarrollo", "info")}><Plus size={13} /> Nuevo</Btn>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4 mb-5">
+              <KpiCard label="Consultas este mes" value="—" sub="Sin datos aún" accentColor="blue" />
+              <KpiCard label="Dx más frecuente" value="—" sub="Sin datos aún" accentColor="purple" />
+              <KpiCard label="Días perdidos" value="—" sub="Sin datos aún" accentColor="red" />
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-gray-800">{["Trabajador", "Fecha", "Diagnóstico (CIE-10)", "Tipo Atención", "Días Reposo", "Médico"].map(h => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>)}</tr></thead>
+                <tbody><tr><td colSpan={6} className="px-4 py-12 text-center text-gray-600 text-sm">Sin registros de morbilidad aún.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Fatiga y Somnolencia — módulo completo */}
+        {tab === "fatiga" && <FatigaModulo workers={workers} empresaId={empresaId} />}
+
+        {/* Programas de Vigilancia — placeholders restantes */}
+        {Object.entries(programConfig).map(([key, config]) =>
+          tab === key && <ProgramaPlaceholder key={key} config={config} />
+        )}
+      </div>
     </div>
   );
 }
@@ -1035,7 +1399,7 @@ export default function App() {
           {page === "capacitaciones" && <Capacitaciones workers={workers} trainings={trainings} setTrainings={setTrainings} empresaId={empresaId} />}
           {page === "documentos" && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
           {page === "kpis" && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}
-          {page === "vigilancia" && <Vigilancia workers={workers} />}
+          {page === "vigilancia" && <Vigilancia workers={workers} empresaId={empresaId} />}
         </main>
       </div>
       <ToastContainer />
