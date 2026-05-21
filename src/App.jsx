@@ -1058,6 +1058,224 @@ function FatigaModulo({ workers, empresaId }) {
   );
 }
 
+function AuditivaModulo({ workers, empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0],
+    area_puesto: "", db_exposicion: "", tipo_epp: "",
+    fecha_audiometria: "", resultado_audiometria: "Normal",
+    oido_derecho_db: "", oido_izquierdo_db: "",
+    proximo_control: "", medico_responsable: "", observaciones: "",
+  });
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("vigilancia_auditiva")
+      .select("*, trabajadores(nombre)")
+      .eq("empresa_id", empresaId)
+      .order("fecha_evaluacion", { ascending: false });
+    setRecords(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const getResultadoColor = (r) => {
+    if (r === "Normal") return "green";
+    if (r === "Hipoacusia Leve") return "amber";
+    if (r === "Hipoacusia Moderada") return "orange";
+    if (r === "Hipoacusia Severa") return "red";
+    return "gray";
+  };
+
+  const getDbColor = (db) => {
+    const v = parseFloat(db);
+    if (!v) return "gray";
+    if (v >= 95) return "text-red-400";
+    if (v >= 85) return "text-amber-400";
+    return "text-emerald-400";
+  };
+
+  const proximosControl = records.filter(r => {
+    if (!r.proximo_control) return false;
+    const diff = new Date(r.proximo_control) - new Date();
+    return diff >= 0 && diff <= 30 * 24 * 60 * 60 * 1000;
+  });
+
+  const handleSave = async () => {
+    if (!form.trabajador_id || !form.fecha_evaluacion) {
+      showToast("Selecciona trabajador y fecha", "error"); return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("vigilancia_auditiva").insert({
+      empresa_id: empresaId,
+      trabajador_id: form.trabajador_id,
+      fecha_evaluacion: form.fecha_evaluacion,
+      area_puesto: form.area_puesto,
+      db_exposicion: form.db_exposicion ? parseFloat(form.db_exposicion) : null,
+      tipo_epp: form.tipo_epp,
+      fecha_audiometria: form.fecha_audiometria || null,
+      resultado_audiometria: form.resultado_audiometria,
+      oido_derecho_db: form.oido_derecho_db ? parseFloat(form.oido_derecho_db) : null,
+      oido_izquierdo_db: form.oido_izquierdo_db ? parseFloat(form.oido_izquierdo_db) : null,
+      proximo_control: form.proximo_control || null,
+      medico_responsable: form.medico_responsable,
+      observaciones: form.observaciones,
+    });
+    setSaving(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast("Evaluación registrada", "success");
+    setShowModal(false);
+    setForm({ trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], area_puesto: "", db_exposicion: "", tipo_epp: "", fecha_audiometria: "", resultado_audiometria: "Normal", oido_derecho_db: "", oido_izquierdo_db: "", proximo_control: "", medico_responsable: "", observaciones: "" });
+    load();
+  };
+
+  const now = new Date();
+  const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+  const conHipoacusia = records.filter(r => r.resultado_audiometria && r.resultado_aviometria !== "Normal" && r.resultado_audiometria !== "Normal");
+  const altoRiesgo = records.filter(r => r.db_exposicion >= 95);
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Protección Auditiva</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Programa de conservación de la audición. Control de exposición al ruido (dB) y seguimiento audiométrico. (R.M. 375-2008-TR)</p>
+        </div>
+        <Btn size="sm" variant="primary" onClick={() => setShowModal(true)}><Plus size={13} /> Nueva Evaluación</Btn>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <KpiCard label="Evaluaciones este mes" value={thisMes.length} sub="Registros del mes actual" accentColor="blue" />
+        <KpiCard label="Con hipoacusia" value={conHipoacusia.length} sub="Resultado anormal" accentColor="amber" />
+        <KpiCard label="Exposición ≥ 95 dB" value={altoRiesgo.length} sub="Riesgo alto — control urgente" accentColor="red" />
+      </div>
+
+      {altoRiesgo.length > 0 && (
+        <div className="bg-red-900/20 border border-red-800 rounded-xl p-4 mb-4 flex items-start gap-3">
+          <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-red-400 text-xs font-semibold mb-1">{altoRiesgo.length} trabajador(es) con exposición ≥ 95 dB</p>
+            <p className="text-red-600 text-xs">Verificar uso de EPP auditivo y evaluar medidas de ingeniería para reducción de ruido en fuente.</p>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-800">
+              {["Trabajador", "Área / Puesto", "dB Exposición", "EPP Auditivo", "Audiometría", "Resultado", "Próx. Control"].map(h => (
+                <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && records.map(r => (
+              <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
+                <td className="px-4 py-3 text-gray-400 text-xs">{r.area_puesto || "—"}</td>
+                <td className="px-4 py-3">
+                  {r.db_exposicion ? (
+                    <span className={`font-mono font-bold ${getDbColor(r.db_exposicion)}`}>{r.db_exposicion} dB</span>
+                  ) : <span className="text-gray-600">—</span>}
+                </td>
+                <td className="px-4 py-3 text-gray-400 text-xs">{r.tipo_epp || "—"}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_audiometria || "—"}</td>
+                <td className="px-4 py-3"><Badge color={getResultadoColor(r.resultado_audiometria)}>{r.resultado_audiometria || "—"}</Badge></td>
+                <td className={`px-4 py-3 font-mono text-xs ${proximosControl.find(p => p.id === r.id) ? "text-amber-400 font-semibold" : "text-gray-500"}`}>{r.proximo_control || "—"}</td>
+              </tr>
+            ))}
+            {!loading && !records.length && (
+              <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <Modal title="Nueva Evaluación — Protección Auditiva" onClose={() => setShowModal(false)} wide>
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4 text-xs text-gray-400">
+            <p className="font-semibold text-gray-300 mb-1">Referencia de exposición al ruido</p>
+            <div className="grid grid-cols-3 gap-2">
+              <span className="text-emerald-400">&lt; 85 dB: Sin riesgo</span>
+              <span className="text-amber-400">85–94 dB: Riesgo — EPP obligatorio</span>
+              <span className="text-red-400">≥ 95 dB: Riesgo alto ⚠</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Trabajador *">
+              <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
+                <option value="">Seleccionar...</option>
+                {workers.filter(w => w.estado === "Activo").map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Fecha de Evaluación *">
+              <Input type="date" value={form.fecha_evaluacion} onChange={e => setForm({ ...form, fecha_evaluacion: e.target.value })} />
+            </FormField>
+            <FormField label="Área / Puesto de Trabajo">
+              <Input placeholder="Ej: Planta de producción / Operador" value={form.area_puesto} onChange={e => setForm({ ...form, area_puesto: e.target.value })} />
+            </FormField>
+            <FormField label="Nivel de Exposición (dB)">
+              <Input type="number" step="0.1" placeholder="85" value={form.db_exposicion} onChange={e => setForm({ ...form, db_exposicion: e.target.value })} />
+              {form.db_exposicion && (
+                <p className={`text-xs mt-1 font-medium ${getDbColor(form.db_exposicion)}`}>
+                  {parseFloat(form.db_exposicion) >= 95 ? "→ Riesgo alto" : parseFloat(form.db_exposicion) >= 85 ? "→ Riesgo — EPP obligatorio" : "→ Sin riesgo"}
+                </p>
+              )}
+            </FormField>
+            <FormField label="Tipo de EPP Auditivo Asignado">
+              <Select value={form.tipo_epp} onChange={e => setForm({ ...form, tipo_epp: e.target.value })}>
+                <option value="">Seleccionar...</option>
+                <option>Tapones auditivos desechables</option>
+                <option>Tapones auditivos reutilizables</option>
+                <option>Orejeras / Protectores de copa</option>
+                <option>Orejeras acopladas a casco</option>
+                <option>No aplica</option>
+              </Select>
+            </FormField>
+            <FormField label="Resultado Audiometría">
+              <Select value={form.resultado_audiometria} onChange={e => setForm({ ...form, resultado_audiometria: e.target.value })}>
+                <option>Normal</option>
+                <option>Hipoacusia Leve</option>
+                <option>Hipoacusia Moderada</option>
+                <option>Hipoacusia Severa</option>
+              </Select>
+            </FormField>
+            <FormField label="Fecha Audiometría">
+              <Input type="date" value={form.fecha_audiometria} onChange={e => setForm({ ...form, fecha_audiometria: e.target.value })} />
+            </FormField>
+            <FormField label="Próximo Control">
+              <Input type="date" value={form.proximo_control} onChange={e => setForm({ ...form, proximo_control: e.target.value })} />
+            </FormField>
+            <FormField label="Umbral auditivo OD (dBHL)">
+              <Input type="number" placeholder="25" value={form.oido_derecho_db} onChange={e => setForm({ ...form, oido_derecho_db: e.target.value })} />
+            </FormField>
+            <FormField label="Umbral auditivo OI (dBHL)">
+              <Input type="number" placeholder="25" value={form.oido_izquierdo_db} onChange={e => setForm({ ...form, oido_izquierdo_db: e.target.value })} />
+            </FormField>
+            <FormField label="Médico Responsable">
+              <Input placeholder="Nombre del médico" value={form.medico_responsable} onChange={e => setForm({ ...form, medico_responsable: e.target.value })} />
+            </FormField>
+            <FormField label="Observaciones">
+              <Input placeholder="Restricciones, seguimiento..." value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} />
+            </FormField>
+          </div>
+          <div className="flex gap-2 mt-5 justify-end">
+            <Btn variant="default" onClick={() => setShowModal(false)}>Cancelar</Btn>
+            <Btn variant="primary" disabled={saving} onClick={handleSave}>{saving ? "Guardando..." : "Guardar Evaluación"}</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function GestanteModulo({ workers, empresaId }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1525,11 +1743,6 @@ function Vigilancia({ workers, empresaId }) {
   ];
 
   const programConfig = {
-    auditiva: {
-      title: "Protección Auditiva",
-      desc: "Programa de conservación de la audición. Control de exposición al ruido y seguimiento audiométrico según R.M. 375-2008-TR.",
-      columns: ["Trabajador", "Área / Puesto", "dB Exposición", "Última Audiometría", "Resultado", "Próx. Control"],
-    },
     disergonomia: {
       title: "Riesgos Disergonómicos",
       desc: "Evaluación y seguimiento de trabajadores expuestos a riesgos posturales, carga física y factores disergonómicos. (R.M. 375-2008-TR)",
@@ -1702,6 +1915,7 @@ function Vigilancia({ workers, empresaId }) {
         )}
 
         {/* Módulos completos */}
+        {tab === "auditiva" && <AuditivaModulo workers={workers} empresaId={empresaId} />}
         {tab === "gestante" && <GestanteModulo workers={workers} empresaId={empresaId} />}
         {tab === "fatiga" && <FatigaModulo workers={workers} empresaId={empresaId} />}
         {tab === "estilos" && <EstilosVidaModulo workers={workers} empresaId={empresaId} />}
