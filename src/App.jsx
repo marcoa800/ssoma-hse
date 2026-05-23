@@ -6,7 +6,8 @@ import {
   CheckCircle, XCircle, Info, Plus, Upload,
   Download, ChevronRight, ChevronLeft, Lock,
   Trash2, LogOut, Filter, HelpCircle, Building2,
-  Settings, UserPlus, Eye, EyeOff, Pencil, FileDown
+  Settings, UserPlus, Eye, EyeOff, Pencil, FileDown,
+  ClipboardList, ShieldAlert
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
@@ -133,7 +134,7 @@ function ExportBtn({ data, filename, cols }) {
   return <Btn size="sm" variant="default" onClick={handle}><Download size={13} /> Exportar Excel</Btn>;
 }
 
-function FilterBar({ dateFrom, dateTo, onDateFrom, onDateTo, area = "", onArea, areaOptions = [] }) {
+function FilterBar({ dateFrom, dateTo, onDateFrom, onDateTo, area = "", onArea, areaOptions = [], areaLabel = "Área" }) {
   const hasFilter = dateFrom || dateTo || area;
   return (
     <div className="flex items-center gap-2 mb-4 flex-wrap p-3 bg-gray-900/50 border border-gray-800 rounded-xl">
@@ -144,7 +145,7 @@ function FilterBar({ dateFrom, dateTo, onDateFrom, onDateTo, area = "", onArea, 
       <input type="date" value={dateTo} onChange={e => onDateTo(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500" />
       {areaOptions.length > 0 && (
         <>
-          <span className="text-xs text-gray-600 ml-2">Área:</span>
+          <span className="text-xs text-gray-600 ml-2">{areaLabel}:</span>
           <select value={area} onChange={e => onArea(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
             <option value="">Todas</option>
             {areaOptions.map(a => <option key={a} value={a}>{a}</option>)}
@@ -2851,6 +2852,463 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
 }
 
 // ═══════════════════════════════════════════
+// ACCIDENTES E INCIDENTES
+// ═══════════════════════════════════════════
+function AccidentesModulo({ workers, empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+  const [fTipo, setFTipo] = useState("");
+  const initForm = {
+    trabajador_id: "", tipo: "Accidente Laboral",
+    fecha_evento: new Date().toISOString().split("T")[0], hora_evento: "",
+    lugar: "", area_puesto: "", descripcion: "", parte_cuerpo: "",
+    agente_causante: "", tipo_lesion: "", gravedad: "Leve",
+    dias_perdidos: "0", requirio_hospitalizacion: false,
+    estado_investigacion: "Pendiente", medidas_correctivas: "",
+    medico_responsable: "", supervisor: "", observaciones: ""
+  };
+  const [form, setForm] = useState(initForm);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("accidentes_incidentes")
+      .select("*, trabajadores(nombre)").eq("empresa_id", empresaId)
+      .order("fecha_evento", { ascending: false });
+    if (error) showToast("Error al cargar: " + error.message, "error");
+    setRecords(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const openEdit = (r) => {
+    setForm({
+      trabajador_id: r.trabajador_id || "", tipo: r.tipo, fecha_evento: r.fecha_evento,
+      hora_evento: r.hora_evento || "", lugar: r.lugar || "", area_puesto: r.area_puesto || "",
+      descripcion: r.descripcion || "", parte_cuerpo: r.parte_cuerpo || "",
+      agente_causante: r.agente_causante || "", tipo_lesion: r.tipo_lesion || "",
+      gravedad: r.gravedad || "Leve", dias_perdidos: r.dias_perdidos != null ? String(r.dias_perdidos) : "0",
+      requirio_hospitalizacion: r.requirio_hospitalizacion || false,
+      estado_investigacion: r.estado_investigacion || "Pendiente",
+      medidas_correctivas: r.medidas_correctivas || "", medico_responsable: r.medico_responsable || "",
+      supervisor: r.supervisor || "", observaciones: r.observaciones || ""
+    });
+    setEditing(r.id); setShowModal(true);
+  };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+  const handleDelete = async (id) => {
+    if (!confirm("¿Eliminar este registro?")) return;
+    await supabase.from("accidentes_incidentes").delete().eq("id", id);
+    showToast("Eliminado", "info"); load();
+  };
+  const handleSave = async () => {
+    if (!form.fecha_evento || !form.descripcion) { showToast("Fecha y descripción son obligatorios", "error"); return; }
+    setSaving(true);
+    const payload = {
+      empresa_id: empresaId, trabajador_id: form.trabajador_id || null,
+      tipo: form.tipo, fecha_evento: form.fecha_evento, hora_evento: form.hora_evento || null,
+      lugar: form.lugar, area_puesto: form.area_puesto, descripcion: form.descripcion,
+      parte_cuerpo: form.parte_cuerpo, agente_causante: form.agente_causante,
+      tipo_lesion: form.tipo_lesion, gravedad: form.gravedad,
+      dias_perdidos: parseInt(form.dias_perdidos) || 0,
+      requirio_hospitalizacion: form.requirio_hospitalizacion,
+      estado_investigacion: form.estado_investigacion,
+      medidas_correctivas: form.medidas_correctivas, medico_responsable: form.medico_responsable,
+      supervisor: form.supervisor, observaciones: form.observaciones
+    };
+    const { error } = editing
+      ? await supabase.from("accidentes_incidentes").update(payload).eq("id", editing)
+      : await supabase.from("accidentes_incidentes").insert(payload);
+    if (error) { showToast("Error: " + error.message, "error"); }
+    else { showToast(editing ? "Actualizado" : "Registro guardado", "success"); closeModal(); load(); }
+    setSaving(false);
+  };
+
+  const now = new Date();
+  const delMes = records.filter(r => { const d = new Date(r.fecha_evento + "T00:00:00"); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+  const diasMes = delMes.reduce((s, r) => s + (r.dias_perdidos || 0), 0);
+  const sinInvestigar = records.filter(r => r.estado_investigacion === "Pendiente").length;
+  const graves = records.filter(r => ["Grave", "Fatal"].includes(r.gravedad)).length;
+  const tipoOpts = [...new Set(records.map(r => r.tipo).filter(Boolean))].sort();
+  const filtered = records.filter(r =>
+    (!fFrom || r.fecha_evento >= fFrom) && (!fTo || r.fecha_evento <= fTo) && (!fTipo || r.tipo === fTipo));
+
+  const gravColor = g => ({ Fatal: "red", Grave: "red", Moderado: "amber", Leve: "blue", "Sin lesión": "gray" }[g] || "gray");
+  const investColor = e => ({ Completada: "green", "En proceso": "amber", Pendiente: "red" }[e] || "gray");
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Accidentes e Incidentes</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Registro y seguimiento de accidentes laborales, incidentes peligrosos y casi-accidentes. Cumplimiento Ley 29783 y R.M. 050-2013-TR.</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Tipo: r.tipo, Trabajador: r.trabajadores?.nombre || "—", Fecha: r.fecha_evento, Hora: r.hora_evento || "", Lugar: r.lugar || "", Área: r.area_puesto || "", Descripción: r.descripcion, "Parte cuerpo": r.parte_cuerpo || "", "Agente causante": r.agente_causante || "", "Tipo lesión": r.tipo_lesion || "", Gravedad: r.gravedad, "Días perdidos": r.dias_perdidos || 0, Hospitalización: r.requirio_hospitalizacion ? "Sí" : "No", "Estado investigación": r.estado_investigacion, "Medidas correctivas": r.medidas_correctivas || "", Médico: r.medico_responsable || "", Supervisor: r.supervisor || "" }))} filename="accidentes_incidentes" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nuevo Registro</Btn>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        <KpiCard label="Eventos este mes" value={delMes.length} sub={`${records.length} total registrados`} accentColor="red" />
+        <KpiCard label="Días perdidos (mes)" value={diasMes} sub="días de baja laboral" accentColor="amber" />
+        <KpiCard label="Sin investigar" value={sinInvestigar} sub="investigación pendiente" accentColor="red" />
+        <KpiCard label="Graves / Fatales" value={graves} sub="requieren reporte MINTRA" accentColor="red" />
+      </div>
+
+      {sinInvestigar > 0 && (
+        <div className="bg-red-900/20 border border-red-800 rounded-xl p-3 mb-4 flex items-start gap-3">
+          <AlertTriangle size={15} className="text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-red-400 text-xs font-semibold">{sinInvestigar} evento(s) con investigación pendiente — plazo legal: 20 días hábiles (Ley 29783)</p>
+          </div>
+        </div>
+      )}
+
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} area={fTipo} onArea={setFTipo} areaOptions={tipoOpts} areaLabel="Tipo" />
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-gray-800">
+            {["Tipo", "Trabajador", "Fecha", "Hora", "Área / Lugar", "Gravedad", "Días perdidos", "Investigación", ""].map(h => (
+              <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && filtered.map(r => (
+              <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                <td className="px-4 py-3"><Badge color={r.tipo === "Accidente Laboral" || r.tipo === "Accidente de Trayecto" ? "red" : r.tipo === "Incidente Peligroso" ? "amber" : "gray"}>{r.tipo}</Badge></td>
+                <td className="px-4 py-3 font-medium text-white text-xs">{r.trabajadores?.nombre || <span className="text-gray-600">No especificado</span>}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-400">{r.fecha_evento}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.hora_evento || "—"}</td>
+                <td className="px-4 py-3 text-xs text-gray-400 max-w-[140px] truncate">{r.lugar || r.area_puesto || "—"}</td>
+                <td className="px-4 py-3"><Badge color={gravColor(r.gravedad)}>{r.gravedad}</Badge></td>
+                <td className="px-4 py-3 font-mono text-center text-xs font-bold text-white">{r.dias_perdidos ?? 0}</td>
+                <td className="px-4 py-3"><Badge color={investColor(r.estado_investigacion)}>{r.estado_investigacion}</Badge></td>
+                <td className="px-4 py-3"><div className="flex gap-1">
+                  <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>
+                  <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                </div></td>
+              </tr>
+            ))}
+            {!loading && !filtered.length && (
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">
+                {records.length ? "Sin resultados para el filtro aplicado." : "Sin registros. Usa \"Nuevo Registro\" para comenzar."}
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <Modal title={editing ? "Editar Registro" : "Nuevo Accidente / Incidente"} onClose={closeModal} wide>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Tipo de evento *">
+                <Select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}>
+                  {["Accidente Laboral","Accidente de Trayecto","Incidente Peligroso","Casi-accidente","Enfermedad Ocupacional"].map(t => <option key={t}>{t}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Trabajador involucrado">
+                <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
+                  <option value="">No especificado / Colectivo</option>
+                  {workers.map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Fecha del evento *"><Input type="date" value={form.fecha_evento} onChange={e => setForm(f => ({ ...f, fecha_evento: e.target.value }))} /></FormField>
+              <FormField label="Hora del evento"><Input type="time" value={form.hora_evento} onChange={e => setForm(f => ({ ...f, hora_evento: e.target.value }))} /></FormField>
+              <FormField label="Lugar específico"><Input value={form.lugar} onChange={e => setForm(f => ({ ...f, lugar: e.target.value }))} placeholder="Ej: Almacén 2, piso 3" /></FormField>
+              <FormField label="Área / Puesto"><Input value={form.area_puesto} onChange={e => setForm(f => ({ ...f, area_puesto: e.target.value }))} placeholder="Ej: Producción, Operador" /></FormField>
+            </div>
+            <FormField label="Descripción del evento *">
+              <textarea value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} rows={3} placeholder="Describe detalladamente cómo ocurrió el evento..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500 resize-none" />
+            </FormField>
+            <div className="grid grid-cols-3 gap-3">
+              <FormField label="Parte del cuerpo afectada">
+                <Select value={form.parte_cuerpo} onChange={e => setForm(f => ({ ...f, parte_cuerpo: e.target.value }))}>
+                  <option value="">Seleccionar...</option>
+                  {["Cabeza","Cara","Ojos","Cuello","Hombro","Brazo","Codo","Antebrazo","Muñeca","Mano/Dedos","Tórax","Espalda superior","Lumbar","Abdomen","Cadera","Muslo","Rodilla","Pierna","Tobillo","Pie/Dedos","Múltiples","No aplica"].map(p => <option key={p}>{p}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Agente causante">
+                <Select value={form.agente_causante} onChange={e => setForm(f => ({ ...f, agente_causante: e.target.value }))}>
+                  <option value="">Seleccionar...</option>
+                  {["Máquina o equipo","Herramienta manual","Material / objeto","Caída mismo nivel","Caída diferente nivel","Esfuerzo físico","Electricidad","Sustancia química","Ruido / Vibración","Temperatura extrema","Agente biológico","Vehículo","Otro"].map(a => <option key={a}>{a}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Tipo de lesión">
+                <Select value={form.tipo_lesion} onChange={e => setForm(f => ({ ...f, tipo_lesion: e.target.value }))}>
+                  <option value="">Seleccionar...</option>
+                  {["Corte / Laceración","Contusión / Golpe","Fractura","Luxación","Esguince","Quemadura","Intoxicación","Cuerpo extraño","Aplastamiento","Amputación","Enfermedad","Sin lesión"].map(t => <option key={t}>{t}</option>)}
+                </Select>
+              </FormField>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <FormField label="Gravedad">
+                <Select value={form.gravedad} onChange={e => setForm(f => ({ ...f, gravedad: e.target.value }))}>
+                  {["Sin lesión","Leve","Moderado","Grave","Fatal"].map(g => <option key={g}>{g}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Días perdidos">
+                <Input type="number" min="0" value={form.dias_perdidos} onChange={e => setForm(f => ({ ...f, dias_perdidos: e.target.value }))} />
+              </FormField>
+              <FormField label="Estado investigación">
+                <Select value={form.estado_investigacion} onChange={e => setForm(f => ({ ...f, estado_investigacion: e.target.value }))}>
+                  {["Pendiente","En proceso","Completada"].map(e => <option key={e}>{e}</option>)}
+                </Select>
+              </FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Médico / Enfermero responsable"><Input value={form.medico_responsable} onChange={e => setForm(f => ({ ...f, medico_responsable: e.target.value }))} /></FormField>
+              <FormField label="Supervisor del área"><Input value={form.supervisor} onChange={e => setForm(f => ({ ...f, supervisor: e.target.value }))} /></FormField>
+            </div>
+            <FormField label="Medidas correctivas implementadas">
+              <textarea value={form.medidas_correctivas} onChange={e => setForm(f => ({ ...f, medidas_correctivas: e.target.value }))} rows={2} placeholder="Describe las acciones tomadas para evitar recurrencia..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500 resize-none" />
+            </FormField>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="hosp" checked={form.requirio_hospitalizacion} onChange={e => setForm(f => ({ ...f, requirio_hospitalizacion: e.target.checked }))} className="w-4 h-4 accent-blue-500" />
+              <label htmlFor="hosp" className="text-xs text-gray-400">Requirió hospitalización</label>
+            </div>
+            <FormField label="Observaciones adicionales"><Input value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} /></FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={closeModal}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
+// SEGUIMIENTO MÉDICO A TRABAJADORES
+// ═══════════════════════════════════════════
+function SeguimientoModulo({ workers, empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [fEstado, setFEstado] = useState("");
+  const [fPrioridad, setFPrioridad] = useState("");
+  const [fTipo, setFTipo] = useState("");
+  const initForm = {
+    trabajador_id: "", tipo_caso: "Sospecha Enf. Ocupacional",
+    fecha_inicio: new Date().toISOString().split("T")[0],
+    descripcion: "", diagnostico_presuntivo: "",
+    prioridad: "Media", estado: "Activo",
+    proxima_evaluacion: "", medico_responsable: "", observaciones: ""
+  };
+  const [form, setForm] = useState(initForm);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("seguimiento_casos")
+      .select("*, trabajadores(nombre, cargo)")
+      .eq("empresa_id", empresaId)
+      .order("created_at", { ascending: false });
+    if (error) showToast("Error al cargar: " + error.message, "error");
+    setRecords(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const openEdit = (r) => {
+    setForm({
+      trabajador_id: r.trabajador_id || "", tipo_caso: r.tipo_caso,
+      fecha_inicio: r.fecha_inicio, descripcion: r.descripcion || "",
+      diagnostico_presuntivo: r.diagnostico_presuntivo || "",
+      prioridad: r.prioridad || "Media", estado: r.estado || "Activo",
+      proxima_evaluacion: r.proxima_evaluacion || "",
+      medico_responsable: r.medico_responsable || "", observaciones: r.observaciones || ""
+    });
+    setEditing(r.id); setShowModal(true);
+  };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+  const handleDelete = async (id) => {
+    if (!confirm("¿Eliminar este caso?")) return;
+    await supabase.from("seguimiento_casos").delete().eq("id", id);
+    showToast("Eliminado", "info"); load();
+  };
+  const handleSave = async () => {
+    if (!form.trabajador_id || !form.tipo_caso || !form.fecha_inicio) {
+      showToast("Trabajador, tipo de caso y fecha son obligatorios", "error"); return;
+    }
+    setSaving(true);
+    const payload = {
+      empresa_id: empresaId, trabajador_id: form.trabajador_id,
+      tipo_caso: form.tipo_caso, fecha_inicio: form.fecha_inicio,
+      descripcion: form.descripcion, diagnostico_presuntivo: form.diagnostico_presuntivo,
+      prioridad: form.prioridad, estado: form.estado,
+      proxima_evaluacion: form.proxima_evaluacion || null,
+      medico_responsable: form.medico_responsable, observaciones: form.observaciones
+    };
+    const { error } = editing
+      ? await supabase.from("seguimiento_casos").update(payload).eq("id", editing)
+      : await supabase.from("seguimiento_casos").insert(payload);
+    if (error) { showToast("Error: " + error.message, "error"); }
+    else { showToast(editing ? "Caso actualizado" : "Caso registrado", "success"); closeModal(); load(); }
+    setSaving(false);
+  };
+
+  const activos = records.filter(r => r.estado === "Activo" || r.estado === "En seguimiento");
+  const altaPrioridad = records.filter(r => r.prioridad === "Alta" && r.estado !== "Cerrado");
+  const now = new Date(); const in7 = new Date(); in7.setDate(in7.getDate() + 7);
+  const proximasEval = records.filter(r => r.proxima_evaluacion && new Date(r.proxima_evaluacion + "T00:00:00") >= now && new Date(r.proxima_evaluacion + "T00:00:00") <= in7);
+
+  const filtered = records.filter(r =>
+    (!fEstado || r.estado === fEstado) &&
+    (!fPrioridad || r.prioridad === fPrioridad) &&
+    (!fTipo || r.tipo_caso === fTipo));
+
+  const prioColor = p => ({ Alta: "red", Media: "amber", Baja: "blue" }[p] || "gray");
+  const estadoColor = e => ({ Activo: "red", "En seguimiento": "amber", Resuelto: "green", Cerrado: "gray" }[e] || "gray");
+  const tiposUniq = [...new Set(records.map(r => r.tipo_caso).filter(Boolean))].sort();
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Seguimiento Médico a Trabajadores</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Registro y seguimiento de casos médicos individuales: sospecha de enfermedad ocupacional, post-accidente, restricciones activas y otros.</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "—", Cargo: r.trabajadores?.cargo || "—", "Tipo de caso": r.tipo_caso, "Fecha inicio": r.fecha_inicio, "Diagnóstico presuntivo": r.diagnostico_presuntivo || "", Prioridad: r.prioridad, Estado: r.estado, "Próx. evaluación": r.proxima_evaluacion || "", Médico: r.medico_responsable || "", Observaciones: r.observaciones || "" }))} filename="seguimiento_medico" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nuevo Caso</Btn>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <KpiCard label="Casos activos" value={activos.length} sub={`${records.length} casos en total`} accentColor="red" />
+        <KpiCard label="Prioridad alta" value={altaPrioridad.length} sub="requieren atención urgente" accentColor="amber" />
+        <KpiCard label="Evaluaciones (7 días)" value={proximasEval.length} sub="próximas citas programadas" accentColor="blue" />
+      </div>
+
+      {altaPrioridad.length > 0 && (
+        <div className="bg-amber-900/20 border border-amber-800 rounded-xl p-3 mb-4 flex items-start gap-3">
+          <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-amber-400 text-xs font-semibold">{altaPrioridad.length} caso(s) de prioridad alta activos — requieren atención prioritaria</p>
+            <p className="text-amber-600 text-xs mt-0.5">{altaPrioridad.map(r => r.trabajadores?.nombre || "Trabajador").join(", ")}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Filtros inline */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap p-3 bg-gray-900/50 border border-gray-800 rounded-xl">
+        <Filter size={12} className="text-gray-500 shrink-0" />
+        <span className="text-xs text-gray-500 shrink-0">Filtrar:</span>
+        <select value={fTipo} onChange={e => setFTipo(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
+          <option value="">Todos los tipos</option>
+          {tiposUniq.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={fEstado} onChange={e => setFEstado(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
+          <option value="">Todos los estados</option>
+          {["Activo","En seguimiento","Resuelto","Cerrado"].map(e => <option key={e} value={e}>{e}</option>)}
+        </select>
+        <select value={fPrioridad} onChange={e => setFPrioridad(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
+          <option value="">Todas las prioridades</option>
+          {["Alta","Media","Baja"].map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+        {(fTipo || fEstado || fPrioridad) && (
+          <button onClick={() => { setFTipo(""); setFEstado(""); setFPrioridad(""); }} className="text-xs text-blue-400 hover:text-blue-300 ml-1">✕ Limpiar</button>
+        )}
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-gray-800">
+            {["Trabajador", "Tipo de caso", "F. Inicio", "Dx presuntivo", "Prioridad", "Estado", "Próx. Evaluación", "Médico", ""].map(h => (
+              <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && filtered.map(r => {
+              const isProx = r.proxima_evaluacion && new Date(r.proxima_evaluacion + "T00:00:00") <= in7 && new Date(r.proxima_evaluacion + "T00:00:00") >= now;
+              return (
+                <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-white text-xs">{r.trabajadores?.nombre || "—"}</div>
+                    <div className="text-gray-600 text-[10px]">{r.trabajadores?.cargo || ""}</div>
+                  </td>
+                  <td className="px-4 py-3"><Badge color={r.tipo_caso.includes("Accidente") ? "red" : r.tipo_caso.includes("Enf") ? "amber" : "purple"}>{r.tipo_caso}</Badge></td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_inicio}</td>
+                  <td className="px-4 py-3 text-gray-400 text-xs max-w-[140px] truncate">{r.diagnostico_presuntivo || "—"}</td>
+                  <td className="px-4 py-3"><Badge color={prioColor(r.prioridad)}>{r.prioridad}</Badge></td>
+                  <td className="px-4 py-3"><Badge color={estadoColor(r.estado)}>{r.estado}</Badge></td>
+                  <td className={`px-4 py-3 font-mono text-xs ${isProx ? "text-amber-400 font-semibold" : "text-gray-500"}`}>{r.proxima_evaluacion || "—"}{isProx && " ⚠"}</td>
+                  <td className="px-4 py-3 text-gray-400 text-xs">{r.medico_responsable || "—"}</td>
+                  <td className="px-4 py-3"><div className="flex gap-1">
+                    <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>
+                    <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                  </div></td>
+                </tr>
+              );
+            })}
+            {!loading && !filtered.length && (
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">
+                {records.length ? "Sin resultados para los filtros aplicados." : "Sin casos registrados. Usa \"Nuevo Caso\" para comenzar."}
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <Modal title={editing ? "Editar Caso" : "Nuevo Caso de Seguimiento"} onClose={closeModal} wide>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Trabajador *">
+                <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
+                  <option value="">Seleccionar trabajador...</option>
+                  {workers.map(w => <option key={w.id} value={w.id}>{w.nombre}{w.cargo ? ` — ${w.cargo}` : ""}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Tipo de caso *">
+                <Select value={form.tipo_caso} onChange={e => setForm(f => ({ ...f, tipo_caso: e.target.value }))}>
+                  {["Sospecha Enf. Ocupacional","Post-accidente","Restricción médica activa","Enfermedad crónica relacionada","Salud mental / Psicosocial","Exposición a agente de riesgo","Otro"].map(t => <option key={t}>{t}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Fecha de inicio *"><Input type="date" value={form.fecha_inicio} onChange={e => setForm(f => ({ ...f, fecha_inicio: e.target.value }))} /></FormField>
+              <FormField label="Próxima evaluación"><Input type="date" value={form.proxima_evaluacion} onChange={e => setForm(f => ({ ...f, proxima_evaluacion: e.target.value }))} /></FormField>
+              <FormField label="Prioridad">
+                <Select value={form.prioridad} onChange={e => setForm(f => ({ ...f, prioridad: e.target.value }))}>
+                  {["Alta","Media","Baja"].map(p => <option key={p}>{p}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Estado">
+                <Select value={form.estado} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}>
+                  {["Activo","En seguimiento","Resuelto","Cerrado"].map(e => <option key={e}>{e}</option>)}
+                </Select>
+              </FormField>
+            </div>
+            <FormField label="Diagnóstico presuntivo"><Input value={form.diagnostico_presuntivo} onChange={e => setForm(f => ({ ...f, diagnostico_presuntivo: e.target.value }))} placeholder="Ej: Hipoacusia inducida por ruido, Lumbalgia ocupacional..." /></FormField>
+            <FormField label="Descripción / Motivo del seguimiento">
+              <textarea value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} rows={3} placeholder="Describe el motivo de la apertura del caso y los hallazgos iniciales..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500 resize-none" />
+            </FormField>
+            <FormField label="Médico responsable"><Input value={form.medico_responsable} onChange={e => setForm(f => ({ ...f, medico_responsable: e.target.value }))} placeholder="Nombre del médico ocupacional" /></FormField>
+            <FormField label="Observaciones / Plan de manejo" confidential>
+              <textarea value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} rows={2} placeholder="Plan terapéutico, restricciones, derivaciones, etc." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500 resize-none" />
+            </FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={closeModal}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : editing ? "Actualizar" : "Registrar caso"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
 // REPORTES PDF
 // ═══════════════════════════════════════════
 function ReportesModulo({ workers, trainings, empresaId, empresa }) {
@@ -3274,7 +3732,7 @@ export default function App() {
   const empresaId = profile?.empresa_id;
   const isSuperAdmin = role === "SUPERADMIN";
 
-  const pageTitles = { dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones", documentos: "Centro Documental", kpis: "Gestión de KPIs", reportes: "Reportes PDF", vigilancia: "Vigilancia Médica", superadmin: "Panel de Administración" };
+  const pageTitles = { dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones", documentos: "Centro Documental", kpis: "Gestión de KPIs", reportes: "Reportes PDF", vigilancia: "Vigilancia Médica", accidentes: "Accidentes e Incidentes", seguimiento: "Seguimiento Médico", superadmin: "Panel de Administración" };
   const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800" };
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando...</div>;
@@ -3298,6 +3756,9 @@ export default function App() {
           {NAV.map(({ id, label, icon: Icon }) => (<button key={id} onClick={() => navigate(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Icon size={16} />{label}</button>))}
           <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Salud Ocupacional</div>
           <button onClick={() => navigate("vigilancia")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "vigilancia" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Stethoscope size={16} />Vigilancia Médica<span className="ml-auto flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-500 border border-purple-900"><Lock size={9} />MED</span></button>
+          <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Seguridad</div>
+          <button onClick={() => setPage("accidentes")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "accidentes" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ShieldAlert size={16} />Accidentes</button>
+          <button onClick={() => setPage("seguimiento")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "seguimiento" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ClipboardList size={16} />Seguimiento</button>
         </nav>
         <div className="p-3 border-t border-gray-800">
           <div className="text-xs font-medium text-white mb-0.5 truncate">{profile?.nombre || session.user.email}</div>
@@ -3318,6 +3779,8 @@ export default function App() {
           {page === "documentos" && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
           {page === "kpis" && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}
           {page === "reportes" && <ReportesModulo workers={workers} trainings={trainings} empresaId={empresaId} empresa={empresa} />}
+          {page === "accidentes" && <AccidentesModulo workers={workers} empresaId={empresaId} />}
+          {page === "seguimiento" && <SeguimientoModulo workers={workers} empresaId={empresaId} />}
           {page === "vigilancia" && <Vigilancia workers={workers} empresaId={empresaId} />}
         </main>
       </div>
