@@ -6,10 +6,13 @@ import {
   CheckCircle, XCircle, Info, Plus, Upload,
   Download, ChevronRight, ChevronLeft, Lock,
   Trash2, LogOut, Filter, HelpCircle, Building2,
-  Settings, UserPlus, Eye, EyeOff, Pencil
+  Settings, UserPlus, Eye, EyeOff, Pencil, FileDown
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 // ═══════════════════════════════════════════
 // TOAST
@@ -128,6 +131,31 @@ function ExportBtn({ data, filename, cols }) {
     showToast("Excel exportado correctamente", "success");
   };
   return <Btn size="sm" variant="default" onClick={handle}><Download size={13} /> Exportar Excel</Btn>;
+}
+
+function FilterBar({ dateFrom, dateTo, onDateFrom, onDateTo, area = "", onArea, areaOptions = [] }) {
+  const hasFilter = dateFrom || dateTo || area;
+  return (
+    <div className="flex items-center gap-2 mb-4 flex-wrap p-3 bg-gray-900/50 border border-gray-800 rounded-xl">
+      <Filter size={12} className="text-gray-500 shrink-0" />
+      <span className="text-xs text-gray-500 shrink-0">Período:</span>
+      <input type="date" value={dateFrom} onChange={e => onDateFrom(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500" />
+      <span className="text-xs text-gray-600">—</span>
+      <input type="date" value={dateTo} onChange={e => onDateTo(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500" />
+      {areaOptions.length > 0 && (
+        <>
+          <span className="text-xs text-gray-600 ml-2">Área:</span>
+          <select value={area} onChange={e => onArea(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
+            <option value="">Todas</option>
+            {areaOptions.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </>
+      )}
+      {hasFilter && (
+        <button onClick={() => { onDateFrom(""); onDateTo(""); if (onArea) onArea(""); }} className="text-xs text-blue-400 hover:text-blue-300 ml-1">✕ Limpiar</button>
+      )}
+    </div>
+  );
 }
 
 // ═══════════════════════════════════════════
@@ -440,6 +468,19 @@ function Dashboard({ workers, trainings }) {
   const emoVencidos = workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) < now; });
   const pctEpp = workers.length ? Math.round((workers.filter(w => w.epp_recibido).length / workers.length) * 100) : 0;
   const pctAptitud = workers.length ? Math.round((workers.filter(w => ["Apto", "Apto con restricción"].includes(w.aptitud)).length / workers.length) * 100) : 0;
+  const chartTip = { backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', color: '#f3f4f6', fontSize: '12px' };
+  const emoChartData = [
+    { name: "Vigentes", value: workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) > in30; }).length, color: "#10b981" },
+    { name: "Por vencer (30d)", value: workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) >= now && new Date(v) <= in30; }).length, color: "#f59e0b" },
+    { name: "Vencidos", value: workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) < now; }).length, color: "#ef4444" },
+    { name: "Sin EMO", value: workers.filter(w => !w.ultima_emo).length, color: "#6b7280" },
+  ].filter(d => d.value > 0);
+  const aptitudChartData = [
+    { name: "Apto", value: workers.filter(w => w.aptitud === "Apto").length, color: "#10b981" },
+    { name: "Con restricción", value: workers.filter(w => w.aptitud === "Apto con restricción").length, color: "#f59e0b" },
+    { name: "No evaluado", value: workers.filter(w => !w.aptitud || w.aptitud === "No evaluado").length, color: "#6b7280" },
+    { name: "No apto", value: workers.filter(w => w.aptitud === "No apto").length, color: "#ef4444" },
+  ].filter(d => d.value > 0);
   return (
     <div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
@@ -465,6 +506,57 @@ function Dashboard({ workers, trainings }) {
           </div>
         </div>
       </div>
+
+      {/* ── Gráficos ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="text-sm font-semibold text-white mb-4">Estado de EMOs</div>
+          {emoChartData.length > 0 ? (
+            <div className="flex items-center gap-4">
+              <div style={{ width: 160, height: 160, flexShrink: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={emoChartData} cx="50%" cy="50%" innerRadius={45} outerRadius={72} dataKey="value" paddingAngle={2} startAngle={90} endAngle={-270}>
+                      {emoChartData.map((e, i) => <Cell key={i} fill={e.color} strokeWidth={0} />)}
+                    </Pie>
+                    <ChartTooltip contentStyle={chartTip} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-3 flex-1">
+                {emoChartData.map(e => (
+                  <div key={e.name} className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
+                    <span className="text-xs text-gray-400 flex-1">{e.name}</span>
+                    <span className="text-sm font-bold text-white">{e.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32 text-xs text-gray-600">Sin trabajadores registrados</div>
+          )}
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="text-sm font-semibold text-white mb-3">Aptitud Médica</div>
+          {aptitudChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={155}>
+              <BarChart data={aptitudChartData} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" horizontal={false} />
+                <XAxis type="number" stroke="#374151" tick={{ fill: '#6b7280', fontSize: 10 }} allowDecimals={false} />
+                <YAxis type="category" dataKey="name" stroke="#374151" tick={{ fill: '#9ca3af', fontSize: 10 }} width={95} />
+                <ChartTooltip contentStyle={chartTip} cursor={{ fill: 'rgba(55,65,81,0.3)' }} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                  {aptitudChartData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-32 text-xs text-gray-600">Sin datos de aptitud</div>
+          )}
+        </div>
+      </div>
+
       {emoVencidos.length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2"><AlertTriangle size={15} className="text-red-400" /> Alertas — EMO Vencido</div>
@@ -912,6 +1004,8 @@ function FatigaModulo({ workers, empresaId }) {
   const [editing, setEditing] = useState(null);
   const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], turno: "Día", score_epworth: "", horas_sueno_promedio: "", nivel_actividad: "Moderado", observaciones: "", medico_responsable: "" };
   const [form, setForm] = useState(initForm);
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -955,6 +1049,7 @@ function FatigaModulo({ workers, empresaId }) {
   const severos = records.filter(r => r.score_epworth >= 17);
   const moderados = records.filter(r => r.score_epworth >= 11 && r.score_epworth <= 16);
   const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo));
 
   return (
     <div>
@@ -985,6 +1080,7 @@ function FatigaModulo({ workers, empresaId }) {
         </div>
       )}
 
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -996,7 +1092,7 @@ function FatigaModulo({ workers, empresaId }) {
           </thead>
           <tbody>
             {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
-            {!loading && records.map(r => {
+            {!loading && filtered.map(r => {
               const nivel = getNivel(r.score_epworth);
               return (
                 <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
@@ -1015,8 +1111,8 @@ function FatigaModulo({ workers, empresaId }) {
                 </tr>
               );
             })}
-            {!loading && !records.length && (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones registradas. Usa "Nueva Evaluación" para comenzar.</td></tr>
+            {!loading && !filtered.length && (
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">{records.length ? "Sin resultados para el filtro aplicado." : "Sin evaluaciones registradas. Usa \"Nueva Evaluación\" para comenzar."}</td></tr>
             )}
           </tbody>
         </table>
@@ -1327,10 +1423,16 @@ function DisergonomiaModulo({ workers, empresaId }) {
     closeModal(); load();
   };
 
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+  const [fArea, setFArea] = useState("");
   const now = new Date();
   const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
   const altoRiesgo = records.filter(r => r.nivel_riesgo === "Alto" || r.nivel_riesgo === "Muy Alto");
   const sinMedidas = records.filter(r => (r.nivel_riesgo === "Alto" || r.nivel_riesgo === "Muy Alto") && !r.medidas_adoptadas);
+  const areaOptsD = [...new Set(records.map(r => r.area_puesto).filter(Boolean))].sort();
+  const filtered = records.filter(r =>
+    (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo) && (!fArea || r.area_puesto === fArea));
 
   return (
     <div>
@@ -1361,6 +1463,7 @@ function DisergonomiaModulo({ workers, empresaId }) {
         </div>
       )}
 
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} area={fArea} onArea={setFArea} areaOptions={areaOptsD} />
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -1372,7 +1475,7 @@ function DisergonomiaModulo({ workers, empresaId }) {
           </thead>
           <tbody>
             {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
-            {!loading && records.map(r => (
+            {!loading && filtered.map(r => (
               <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                 <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
                 <td className="px-4 py-3 text-gray-400 text-xs">{r.area_puesto || "—"}</td>
@@ -1386,8 +1489,8 @@ function DisergonomiaModulo({ workers, empresaId }) {
                 <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
               </tr>
             ))}
-            {!loading && !records.length && (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+            {!loading && !filtered.length && (
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">{records.length ? "Sin resultados para el filtro aplicado." : "Sin evaluaciones. Usa \"Nueva Evaluación\" para comenzar."}</td></tr>
             )}
           </tbody>
         </table>
@@ -1531,10 +1634,16 @@ function AuditivaModulo({ workers, empresaId }) {
     closeModal(); load();
   };
 
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+  const [fArea, setFArea] = useState("");
   const now = new Date();
   const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
   const conHipoacusia = records.filter(r => r.resultado_audiometria && r.resultado_aviometria !== "Normal" && r.resultado_audiometria !== "Normal");
   const altoRiesgo = records.filter(r => r.db_exposicion >= 95);
+  const areaOptsA = [...new Set(records.map(r => r.area_puesto).filter(Boolean))].sort();
+  const filtered = records.filter(r =>
+    (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo) && (!fArea || r.area_puesto === fArea));
 
   return (
     <div>
@@ -1565,6 +1674,7 @@ function AuditivaModulo({ workers, empresaId }) {
         </div>
       )}
 
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} area={fArea} onArea={setFArea} areaOptions={areaOptsA} />
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -1576,7 +1686,7 @@ function AuditivaModulo({ workers, empresaId }) {
           </thead>
           <tbody>
             {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
-            {!loading && records.map(r => (
+            {!loading && filtered.map(r => (
               <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                 <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
                 <td className="px-4 py-3 text-gray-400 text-xs">{r.area_puesto || "—"}</td>
@@ -1592,8 +1702,8 @@ function AuditivaModulo({ workers, empresaId }) {
                 <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
               </tr>
             ))}
-            {!loading && !records.length && (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+            {!loading && !filtered.length && (
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">{records.length ? "Sin resultados para el filtro aplicado." : "Sin evaluaciones. Usa \"Nueva Evaluación\" para comenzar."}</td></tr>
             )}
           </tbody>
         </table>
@@ -2740,6 +2850,206 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
   );
 }
 
+// ═══════════════════════════════════════════
+// REPORTES PDF
+// ═══════════════════════════════════════════
+function ReportesModulo({ workers, trainings, empresaId, empresa }) {
+  const [mes, setMes] = useState(new Date().toISOString().slice(0, 7));
+  const [generando, setGenerando] = useState(false);
+
+  const mesLabel = (m = mes) => {
+    const [y, mo] = m.split("-");
+    const nombres = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+    return `${nombres[parseInt(mo) - 1]} ${y}`;
+  };
+
+  const generarPDF = async () => {
+    setGenerando(true);
+    try {
+      const inicio = `${mes}-01`;
+      const finDate = new Date(mes + "-01"); finDate.setMonth(finDate.getMonth() + 1); finDate.setDate(finDate.getDate() - 1);
+      const fin = finDate.toISOString().split("T")[0];
+      const now = new Date(); const in30 = new Date(); in30.setDate(in30.getDate() + 30);
+
+      const [fatiga, descansos, morbilidad, diserg, auditiva] = await Promise.all([
+        supabase.from("vigilancia_fatiga").select("id, nivel_riesgo").eq("empresa_id", empresaId).gte("fecha_evaluacion", inicio).lte("fecha_evaluacion", fin),
+        supabase.from("vigilancia_descansos").select("id, dias_descanso").eq("empresa_id", empresaId).gte("fecha_inicio", inicio).lte("fecha_inicio", fin),
+        supabase.from("vigilancia_morbilidad").select("id, diagnostico").eq("empresa_id", empresaId).gte("fecha_consulta", inicio).lte("fecha_consulta", fin),
+        supabase.from("vigilancia_disergonomia").select("id, nivel_riesgo").eq("empresa_id", empresaId).gte("fecha_evaluacion", inicio).lte("fecha_evaluacion", fin),
+        supabase.from("vigilancia_auditiva").select("id, resultado_audiometria").eq("empresa_id", empresaId).gte("fecha_evaluacion", inicio).lte("fecha_evaluacion", fin),
+      ]);
+
+      const doc = new jsPDF();
+      const pw = doc.internal.pageSize.getWidth();
+
+      // ── HEADER ──
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pw, 38, "F");
+      doc.setFillColor(37, 99, 235);
+      doc.rect(0, 36, pw, 2, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16); doc.setFont("helvetica", "bold");
+      doc.text("INFORME MENSUAL SSOMA", pw / 2, 15, { align: "center" });
+      doc.setFontSize(9); doc.setFont("helvetica", "normal");
+      doc.text(`${empresa?.nombre || "Empresa"} | ${mesLabel()} | Generado: ${new Date().toLocaleDateString("es-PE")}`, pw / 2, 26, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+
+      // ── SECCIÓN 1: RESUMEN DE PERSONAL ──
+      doc.setFontSize(11); doc.setFont("helvetica", "bold");
+      doc.text("1. RESUMEN DE PERSONAL", 14, 50);
+      doc.autoTable({
+        startY: 55,
+        head: [["Indicador", "Valor"]],
+        body: [
+          ["Total de trabajadores", workers.length],
+          ["Trabajadores activos", workers.filter(w => w.estado === "Activo").length],
+          ["EMOs vigentes (> 30 días)", workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) > in30; }).length],
+          ["EMOs por vencer (≤ 30 días)", workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) >= now && new Date(v) <= in30; }).length],
+          ["EMOs vencidos", workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) < now; }).length],
+          ["Sin EMO registrado", workers.filter(w => !w.ultima_emo).length],
+          ["Con EPP entregado", workers.filter(w => w.epp_recibido).length],
+          ["Aptos (con o sin restricción)", workers.filter(w => ["Apto","Apto con restricción"].includes(w.aptitud)).length],
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [37, 99, 235], textColor: [255,255,255], fontStyle: "bold", fontSize: 9 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        styles: { fontSize: 9 },
+        columnStyles: { 0: { cellWidth: 140 }, 1: { halign: "center", fontStyle: "bold", cellWidth: 30 } },
+      });
+
+      // ── SECCIÓN 2: ESTADO DE EMOs ──
+      const y2 = doc.lastAutoTable.finalY + 12;
+      doc.setFontSize(11); doc.setFont("helvetica", "bold");
+      doc.text("2. ESTADO DE EMOs POR TRABAJADOR ACTIVO", 14, y2);
+      const emoRows = workers.filter(w => w.estado === "Activo").sort((a,b) => a.nombre.localeCompare(b.nombre)).map(w => {
+        const v = calcularVigencia(w.ultima_emo, w.duracion_emo);
+        const isV = v && new Date(v) < now; const porV = !isV && v && new Date(v) <= in30;
+        return [w.nombre, w.cargo || "—", w.ultima_emo || "—", v || "Sin registro", isV ? "VENCIDO" : porV ? "Por vencer" : v ? "Vigente" : "Sin EMO"];
+      });
+      doc.autoTable({
+        startY: y2 + 5,
+        head: [["Trabajador", "Cargo", "Última EMO", "Vigente Hasta", "Estado"]],
+        body: emoRows,
+        theme: "striped",
+        headStyles: { fillColor: [37, 99, 235], textColor: [255,255,255], fontStyle: "bold", fontSize: 8 },
+        styles: { fontSize: 8 },
+        didParseCell: (data) => {
+          if (data.section === "body" && data.column.index === 4) {
+            const t = data.cell.text[0];
+            if (t === "VENCIDO") data.cell.styles.textColor = [220, 38, 38];
+            else if (t === "Por vencer") data.cell.styles.textColor = [217, 119, 6];
+            else if (t === "Vigente") data.cell.styles.textColor = [16, 185, 129];
+          }
+        },
+      });
+
+      // ── SECCIÓN 3: VIGILANCIA DEL MES ──
+      if (doc.lastAutoTable.finalY > 220) doc.addPage();
+      const y3 = doc.lastAutoTable.finalY > 220 ? 20 : doc.lastAutoTable.finalY + 12;
+      doc.setFontSize(11); doc.setFont("helvetica", "bold");
+      doc.text(`3. VIGILANCIA MÉDICA — ${mesLabel().toUpperCase()}`, 14, y3);
+      doc.autoTable({
+        startY: y3 + 5,
+        head: [["Programa de Vigilancia", `Evaluaciones en ${mesLabel()}`, "Observación"]],
+        body: [
+          ["Fatiga y Somnolencia", fatiga.data?.length ?? 0, fatiga.data?.filter(r => r.nivel_riesgo === "Severo").length > 0 ? "⚠ Casos severos" : "—"],
+          ["Descansos Médicos", descansos.data?.length ?? 0, descansos.data?.length ? `${descansos.data.reduce((s, r) => s + (r.dias_descanso || 0), 0)} días acum.` : "—"],
+          ["Consultas / Morbilidad", morbilidad.data?.length ?? 0, "—"],
+          ["Riesgos Disergonómicos", diserg.data?.length ?? 0, diserg.data?.filter(r => ["Alto","Muy Alto"].includes(r.nivel_riesgo)).length > 0 ? "⚠ Alto riesgo" : "—"],
+          ["Protección Auditiva", auditiva.data?.length ?? 0, "—"],
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [124, 58, 237], textColor: [255,255,255], fontStyle: "bold", fontSize: 9 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        styles: { fontSize: 9 },
+        columnStyles: { 1: { halign: "center", fontStyle: "bold" } },
+      });
+
+      // ── FOOTER ──
+      const total = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= total; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7); doc.setTextColor(150);
+        doc.text(`SSOMA-HSE Sistema de Gestión | ${empresa?.nombre || ""} | Pág. ${i} de ${total}`, pw / 2, doc.internal.pageSize.getHeight() - 8, { align: "center" });
+      }
+
+      doc.save(`informe_ssoma_${mes}.pdf`);
+      showToast("PDF generado y descargado", "success");
+    } catch (e) {
+      showToast("Error al generar PDF: " + e.message, "error");
+    }
+    setGenerando(false);
+  };
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Módulo de Reportes</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Genera informes PDF descargables con resumen de personal, estado de EMOs y vigilancia médica del período seleccionado.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <FileDown size={16} className="text-blue-400" />
+            <span className="text-white font-semibold text-sm">Informe Mensual SSOMA</span>
+          </div>
+          <p className="text-gray-500 text-xs mb-4">Incluye resumen de personal, estado de EMOs de todos los trabajadores activos y evaluaciones de vigilancia del mes seleccionado.</p>
+          <FormField label="Mes del informe">
+            <input type="month" value={mes} onChange={e => setMes(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500" />
+          </FormField>
+          <div className="mt-4">
+            <Btn variant="primary" onClick={generarPDF} disabled={generando} className="w-full justify-center">
+              <Download size={14} />{generando ? "Generando PDF..." : `Descargar informe — ${mesLabel()}`}
+            </Btn>
+          </div>
+        </div>
+
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Info size={16} className="text-gray-500" />
+            <span className="text-white font-semibold text-sm">Contenido del informe</span>
+          </div>
+          <div className="space-y-2.5 mb-4">
+            {[
+              { icon: "📋", text: "Resumen de personal: activos, EMOs, aptitud, EPP" },
+              { icon: "📊", text: "Estado EMOs por trabajador con semáforo de vigencia" },
+              { icon: "🏥", text: "Evaluaciones de vigilancia médica del mes seleccionado" },
+              { icon: "📄", text: "Paginación y pie de página con nombre de empresa" },
+            ].map(item => (
+              <div key={item.text} className="flex items-start gap-2 text-xs text-gray-400">
+                <span className="shrink-0">{item.icon}</span><span>{item.text}</span>
+              </div>
+            ))}
+          </div>
+          <div className="p-3 bg-amber-900/20 border border-amber-800/40 rounded-lg">
+            <p className="text-amber-400 text-xs">💡 El PDF se descarga directamente. No se almacena en servidores externos.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <div className="text-sm font-semibold text-white mb-3">Próximos reportes</div>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: "Reporte de Accidentabilidad", desc: "TFIA, TFGA, días perdidos y estadísticas" },
+            { label: "Informe de Capacitaciones", desc: "Asistencia y horas por área y trabajador" },
+            { label: "Estadísticas de Morbilidad", desc: "Diagnósticos frecuentes y días de reposo" },
+            { label: "Matriz de Riesgos / IPERC", desc: "Resumen de peligros y controles por área" },
+          ].map(r => (
+            <div key={r.label} className="p-3 border border-gray-800 rounded-lg opacity-60">
+              <p className="text-xs font-medium text-gray-400 mb-1">{r.label} <Badge color="amber">Próximo</Badge></p>
+              <p className="text-xs text-gray-600">{r.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Vigilancia({ workers, empresaId }) {
   const [tab, setTab] = useState("emos");
   const [records, setRecords] = useState([]);
@@ -2903,6 +3213,7 @@ const NAV = [
   { id: "capacitaciones", label: "Capacitaciones", icon: BookOpen },
   { id: "documentos", label: "Documentos", icon: FileText },
   { id: "kpis", label: "KPIs", icon: BarChart2 },
+  { id: "reportes", label: "Reportes PDF", icon: FileDown },
 ];
 
 export default function App() {
@@ -2963,7 +3274,7 @@ export default function App() {
   const empresaId = profile?.empresa_id;
   const isSuperAdmin = role === "SUPERADMIN";
 
-  const pageTitles = { dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones", documentos: "Centro Documental", kpis: "Gestión de KPIs", vigilancia: "Vigilancia Médica", superadmin: "Panel de Administración" };
+  const pageTitles = { dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones", documentos: "Centro Documental", kpis: "Gestión de KPIs", reportes: "Reportes PDF", vigilancia: "Vigilancia Médica", superadmin: "Panel de Administración" };
   const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800" };
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando...</div>;
@@ -3006,6 +3317,7 @@ export default function App() {
           {page === "capacitaciones" && <Capacitaciones workers={workers} trainings={trainings} setTrainings={setTrainings} empresaId={empresaId} />}
           {page === "documentos" && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
           {page === "kpis" && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}
+          {page === "reportes" && <ReportesModulo workers={workers} trainings={trainings} empresaId={empresaId} empresa={empresa} />}
           {page === "vigilancia" && <Vigilancia workers={workers} empresaId={empresaId} />}
         </main>
       </div>
