@@ -7,7 +7,7 @@ import {
   Download, ChevronRight, ChevronLeft, Lock,
   Trash2, LogOut, Filter, HelpCircle, Building2,
   Settings, UserPlus, Eye, EyeOff, Pencil, FileDown,
-  ClipboardList, ShieldAlert
+  ClipboardList, ShieldAlert, Shield, Activity
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
@@ -2852,6 +2852,390 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
 }
 
 // ═══════════════════════════════════════════
+// CONTROL DE EPPs
+// ═══════════════════════════════════════════
+const TIPOS_EPP = ["Casco de seguridad","Guantes de cuero / badana","Guantes de nitrilo","Guantes de neoprene","Calzado de seguridad (punta acero)","Botas de jebe","Lentes de seguridad","Careta facial","Tapones auditivos","Orejeras","Respirador N95","Respirador con filtros intercambiables","Arnés de cuerpo completo","Overol de trabajo","Chaleco reflectivo","Protector solar FPS 50+","Traje Tyvek / HAZMAT","Mandil / delantal","Otro"];
+
+function EppModulo({ workers, empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [fTipo, setFTipo] = useState("");
+  const [fEstado, setFEstado] = useState("");
+  const [fWorker, setFWorker] = useState("");
+  const initForm = {
+    trabajador_id: "", tipo_epp: "", descripcion: "", talla: "",
+    cantidad: "1", fecha_entrega: new Date().toISOString().split("T")[0],
+    proxima_reposicion: "", estado: "Activo", observaciones: ""
+  };
+  const [form, setForm] = useState(initForm);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("control_epps")
+      .select("*, trabajadores(nombre, cargo)")
+      .eq("empresa_id", empresaId)
+      .order("fecha_entrega", { ascending: false });
+    if (error) showToast("Error: " + error.message, "error");
+    setRecords(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const openEdit = (r) => {
+    setForm({ trabajador_id: r.trabajador_id || "", tipo_epp: r.tipo_epp, descripcion: r.descripcion || "", talla: r.talla || "", cantidad: String(r.cantidad || 1), fecha_entrega: r.fecha_entrega, proxima_reposicion: r.proxima_reposicion || "", estado: r.estado || "Activo", observaciones: r.observaciones || "" });
+    setEditing(r.id); setShowModal(true);
+  };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+  const handleDelete = async (id) => {
+    if (!confirm("¿Eliminar este registro?")) return;
+    await supabase.from("control_epps").delete().eq("id", id);
+    showToast("Eliminado", "info"); load();
+  };
+  const handleSave = async () => {
+    if (!form.trabajador_id || !form.tipo_epp || !form.fecha_entrega) { showToast("Trabajador, tipo de EPP y fecha son obligatorios", "error"); return; }
+    setSaving(true);
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, tipo_epp: form.tipo_epp, descripcion: form.descripcion, talla: form.talla, cantidad: parseInt(form.cantidad) || 1, fecha_entrega: form.fecha_entrega, proxima_reposicion: form.proxima_reposicion || null, estado: form.estado, observaciones: form.observaciones };
+    const { error } = editing ? await supabase.from("control_epps").update(payload).eq("id", editing) : await supabase.from("control_epps").insert(payload);
+    if (error) { showToast("Error: " + error.message, "error"); } else { showToast(editing ? "Actualizado" : "EPP registrado", "success"); closeModal(); load(); }
+    setSaving(false);
+  };
+
+  const now = new Date(); const in30 = new Date(); in30.setDate(in30.getDate() + 30);
+  const vencidos = records.filter(r => r.proxima_reposicion && new Date(r.proxima_reposicion + "T00:00:00") < now);
+  const porVencer = records.filter(r => r.proxima_reposicion && new Date(r.proxima_reposicion + "T00:00:00") >= now && new Date(r.proxima_reposicion + "T00:00:00") <= in30);
+  const workersConEpp = new Set(records.map(r => r.trabajador_id)).size;
+  const tipoOpts = [...new Set(records.map(r => r.tipo_epp).filter(Boolean))].sort();
+  const workerOpts = workers.filter(w => records.some(r => r.trabajador_id === w.id));
+
+  const filtered = records.filter(r =>
+    (!fTipo || r.tipo_epp === fTipo) &&
+    (!fEstado || r.estado === fEstado) &&
+    (!fWorker || r.trabajador_id === fWorker));
+
+  const estadoColor = e => ({ Activo: "green", Vencido: "red", "Por vencer": "amber", Extraviado: "orange", Deteriorado: "gray" }[e] || "gray");
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Control de EPPs</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Registro de entrega de equipos de protección personal por trabajador. Control de tallas, fechas de reposición y estado.</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "—", Cargo: r.trabajadores?.cargo || "—", "Tipo EPP": r.tipo_epp, Descripción: r.descripcion || "", Talla: r.talla || "", Cantidad: r.cantidad, "F. Entrega": r.fecha_entrega, "Próx. Reposición": r.proxima_reposicion || "", Estado: r.estado, Observaciones: r.observaciones || "" }))} filename="control_epps" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Registrar entrega</Btn>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        <KpiCard label="Registros totales" value={records.length} sub={`${workersConEpp} trabajadores con EPP`} accentColor="blue" />
+        <KpiCard label="EPPs vencidos" value={vencidos.length} sub="requieren reposición inmediata" accentColor="red" />
+        <KpiCard label="Por vencer (30 días)" value={porVencer.length} sub="próxima reposición" accentColor="amber" />
+        <KpiCard label="Sin EPP registrado" value={workers.filter(w => w.estado === "Activo" && !records.some(r => r.trabajador_id === w.id)).length} sub="trabajadores activos" accentColor="purple" />
+      </div>
+
+      {(vencidos.length > 0 || porVencer.length > 0) && (
+        <div className="bg-amber-900/20 border border-amber-800 rounded-xl p-3 mb-4 flex items-start gap-3">
+          <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-amber-400 text-xs font-medium">{vencidos.length > 0 ? `${vencidos.length} EPP(s) con fecha de reposición vencida. ` : ""}{porVencer.length > 0 ? `${porVencer.length} EPP(s) por vencer en los próximos 30 días.` : ""}</p>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mb-4 flex-wrap p-3 bg-gray-900/50 border border-gray-800 rounded-xl">
+        <Filter size={12} className="text-gray-500 shrink-0" />
+        <span className="text-xs text-gray-500 shrink-0">Filtrar:</span>
+        <select value={fWorker} onChange={e => setFWorker(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
+          <option value="">Todos los trabajadores</option>
+          {workerOpts.map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+        </select>
+        <select value={fTipo} onChange={e => setFTipo(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
+          <option value="">Todos los EPPs</option>
+          {tipoOpts.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={fEstado} onChange={e => setFEstado(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
+          <option value="">Todos los estados</option>
+          {["Activo","Por vencer","Vencido","Extraviado","Deteriorado"].map(e => <option key={e} value={e}>{e}</option>)}
+        </select>
+        {(fWorker || fTipo || fEstado) && <button onClick={() => { setFWorker(""); setFTipo(""); setFEstado(""); }} className="text-xs text-blue-400 hover:text-blue-300 ml-1">✕ Limpiar</button>}
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-gray-800">
+            {["Trabajador", "Tipo EPP", "Descripción / Marca", "Talla", "Cant.", "F. Entrega", "Próx. Reposición", "Estado", ""].map(h => (
+              <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && filtered.map(r => {
+              const isVenc = r.proxima_reposicion && new Date(r.proxima_reposicion + "T00:00:00") < now;
+              const isPorV = !isVenc && r.proxima_reposicion && new Date(r.proxima_reposicion + "T00:00:00") <= in30;
+              const estadoReal = isVenc ? "Vencido" : isPorV ? "Por vencer" : r.estado;
+              return (
+                <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-white text-xs">{r.trabajadores?.nombre || "—"}</div>
+                    <div className="text-gray-600 text-[10px]">{r.trabajadores?.cargo || ""}</div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-300 text-xs">{r.tipo_epp}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{r.descripcion || "—"}</td>
+                  <td className="px-4 py-3 text-center text-gray-400 text-xs font-mono">{r.talla || "—"}</td>
+                  <td className="px-4 py-3 text-center text-white font-bold text-xs">{r.cantidad}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_entrega}</td>
+                  <td className={`px-4 py-3 font-mono text-xs ${isVenc ? "text-red-400 font-semibold" : isPorV ? "text-amber-400 font-semibold" : "text-gray-500"}`}>{r.proxima_reposicion || "—"}</td>
+                  <td className="px-4 py-3"><Badge color={estadoColor(estadoReal)}>{estadoReal}</Badge></td>
+                  <td className="px-4 py-3"><div className="flex gap-1">
+                    <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>
+                    <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                  </div></td>
+                </tr>
+              );
+            })}
+            {!loading && !filtered.length && (
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">{records.length ? "Sin resultados para el filtro aplicado." : "Sin registros. Usa \"Registrar entrega\" para comenzar."}</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <Modal title={editing ? "Editar registro EPP" : "Registrar entrega de EPP"} onClose={closeModal} wide>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Trabajador *">
+                <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
+                  <option value="">Seleccionar trabajador...</option>
+                  {workers.map(w => <option key={w.id} value={w.id}>{w.nombre}{w.cargo ? ` — ${w.cargo}` : ""}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Tipo de EPP *">
+                <Select value={form.tipo_epp} onChange={e => setForm(f => ({ ...f, tipo_epp: e.target.value }))}>
+                  <option value="">Seleccionar...</option>
+                  {TIPOS_EPP.map(t => <option key={t}>{t}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Descripción / Marca"><Input value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} placeholder="Ej: 3M, MSA, Jyrsa..." /></FormField>
+              <FormField label="Talla / Medida"><Input value={form.talla} onChange={e => setForm(f => ({ ...f, talla: e.target.value }))} placeholder="S, M, L, XL / 40, 42..." /></FormField>
+              <FormField label="Cantidad"><Input type="number" min="1" value={form.cantidad} onChange={e => setForm(f => ({ ...f, cantidad: e.target.value }))} /></FormField>
+              <FormField label="Estado">
+                <Select value={form.estado} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}>
+                  {["Activo","Extraviado","Deteriorado"].map(e => <option key={e}>{e}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Fecha de entrega *"><Input type="date" value={form.fecha_entrega} onChange={e => setForm(f => ({ ...f, fecha_entrega: e.target.value }))} /></FormField>
+              <FormField label="Fecha de próxima reposición"><Input type="date" value={form.proxima_reposicion} onChange={e => setForm(f => ({ ...f, proxima_reposicion: e.target.value }))} /></FormField>
+            </div>
+            <FormField label="Observaciones"><Input value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Ej: Entregado con firma de recepción, reemplaza EPP dañado..." /></FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={closeModal}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : editing ? "Actualizar" : "Registrar"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
+// MONITOREO DE AGENTES OCUPACIONALES
+// ═══════════════════════════════════════════
+const TIPOS_AGENTE = ["Ruido ocupacional","Material particulado respirable","Material particulado total","Polvo de sílice libre cristalizada","Iluminación","Estrés térmico (WBGT)","Vibración mano-brazo","Vibración cuerpo entero","Agente químico","Agente biológico","Radiación UV","Radiación ionizante","Ventilación","Otro"];
+const UNIDADES_AGENTE = { "Ruido ocupacional": "dB(A)", "Material particulado respirable": "mg/m³", "Material particulado total": "mg/m³", "Polvo de sílice libre cristalizada": "mg/m³", "Iluminación": "lux", "Estrés térmico (WBGT)": "°C WBGT", "Vibración mano-brazo": "m/s²", "Vibración cuerpo entero": "m/s²", "Radiación UV": "mW/cm²" };
+const LIMITES_AGENTE = { "Ruido ocupacional": 85, "Material particulado respirable": 5, "Material particulado total": 10, "Polvo de sílice libre cristalizada": 0.025, "Vibración mano-brazo": 5, "Vibración cuerpo entero": 0.5 };
+
+function MonitoreoModulo({ empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [fTipo, setFTipo] = useState("");
+  const [fSupera, setFSupera] = useState("");
+  const initForm = {
+    tipo_agente: "", area_monitoreada: "", fecha_monitoreo: new Date().toISOString().split("T")[0],
+    empresa_laboratorio: "", resultado_valor: "", unidad: "", limite_permisible: "",
+    supera_limite: false, observaciones: "", medidas_correctivas: "", proxima_fecha: ""
+  };
+  const [form, setForm] = useState(initForm);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("monitoreo_agentes")
+      .select("*").eq("empresa_id", empresaId)
+      .order("fecha_monitoreo", { ascending: false });
+    if (error) showToast("Error: " + error.message, "error");
+    setRecords(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const openEdit = (r) => {
+    setForm({ tipo_agente: r.tipo_agente, area_monitoreada: r.area_monitoreada, fecha_monitoreo: r.fecha_monitoreo, empresa_laboratorio: r.empresa_laboratorio || "", resultado_valor: r.resultado_valor != null ? String(r.resultado_valor) : "", unidad: r.unidad || "", limite_permisible: r.limite_permisible != null ? String(r.limite_permisible) : "", supera_limite: r.supera_limite || false, observaciones: r.observaciones || "", medidas_correctivas: r.medidas_correctivas || "", proxima_fecha: r.proxima_fecha || "" });
+    setEditing(r.id); setShowModal(true);
+  };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+  const handleDelete = async (id) => {
+    if (!confirm("¿Eliminar este registro?")) return;
+    await supabase.from("monitoreo_agentes").delete().eq("id", id);
+    showToast("Eliminado", "info"); load();
+  };
+  const handleSave = async () => {
+    if (!form.tipo_agente || !form.area_monitoreada || !form.fecha_monitoreo) { showToast("Tipo, área y fecha son obligatorios", "error"); return; }
+    setSaving(true);
+    const resultado = form.resultado_valor ? parseFloat(form.resultado_valor) : null;
+    const limite = form.limite_permisible ? parseFloat(form.limite_permisible) : null;
+    const supera = resultado != null && limite != null ? resultado > limite : form.supera_limite;
+    const payload = { empresa_id: empresaId, tipo_agente: form.tipo_agente, area_monitoreada: form.area_monitoreada, fecha_monitoreo: form.fecha_monitoreo, empresa_laboratorio: form.empresa_laboratorio, resultado_valor: resultado, unidad: form.unidad, limite_permisible: limite, supera_limite: supera, observaciones: form.observaciones, medidas_correctivas: form.medidas_correctivas, proxima_fecha: form.proxima_fecha || null };
+    const { error } = editing ? await supabase.from("monitoreo_agentes").update(payload).eq("id", editing) : await supabase.from("monitoreo_agentes").insert(payload);
+    if (error) { showToast("Error: " + error.message, "error"); } else { showToast(editing ? "Actualizado" : "Monitoreo registrado", "success"); closeModal(); load(); }
+    setSaving(false);
+  };
+
+  const superanLimite = records.filter(r => r.supera_limite);
+  const anioActual = new Date().getFullYear();
+  const delAnio = records.filter(r => new Date(r.fecha_monitoreo).getFullYear() === anioActual);
+  const areasMonit = new Set(records.map(r => r.area_monitoreada)).size;
+  const tipoOpts = [...new Set(records.map(r => r.tipo_agente).filter(Boolean))].sort();
+  const filtered = records.filter(r => (!fTipo || r.tipo_agente === fTipo) && (!fSupera || (fSupera === "si" ? r.supera_limite : !r.supera_limite)));
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">Monitoreo de Agentes Ocupacionales</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Registro de resultados de monitoreos anuales de agentes físicos, químicos y biológicos por área. (D.S. 015-2005-SA / R.M. 375-2008-TR)</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ "Tipo de agente": r.tipo_agente, Área: r.area_monitoreada, Fecha: r.fecha_monitoreo, Laboratorio: r.empresa_laboratorio || "", Resultado: r.resultado_valor ?? "", Unidad: r.unidad || "", "Límite permisible": r.limite_permisible ?? "", "¿Supera límite?": r.supera_limite ? "SÍ" : "No", Observaciones: r.observaciones || "", "Medidas correctivas": r.medidas_correctivas || "", "Próx. monitoreo": r.proxima_fecha || "" }))} filename="monitoreo_agentes" />
+          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nuevo monitoreo</Btn>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-5">
+        <KpiCard label={`Monitoreos ${anioActual}`} value={delAnio.length} sub={`${records.length} registros en total`} accentColor="blue" />
+        <KpiCard label="Superan límite permisible" value={superanLimite.length} sub="requieren medidas correctivas" accentColor="red" />
+        <KpiCard label="Áreas monitoreadas" value={areasMonit} sub="áreas únicas registradas" accentColor="emerald" />
+      </div>
+
+      {superanLimite.length > 0 && (
+        <div className="bg-red-900/20 border border-red-800 rounded-xl p-3 mb-4 flex items-start gap-3">
+          <AlertTriangle size={15} className="text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-red-400 text-xs font-semibold mb-1">{superanLimite.length} monitoreo(s) superan el límite permisible — se requieren medidas de control inmediatas</p>
+            <p className="text-red-600 text-xs">{superanLimite.map(r => `${r.tipo_agente} en ${r.area_monitoreada}`).join(" · ")}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mb-4 flex-wrap p-3 bg-gray-900/50 border border-gray-800 rounded-xl">
+        <Filter size={12} className="text-gray-500 shrink-0" />
+        <span className="text-xs text-gray-500 shrink-0">Filtrar:</span>
+        <select value={fTipo} onChange={e => setFTipo(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
+          <option value="">Todos los agentes</option>
+          {tipoOpts.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={fSupera} onChange={e => setFSupera(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
+          <option value="">Todos</option>
+          <option value="si">⚠ Superan límite</option>
+          <option value="no">✓ Dentro del límite</option>
+        </select>
+        {(fTipo || fSupera) && <button onClick={() => { setFTipo(""); setFSupera(""); }} className="text-xs text-blue-400 hover:text-blue-300 ml-1">✕ Limpiar</button>}
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-gray-800">
+            {["Agente", "Área monitoreada", "Fecha", "Laboratorio", "Resultado", "Límite", "¿Supera?", "Próx. Monitoreo", ""].map(h => (
+              <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && filtered.map(r => (
+              <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                <td className="px-4 py-3 text-gray-300 text-xs font-medium">{r.tipo_agente}</td>
+                <td className="px-4 py-3 text-gray-400 text-xs">{r.area_monitoreada}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_monitoreo}</td>
+                <td className="px-4 py-3 text-gray-500 text-xs">{r.empresa_laboratorio || "—"}</td>
+                <td className="px-4 py-3">
+                  {r.resultado_valor != null ? (
+                    <span className={`font-mono font-bold text-xs ${r.supera_limite ? "text-red-400" : "text-emerald-400"}`}>{r.resultado_valor} <span className="font-normal text-gray-600">{r.unidad}</span></span>
+                  ) : <span className="text-gray-600">—</span>}
+                </td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.limite_permisible != null ? `${r.limite_permisible} ${r.unidad || ""}` : "—"}</td>
+                <td className="px-4 py-3">{r.supera_limite ? <Badge color="red">⚠ SÍ</Badge> : <Badge color="green">✓ No</Badge>}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.proxima_fecha || "—"}</td>
+                <td className="px-4 py-3"><div className="flex gap-1">
+                  <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>
+                  <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                </div></td>
+              </tr>
+            ))}
+            {!loading && !filtered.length && (
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">{records.length ? "Sin resultados para el filtro." : "Sin monitoreos registrados. Usa \"Nuevo monitoreo\" para comenzar."}</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <Modal title={editing ? "Editar monitoreo" : "Registrar monitoreo"} onClose={closeModal} wide>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Tipo de agente *">
+                <Select value={form.tipo_agente} onChange={e => {
+                  const t = e.target.value;
+                  setForm(f => ({ ...f, tipo_agente: t, unidad: UNIDADES_AGENTE[t] || f.unidad, limite_permisible: LIMITES_AGENTE[t] != null ? String(LIMITES_AGENTE[t]) : f.limite_permisible }));
+                }}>
+                  <option value="">Seleccionar agente...</option>
+                  {TIPOS_AGENTE.map(t => <option key={t}>{t}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Área monitoreada *"><Input value={form.area_monitoreada} onChange={e => setForm(f => ({ ...f, area_monitoreada: e.target.value }))} placeholder="Ej: Planta de chancado, Almacén 2, Sala de compresores..." /></FormField>
+              <FormField label="Fecha de monitoreo *"><Input type="date" value={form.fecha_monitoreo} onChange={e => setForm(f => ({ ...f, fecha_monitoreo: e.target.value }))} /></FormField>
+              <FormField label="Empresa / Laboratorio"><Input value={form.empresa_laboratorio} onChange={e => setForm(f => ({ ...f, empresa_laboratorio: e.target.value }))} placeholder="Nombre del laboratorio acreditado..." /></FormField>
+              <FormField label="Resultado medido">
+                <div className="flex gap-2">
+                  <Input type="number" step="0.001" value={form.resultado_valor} onChange={e => setForm(f => ({ ...f, resultado_valor: e.target.value }))} placeholder="Valor numérico" className="flex-1" />
+                  <Input value={form.unidad} onChange={e => setForm(f => ({ ...f, unidad: e.target.value }))} placeholder="Unidad" className="w-24" />
+                </div>
+              </FormField>
+              <FormField label="Límite permisible"><Input type="number" step="0.001" value={form.limite_permisible} onChange={e => setForm(f => ({ ...f, limite_permisible: e.target.value }))} placeholder="Según normativa" /></FormField>
+              <FormField label="Próximo monitoreo"><Input type="date" value={form.proxima_fecha} onChange={e => setForm(f => ({ ...f, proxima_fecha: e.target.value }))} /></FormField>
+              <FormField label="¿Supera límite permisible?">
+                <div className="flex items-center gap-3 py-2">
+                  {form.resultado_valor && form.limite_permisible ? (
+                    <span className={`text-xs font-semibold px-2 py-1 rounded ${parseFloat(form.resultado_valor) > parseFloat(form.limite_permisible) ? "bg-red-900/40 text-red-400" : "bg-emerald-900/40 text-emerald-400"}`}>
+                      {parseFloat(form.resultado_valor) > parseFloat(form.limite_permisible) ? "⚠ SÍ supera el límite" : "✓ Dentro del límite"}
+                    </span>
+                  ) : (
+                    <label className="flex items-center gap-2 text-xs text-gray-400">
+                      <input type="checkbox" checked={form.supera_limite} onChange={e => setForm(f => ({ ...f, supera_limite: e.target.checked }))} className="w-4 h-4 accent-red-500" />
+                      Marcar manualmente
+                    </label>
+                  )}
+                </div>
+              </FormField>
+            </div>
+            <FormField label="Observaciones / Hallazgos"><Input value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Descripción de condiciones, puntos de medición, método utilizado..." /></FormField>
+            <FormField label="Medidas correctivas / Control implementado"><Input value={form.medidas_correctivas} onChange={e => setForm(f => ({ ...f, medidas_correctivas: e.target.value }))} placeholder="Ej: Se instaló silenciador, uso obligatorio de protector auditivo..." /></FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={closeModal}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : editing ? "Actualizar" : "Guardar"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
 // ACCIDENTES E INCIDENTES
 // ═══════════════════════════════════════════
 function AccidentesModulo({ workers, empresaId }) {
@@ -3732,7 +4116,7 @@ export default function App() {
   const empresaId = profile?.empresa_id;
   const isSuperAdmin = role === "SUPERADMIN";
 
-  const pageTitles = { dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones", documentos: "Centro Documental", kpis: "Gestión de KPIs", reportes: "Reportes PDF", vigilancia: "Vigilancia Médica", accidentes: "Accidentes e Incidentes", seguimiento: "Seguimiento Médico", superadmin: "Panel de Administración" };
+  const pageTitles = { dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones", documentos: "Centro Documental", kpis: "Gestión de KPIs", reportes: "Reportes PDF", vigilancia: "Vigilancia Médica", accidentes: "Accidentes e Incidentes", seguimiento: "Seguimiento Médico", epps: "Control de EPPs", monitoreo: "Monitoreo de Agentes", superadmin: "Panel de Administración" };
   const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800" };
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando...</div>;
@@ -3759,6 +4143,8 @@ export default function App() {
           <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Seguridad</div>
           <button onClick={() => setPage("accidentes")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "accidentes" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ShieldAlert size={16} />Accidentes</button>
           <button onClick={() => setPage("seguimiento")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "seguimiento" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ClipboardList size={16} />Seguimiento</button>
+          <button onClick={() => setPage("epps")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "epps" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Shield size={16} />Control de EPPs</button>
+          <button onClick={() => setPage("monitoreo")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "monitoreo" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Activity size={16} />Monitoreo</button>
         </nav>
         <div className="p-3 border-t border-gray-800">
           <div className="text-xs font-medium text-white mb-0.5 truncate">{profile?.nombre || session.user.email}</div>
@@ -3781,6 +4167,8 @@ export default function App() {
           {page === "reportes" && <ReportesModulo workers={workers} trainings={trainings} empresaId={empresaId} empresa={empresa} />}
           {page === "accidentes" && <AccidentesModulo workers={workers} empresaId={empresaId} />}
           {page === "seguimiento" && <SeguimientoModulo workers={workers} empresaId={empresaId} />}
+          {page === "epps" && <EppModulo workers={workers} empresaId={empresaId} />}
+          {page === "monitoreo" && <MonitoreoModulo empresaId={empresaId} />}
           {page === "vigilancia" && <Vigilancia workers={workers} empresaId={empresaId} />}
         </main>
       </div>
