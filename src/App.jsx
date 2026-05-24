@@ -4084,6 +4084,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [empresa, setEmpresa] = useState(null);
+  const [allEmpresas, setAllEmpresas] = useState([]);
+  const [switching, setSwitching] = useState(false);
   const [page, setPage] = useState("dashboard");
   const [workers, setWorkers] = useState([]);
   const [trainings, setTrainings] = useState([]);
@@ -4116,7 +4118,27 @@ export default function App() {
       if (prof.empresa_id) {
         loadData(prof.empresa_id);
       }
+      // Cargar lista de empresas para el selector (roles con acceso multi-empresa)
+      if (["SUPERADMIN", "ADMIN", "MEDICO"].includes(prof.rol)) {
+        supabase.from("empresas").select("id, nombre").order("nombre")
+          .then(({ data }) => setAllEmpresas(data || []));
+      }
     }
+  };
+
+  const switchEmpresa = async (newId) => {
+    if (!newId || newId === profile?.empresa_id || switching) return;
+    setSwitching(true);
+    const { error } = await supabase.from("profiles").update({ empresa_id: newId }).eq("id", session.user.id);
+    if (error) { showToast("Error al cambiar empresa: " + error.message, "error"); setSwitching(false); return; }
+    const nueva = allEmpresas.find(e => e.id === newId);
+    setProfile(p => ({ ...p, empresa_id: newId, empresas: nueva }));
+    setEmpresa(nueva);
+    setWorkers([]); setTrainings([]); setDocs([]); setKpis([]);
+    setPage("dashboard");
+    loadData(newId);
+    showToast(`Empresa cambiada: ${nueva?.nombre || "—"}`, "success");
+    setSwitching(false);
   };
 
   const loadData = async (empresaId) => {
@@ -4147,8 +4169,23 @@ export default function App() {
     <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
       <aside className="w-56 min-w-56 bg-gray-900 border-r border-gray-800 flex flex-col overflow-y-auto">
         <div className="px-4 py-4 border-b border-gray-800">
-          <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-xs font-bold">S</div><span className="font-semibold text-sm">SSOMA <span className="text-gray-500 font-normal">HSE</span></span></div>
-          <div className="text-xs text-gray-600 mt-1 truncate">{empresa?.nombre || "Sin empresa"}</div>
+          <div className="flex items-center gap-2.5 mb-2"><div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-xs font-bold">S</div><span className="font-semibold text-sm">SSOMA <span className="text-gray-500 font-normal">HSE</span></span></div>
+          {allEmpresas.length > 1 ? (
+            <div>
+              <div className="text-xs text-gray-700 mb-1 flex items-center gap-1"><Building2 size={10} />Empresa activa</div>
+              <select
+                value={profile?.empresa_id || ""}
+                onChange={e => switchEmpresa(e.target.value)}
+                disabled={switching}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
+              >
+                {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+              </select>
+              {switching && <div className="text-xs text-blue-400 mt-1 animate-pulse">Cambiando...</div>}
+            </div>
+          ) : (
+            <div className="text-xs text-gray-600 truncate">{empresa?.nombre || "Sin empresa"}</div>
+          )}
         </div>
         <nav className="flex-1 px-2 py-3 space-y-0.5">
           {isSuperAdmin && (
