@@ -476,11 +476,15 @@ function Dashboard({ workers, trainings }) {
     { name: "Vencidos", value: workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) < now; }).length, color: "#ef4444" },
     { name: "Sin EMO", value: workers.filter(w => !w.ultima_emo).length, color: "#6b7280" },
   ].filter(d => d.value > 0);
+  const nApto        = workers.filter(w => w.aptitud === "Apto").length;
+  const nRestriccion = workers.filter(w => w.aptitud === "Apto con restricción").length;
+  const nNoEvaluado  = workers.filter(w => !w.aptitud || w.aptitud === "No evaluado").length;
+  const nNoApto      = workers.filter(w => w.aptitud === "No apto").length;
   const aptitudChartData = [
-    { name: "Apto", value: workers.filter(w => w.aptitud === "Apto").length, color: "#10b981" },
-    { name: "Con restricción", value: workers.filter(w => w.aptitud === "Apto con restricción").length, color: "#f59e0b" },
-    { name: "No evaluado", value: workers.filter(w => !w.aptitud || w.aptitud === "No evaluado").length, color: "#6b7280" },
-    { name: "No apto", value: workers.filter(w => w.aptitud === "No apto").length, color: "#ef4444" },
+    { name: "Apto",             value: nApto,        color: "#10b981" },
+    { name: "Con restricción",  value: nRestriccion, color: "#f59e0b" },
+    { name: "No evaluado",      value: nNoEvaluado,  color: "#6b7280" },
+    { name: "No apto",          value: nNoApto,      color: "#ef4444" },
   ].filter(d => d.value > 0);
   return (
     <div>
@@ -539,21 +543,35 @@ function Dashboard({ workers, trainings }) {
           )}
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <div className="text-sm font-semibold text-white mb-3">Aptitud Médica</div>
-          {aptitudChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={155}>
-              <BarChart data={aptitudChartData} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" horizontal={false} />
-                <XAxis type="number" stroke="#374151" tick={{ fill: '#6b7280', fontSize: 10 }} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" stroke="#374151" tick={{ fill: '#9ca3af', fontSize: 10 }} width={95} />
-                <ChartTooltip contentStyle={chartTip} cursor={{ fill: 'rgba(55,65,81,0.3)' }} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={18}>
-                  {aptitudChartData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="text-sm font-semibold text-white mb-4">Aptitud Médica del Personal</div>
+          {workers.length > 0 ? (
+            <div className="flex items-center gap-4">
+              <div style={{ width: 148, height: 148, flexShrink: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={aptitudChartData} cx="50%" cy="50%" innerRadius={40} outerRadius={66} dataKey="value" paddingAngle={2} startAngle={90} endAngle={-270}>
+                      {aptitudChartData.map((e, i) => <Cell key={i} fill={e.color} strokeWidth={0} />)}
+                    </Pie>
+                    <ChartTooltip contentStyle={chartTip} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-2 gap-2 flex-1">
+                {[
+                  { label: "Apto",           value: nApto,        color: "#10b981", bg: "bg-emerald-900/20 border-emerald-900/40" },
+                  { label: "Con restricción",value: nRestriccion, color: "#f59e0b", bg: "bg-amber-900/20 border-amber-900/40"   },
+                  { label: "No evaluado",    value: nNoEvaluado,  color: "#6b7280", bg: "bg-gray-800 border-gray-700"            },
+                  { label: "No apto",        value: nNoApto,      color: "#ef4444", bg: "bg-red-900/20 border-red-900/40"       },
+                ].map(s => (
+                  <div key={s.label} className={`${s.bg} border rounded-lg p-2.5`}>
+                    <div className="text-2xl font-bold leading-none" style={{ color: s.color }}>{s.value}</div>
+                    <div className="text-xs text-gray-500 mt-1 leading-tight">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
-            <div className="flex items-center justify-center h-32 text-xs text-gray-600">Sin datos de aptitud</div>
+            <div className="flex items-center justify-center h-36 text-xs text-gray-600">Sin datos de aptitud registrados</div>
           )}
         </div>
       </div>
