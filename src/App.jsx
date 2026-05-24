@@ -463,12 +463,14 @@ function ImportGuideModal({ onClose }) {
 // ═══════════════════════════════════════════
 function Dashboard({ workers, trainings }) {
   const activos = workers.filter(w => w.estado === "Activo").length;
-  const conRestriccion = workers.filter(w => w.aptitud === "Apto con restricción").length;
   const now = new Date(); const in30 = new Date(); in30.setDate(in30.getDate() + 30);
   const emoVencer = workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); if (!v) return false; const d = new Date(v); return d >= now && d <= in30; }).length;
   const emoVencidos = workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) < now; });
   const pctEpp = workers.length ? Math.round((workers.filter(w => w.epp_recibido).length / workers.length) * 100) : 0;
-  const pctAptitud = workers.length ? Math.round((workers.filter(w => ["Apto", "Apto con restricción"].includes(w.aptitud)).length / workers.length) * 100) : 0;
+  // aptNorm se define más abajo, duplicamos aquí para pctAptitud y conRestriccion
+  const _aptN = (v) => (v || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const conRestriccion = workers.filter(w => _aptN(w.aptitud).includes("restricc")).length;
+  const pctAptitud = workers.length ? Math.round((workers.filter(w => { const n = _aptN(w.aptitud); return n.startsWith("apto") && n !== "apto no"; }).length / workers.length) * 100) : 0;
   const chartTip = { backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', color: '#f3f4f6', fontSize: '12px' };
   const emoChartData = [
     { name: "Vigentes", value: workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) > in30; }).length, color: "#10b981" },
@@ -476,10 +478,11 @@ function Dashboard({ workers, trainings }) {
     { name: "Vencidos", value: workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) < now; }).length, color: "#ef4444" },
     { name: "Sin EMO", value: workers.filter(w => !w.ultima_emo).length, color: "#6b7280" },
   ].filter(d => d.value > 0);
-  const nApto        = workers.filter(w => w.aptitud === "Apto").length;
-  const nRestriccion = workers.filter(w => w.aptitud === "Apto con restricción").length;
-  const nNoEvaluado  = workers.filter(w => !w.aptitud || w.aptitud === "No evaluado").length;
-  const nNoApto      = workers.filter(w => w.aptitud === "No apto").length;
+  const aptNorm      = (v) => (v || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const nRestriccion = workers.filter(w => aptNorm(w.aptitud).includes("restricc")).length;
+  const nNoApto      = workers.filter(w => aptNorm(w.aptitud) === "no apto").length;
+  const nApto        = workers.filter(w => { const n = aptNorm(w.aptitud); return n === "apto" || (n.startsWith("apto") && !n.includes("restricc") && n !== "apto no"); }).length;
+  const nNoEvaluado  = workers.length - nApto - nRestriccion - nNoApto;
   const aptitudChartData = [
     { name: "Apto",             value: nApto,        color: "#10b981" },
     { name: "Con restricción",  value: nRestriccion, color: "#f59e0b" },
