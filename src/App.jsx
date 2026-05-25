@@ -4450,6 +4450,150 @@ function RacsModulo({ empresaId }) {
 }
 
 // ═══════════════════════════════════════════
+// IPERC — REGISTRO DE DOCUMENTOS
+// ═══════════════════════════════════════════
+function IpercModulo({ empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const initForm = { area_proceso: "", proceso_actividad: "", version: "v1.0", fecha_elaboracion: new Date().toISOString().split("T")[0], fecha_revision: "", responsable: "", url_documento: "", observaciones: "" };
+  const [form, setForm] = useState(initForm);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("iperc_documentos").select("*").eq("empresa_id", empresaId).order("area_proceso");
+    setRecords(data || []); setLoading(false);
+  };
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const now = new Date(); const in30 = new Date(); in30.setDate(in30.getDate() + 30);
+
+  const getEstado = (r) => {
+    if (!r.fecha_revision) return "Sin fecha";
+    const d = new Date(r.fecha_revision);
+    if (d < now) return "Vencido";
+    if (d <= in30) return "Por actualizar";
+    return "Vigente";
+  };
+  const estadoColor = e => ({ Vigente:"green", "Por actualizar":"amber", Vencido:"red", "Sin fecha":"gray" }[e] || "gray");
+
+  const openNew = () => { setEditing(null); setForm(initForm); setShowModal(true); };
+  const openEdit = (r) => { setEditing(r.id); setForm({ area_proceso:r.area_proceso, proceso_actividad:r.proceso_actividad||"", version:r.version||"v1.0", fecha_elaboracion:r.fecha_elaboracion||"", fecha_revision:r.fecha_revision||"", responsable:r.responsable||"", url_documento:r.url_documento||"", observaciones:r.observaciones||"" }); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
+
+  const handleSave = async () => {
+    if (!form.area_proceso.trim()) { showToast("El área/proceso es obligatorio", "error"); return; }
+    setSaving(true);
+    const payload = { empresa_id: empresaId, area_proceso: form.area_proceso, proceso_actividad: form.proceso_actividad||null, version: form.version, fecha_elaboracion: form.fecha_elaboracion||null, fecha_revision: form.fecha_revision||null, responsable: form.responsable||null, url_documento: form.url_documento||null, observaciones: form.observaciones||null };
+    const { error } = editing ? await supabase.from("iperc_documentos").update(payload).eq("id", editing) : await supabase.from("iperc_documentos").insert(payload);
+    if (error) showToast("Error: " + error.message, "error");
+    else { showToast(editing ? "IPERC actualizado" : "IPERC registrado", "success"); closeModal(); load(); }
+    setSaving(false);
+  };
+  const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("iperc_documentos").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
+
+  const vigentes = records.filter(r => getEstado(r) === "Vigente");
+  const porVencer = records.filter(r => getEstado(r) === "Por actualizar");
+  const vencidos = records.filter(r => getEstado(r) === "Vencido");
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">IPERC — Registro de Documentos</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Control de vigencia de matrices IPERC por área. Los documentos se elaboran en Excel/Word y se registra aquí el link y la fecha de revisión. (R.M. 050-2013-TR)</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <ExportBtn data={records.map(r => ({ "Área/Proceso":r.area_proceso, "Actividad":r.proceso_actividad||"—", Versión:r.version, "Fecha elaboración":r.fecha_elaboracion||"—", "Próx. revisión":r.fecha_revision||"—", Responsable:r.responsable||"—", Estado:getEstado(r), "URL Documento":r.url_documento||"—", Observaciones:r.observaciones||"—" }))} filename="iperc_documentos" />
+          <Btn size="sm" variant="primary" onClick={openNew}><Plus size={13} /> Nuevo IPERC</Btn>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <KpiCard label="IPERCs registrados" value={records.length} sub="total documentos" accentColor="blue" />
+        <KpiCard label="Vigentes" value={vigentes.length} sub="dentro del plazo" accentColor="emerald" />
+        <KpiCard label="Por actualizar" value={porVencer.length} sub="próximos 30 días" accentColor="amber" />
+        <KpiCard label="Vencidos" value={vencidos.length} sub="requieren actualización" accentColor={vencidos.length > 0 ? "red" : "emerald"} />
+      </div>
+
+      {vencidos.length > 0 && (
+        <div className="bg-red-900/20 border border-red-800 rounded-xl p-3 mb-4 flex items-start gap-3">
+          <AlertTriangle size={15} className="text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-red-400 text-xs font-semibold mb-1">{vencidos.length} IPERC(s) vencidos — requieren actualización inmediata</p>
+            <p className="text-red-600 text-xs">{vencidos.map(r => r.area_proceso).join(" · ")}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-gray-800">
+            {["Área / Proceso","Actividad","Versión","Elaboración","Próx. Revisión","Responsable","Estado","Documento",""].map(h => (
+              <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && records.map(r => {
+              const estado = getEstado(r);
+              return (
+                <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                  <td className="px-4 py-3 text-gray-200 text-xs font-medium">{r.area_proceso}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{r.proceso_actividad || "—"}</td>
+                  <td className="px-4 py-3 text-gray-400 text-xs font-mono">{r.version}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs font-mono">{r.fecha_elaboracion || "—"}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs font-mono">{r.fecha_revision || "—"}</td>
+                  <td className="px-4 py-3 text-gray-400 text-xs">{r.responsable || "—"}</td>
+                  <td className="px-4 py-3"><Badge color={estadoColor(estado)}>{estado}</Badge></td>
+                  <td className="px-4 py-3">
+                    {r.url_documento
+                      ? <a href={r.url_documento} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"><Download size={12} />Abrir</a>
+                      : <span className="text-gray-700 text-xs">Sin link</span>}
+                  </td>
+                  <td className="px-4 py-3"><div className="flex gap-1">
+                    <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>
+                    <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                  </div></td>
+                </tr>
+              );
+            })}
+            {!loading && !records.length && (
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">Sin IPERCs registrados. Usa "Nuevo IPERC" para comenzar.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <Modal title={editing ? "Editar IPERC" : "Registrar IPERC"} onClose={closeModal} wide>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Área / Proceso *"><Input value={form.area_proceso} onChange={e => setForm(f=>({...f,area_proceso:e.target.value}))} placeholder="Ej: Almacén, Taller, Operaciones..." /></FormField>
+              <FormField label="Actividad / Sub-proceso"><Input value={form.proceso_actividad} onChange={e => setForm(f=>({...f,proceso_actividad:e.target.value}))} placeholder="Ej: Descarga de materiales..." /></FormField>
+              <FormField label="Versión"><Input value={form.version} onChange={e => setForm(f=>({...f,version:e.target.value}))} placeholder="v1.0" /></FormField>
+              <FormField label="Responsable / Elaborado por"><Input value={form.responsable} onChange={e => setForm(f=>({...f,responsable:e.target.value}))} placeholder="Nombre del responsable" /></FormField>
+              <FormField label="Fecha de elaboración"><Input type="date" value={form.fecha_elaboracion} onChange={e => setForm(f=>({...f,fecha_elaboracion:e.target.value}))} /></FormField>
+              <FormField label="Próxima revisión"><Input type="date" value={form.fecha_revision} onChange={e => setForm(f=>({...f,fecha_revision:e.target.value}))} /></FormField>
+            </div>
+            <FormField label="URL del documento (Google Drive, SharePoint, etc.)">
+              <Input value={form.url_documento} onChange={e => setForm(f=>({...f,url_documento:e.target.value}))} placeholder="https://drive.google.com/..." />
+            </FormField>
+            <FormField label="Observaciones"><Input value={form.observaciones} onChange={e => setForm(f=>({...f,observaciones:e.target.value}))} placeholder="Ej: Pendiente aprobación gerencia, incluye actividades de alto riesgo..." /></FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={closeModal}>Cancelar</Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : editing ? "Actualizar" : "Registrar"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
 // PRÓXIMAMENTE (placeholder SSOMA)
 // ═══════════════════════════════════════════
 function ProximamentePage({ titulo, subtitulo }) {
@@ -4807,7 +4951,7 @@ export default function App() {
           {/* ── Plataforma SSOMA ── */}
           {page === "ssoma_dashboard" && <SSOMADashboard empresaId={empresaId} workers={workers} />}
           {page === "racs"         && <RacsModulo empresaId={empresaId} />}
-          {page === "iperc"        && <ProximamentePage titulo="IPERC / Matriz de Riesgos" subtitulo="Identificación de peligros, evaluación de riesgos y controles por área (Ley 29783)." />}
+          {page === "iperc"        && <IpercModulo empresaId={empresaId} />}
           {page === "inspecciones" && <ProximamentePage titulo="Inspecciones de Seguridad" subtitulo="Checklist de inspecciones periódicas con hallazgos y seguimiento de cierre." />}
           {page === "ats"          && <ProximamentePage titulo="ATS / PETAR" subtitulo="Análisis de Trabajo Seguro y Permiso Escrito de Trabajo de Alto Riesgo." />}
         </main>
