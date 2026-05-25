@@ -4068,6 +4068,388 @@ function Vigilancia({ workers, empresaId }) {
 }
 
 // ═══════════════════════════════════════════
+// RACs — CONSTANTES
+// ═══════════════════════════════════════════
+const CATEGORIAS_RIESGO = [
+  "Trabajos en altura","Riesgo eléctrico","Espacios confinados","Cargas suspendidas / Izaje",
+  "Falta de EPPs","Maquinaria / Equipos en movimiento","Peligro de incendio / explosión",
+  "Riesgo biológico / sanitario","Sustancias químicas","Otro",
+];
+const DETALLES_ESPECIFICOS = {
+  "SST-Acto": ["No usar EPP adecuado","Operar equipo sin autorización","Trabajar en posición insegura","No seguir procedimiento establecido","Uso inadecuado de herramientas","Desorden en área de trabajo","No aislar o bloquear energía","Broma o distracción en trabajo","Otro"],
+  "SST-Condición": ["EPP en mal estado o sin EPP","Señalización inadecuada o ausente","Iluminación deficiente","Superficie irregular / resbaladiza","Herramientas o equipos defectuosos","Instalaciones eléctricas expuestas","Área de trabajo desordenada","Escalera o andamio inseguro","Otro"],
+  "M. Ambiente-Acto": ["Manejo inadecuado de residuos","Derrame no reportado","Quema no autorizada","Disposición incorrecta de sustancias","Otro"],
+  "M. Ambiente-Condición": ["Derrame de sustancias","Contaminación de agua o suelo","Residuos mal dispuestos","Ruido excesivo","Otro"],
+};
+const NIVEL_RIESGO_DESC = {
+  Bajo: "Condición o acto subestándar que de no controlarse podría causar lesiones menores o daños leves al ambiente. No requiere paro de operaciones.",
+  Medio: "Condición o acto subestándar que de no implementarse controles podría generar lesiones con incapacidad temporal tales como fracturas menores. Podría generar daños reversibles a la salud como dermatitis, trastornos musculoesqueléticos, etc.",
+  Alto: "Condición o acto subestándar que de no controlarse podría causar una lesión grave, incapacitante permanente o fatal. Requiere paro inmediato de operaciones.",
+};
+
+// ═══════════════════════════════════════════
+// RACs — FORMULARIO PÚBLICO (sin login / QR)
+// ═══════════════════════════════════════════
+function PublicRacForm({ empresaId }) {
+  const [sistema, setSistema] = useState("SST");
+  const [naturaleza, setNaturaleza] = useState("Acto");
+  const [ubicacion, setUbicacion] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [detalle, setDetalle] = useState("");
+  const [categorias, setCategorias] = useState([]);
+  const [fotos, setFotos] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [nivel, setNivel] = useState("Medio");
+  const [descripcion, setDescripcion] = useState("");
+  const [accion, setAccion] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [err, setErr] = useState("");
+
+  const detalles = DETALLES_ESPECIFICOS[`${sistema}-${naturaleza}`] || [];
+
+  const toggleCat = (c) => setCategorias(p => p.includes(c) ? p.filter(x => x !== c) : [...p, c]);
+
+  const addFoto = (e) => {
+    const files = Array.from(e.target.files).slice(0, 2 - fotos.length);
+    setFotos(p => [...p, ...files]);
+    files.forEach(f => { const r = new FileReader(); r.onload = ev => setPreviews(p => [...p, ev.target.result]); r.readAsDataURL(f); });
+    e.target.value = "";
+  };
+  const removeFoto = (i) => { setFotos(p => p.filter((_, j) => j !== i)); setPreviews(p => p.filter((_, j) => j !== i)); };
+
+  const handleSubmit = async () => {
+    if (!ubicacion.trim() || !descripcion.trim()) { setErr("Completa los campos obligatorios: Ubicación y Descripción."); return; }
+    setSubmitting(true); setErr("");
+    const urls = [];
+    for (const f of fotos) {
+      const path = `${empresaId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${f.name.split(".").pop()}`;
+      const { error: upErr } = await supabase.storage.from("racs-fotos").upload(path, f, { contentType: f.type });
+      if (!upErr) { const { data: { publicUrl } } = supabase.storage.from("racs-fotos").getPublicUrl(path); urls.push(publicUrl); }
+    }
+    const { error: insErr } = await supabase.from("racs").insert({
+      empresa_id: empresaId, sistema, naturaleza, ubicacion, nombre_reportante: nombre || null,
+      detalle_especifico: detalle || null, categorizacion: categorias, nivel_riesgo: nivel,
+      descripcion, accion_inmediata: accion || null,
+      foto_url_1: urls[0] || null, foto_url_2: urls[1] || null, estado: "Abierto",
+    });
+    setSubmitting(false);
+    if (insErr) { setErr("Error al enviar. Intenta nuevamente."); return; }
+    setSubmitted(true);
+  };
+
+  const resetForm = () => { setSistema("SST"); setNaturaleza("Acto"); setUbicacion(""); setNombre(""); setDetalle(""); setCategorias([]); setFotos([]); setPreviews([]); setNivel("Medio"); setDescripcion(""); setAccion(""); setSubmitted(false); };
+
+  if (submitted) return (
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-center p-6">
+      <div className="w-16 h-16 rounded-full bg-emerald-900/40 border border-emerald-700 flex items-center justify-center mb-4">
+        <CheckCircle size={32} className="text-emerald-400" />
+      </div>
+      <h2 className="text-white text-xl font-bold mb-2">¡Reporte enviado!</h2>
+      <p className="text-gray-400 text-sm mb-6 max-w-xs">Tu RAC fue registrado exitosamente. El equipo SSOMA lo revisará pronto.</p>
+      <button onClick={resetForm} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-semibold text-sm transition-colors">Enviar otro reporte</button>
+    </div>
+  );
+
+  const btnToggle = (active) => `flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${active ? "" : "text-gray-400 hover:text-white"}`;
+
+  return (
+    <div className="min-h-screen bg-gray-950 text-white">
+      <div className="bg-gray-900 border-b border-gray-800 px-4 py-5 text-center">
+        <div className="w-9 h-9 rounded-xl bg-amber-600 flex items-center justify-center text-sm font-bold mx-auto mb-2">S</div>
+        <h1 className="text-lg font-bold">REPORTE RAC</h1>
+        <p className="text-xs text-gray-500 mt-0.5">Reporte de Acto / Condición Subestándar</p>
+      </div>
+
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
+        {/* Sistema */}
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Sistema</p>
+          <div className="flex bg-gray-800 rounded-xl p-1 gap-1">
+            <button onClick={() => { setSistema("SST"); setDetalle(""); }} className={btnToggle(sistema==="SST") + (sistema==="SST" ? " bg-blue-600 text-white" : "")} >SST</button>
+            <button onClick={() => { setSistema("M. Ambiente"); setDetalle(""); }} className={btnToggle(sistema==="M. Ambiente") + (sistema==="M. Ambiente" ? " bg-blue-600 text-white" : "")}>M. Ambiente</button>
+          </div>
+        </div>
+
+        {/* Naturaleza */}
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Naturaleza</p>
+          <div className="flex bg-gray-800 rounded-xl p-1 gap-1">
+            <button onClick={() => { setNaturaleza("Acto"); setDetalle(""); }} className={btnToggle(naturaleza==="Acto") + (naturaleza==="Acto" ? " bg-amber-600 text-white" : "")}>Acto</button>
+            <button onClick={() => { setNaturaleza("Condición"); setDetalle(""); }} className={btnToggle(naturaleza==="Condición") + (naturaleza==="Condición" ? " bg-amber-600 text-white" : "")}>Condición</button>
+          </div>
+        </div>
+
+        {/* Ubicación + Nombre */}
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Ubicación *</p>
+            <input value={ubicacion} onChange={e => setUbicacion(e.target.value)} placeholder="¿Dónde ocurrió el acto o condición?" className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Tu nombre <span className="normal-case text-gray-600">(opcional)</span></p>
+            <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Su nombre completo" className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
+          </div>
+        </div>
+
+        {/* Detalle específico */}
+        {detalles.length > 0 && (
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Detalle específico</p>
+            <select value={detalle} onChange={e => setDetalle(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500">
+              <option value="">Seleccione el detalle...</option>
+              {detalles.map(d => <option key={d}>{d}</option>)}
+            </select>
+          </div>
+        )}
+
+        {/* Categorización */}
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Categorización del riesgo</p>
+          <p className="text-xs text-gray-600 mb-3">Identifica el peligro potencial asociado (puedes marcar varios)</p>
+          <div className="grid grid-cols-2 gap-2">
+            {CATEGORIAS_RIESGO.map(cat => (
+              <button key={cat} onClick={() => toggleCat(cat)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs text-left transition-all ${categorias.includes(cat) ? "bg-blue-900/50 border-blue-600 text-blue-300" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"}`}>
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${categorias.includes(cat) ? "bg-blue-600 border-blue-600" : "border-gray-600"}`}>
+                  {categorias.includes(cat) && <CheckCircle size={9} className="text-white" />}
+                </div>
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Fotos */}
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Evidencia fotográfica</p>
+          <p className="text-xs text-gray-600 mb-3">Máximo 2 fotos</p>
+          {previews.length > 0 && (
+            <div className="flex gap-2 mb-3">
+              {previews.map((src, i) => (
+                <div key={i} className="relative">
+                  <img src={src} alt="" className="w-28 h-28 object-cover rounded-xl border border-gray-700" />
+                  <button onClick={() => removeFoto(i)} className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center shadow-lg"><XCircle size={13} className="text-white" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          {fotos.length < 2 && (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col items-center justify-center gap-2 py-5 bg-gray-800 border border-gray-700 border-dashed rounded-xl cursor-pointer hover:border-blue-600 hover:bg-gray-800/60 transition-all">
+                <span className="text-2xl">📷</span>
+                <span className="text-xs text-gray-400 font-medium">Tomar Foto</span>
+                <input type="file" accept="image/*" capture="environment" onChange={addFoto} className="hidden" />
+              </label>
+              <label className="flex flex-col items-center justify-center gap-2 py-5 bg-gray-800 border border-gray-700 border-dashed rounded-xl cursor-pointer hover:border-blue-600 hover:bg-gray-800/60 transition-all">
+                <span className="text-2xl">🖼️</span>
+                <span className="text-xs text-gray-400 font-medium">Subir Galería</span>
+                <input type="file" accept="image/*" multiple onChange={addFoto} className="hidden" />
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Nivel de riesgo */}
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-3">Nivel de riesgo del hallazgo</p>
+          <div className="flex bg-gray-800 rounded-xl p-1 gap-1 mb-3">
+            {["Bajo","Medio","Alto"].map(n => (
+              <button key={n} onClick={() => setNivel(n)} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${nivel===n ? n==="Alto" ? "bg-red-600 text-white shadow" : n==="Medio" ? "bg-amber-500 text-white shadow" : "bg-green-600 text-white shadow" : "text-gray-400 hover:text-white"}`}>{n.toUpperCase()}</button>
+            ))}
+          </div>
+          <div className={`rounded-xl p-4 border text-xs leading-relaxed ${nivel==="Alto" ? "bg-red-900/20 border-red-800 text-red-300" : nivel==="Medio" ? "bg-amber-900/20 border-amber-800 text-amber-300" : "bg-green-900/20 border-green-800 text-green-300"}`}>
+            <p className="font-bold mb-1">NIVEL DE RIESGO {nivel.toUpperCase()}</p>
+            <p>{NIVEL_RIESGO_DESC[nivel]}</p>
+          </div>
+        </div>
+
+        {/* Descripción */}
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Descripción del evento *</p>
+          <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={4} placeholder="Detalle adicional del acto o condición observado..." className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-none" />
+        </div>
+
+        {/* Acción inmediata */}
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Acción inmediata implementada</p>
+          <p className="text-xs text-gray-600 mb-2">Opcional</p>
+          <textarea value={accion} onChange={e => setAccion(e.target.value)} rows={3} placeholder="¿Qué medida se tomó al momento del hallazgo?" className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-none" />
+        </div>
+
+        {err && <div className="bg-red-900/30 border border-red-800 rounded-xl px-4 py-3 text-sm text-red-400">{err}</div>}
+
+        <button onClick={handleSubmit} disabled={submitting} className="w-full py-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-colors shadow-lg">
+          {submitting ? "Enviando reporte..." : "GENERAR REPORTE Y CONTINUAR"}
+        </button>
+        <div className="h-8" />
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
+// RACs — PANEL DE GESTIÓN (autenticado)
+// ═══════════════════════════════════════════
+function RacsModulo({ empresaId }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [fSistema, setFSistema] = useState("");
+  const [fNivel, setFNivel] = useState("");
+  const [fEstado, setFEstado] = useState("");
+  const [mgmt, setMgmt] = useState({ estado:"Abierto", responsable:"", fecha_limite:"", medida_correctiva:"" });
+
+  const racUrl = `${window.location.origin}${window.location.pathname}?rac=${empresaId}`;
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(racUrl)}&size=220x220&margin=10`;
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("racs").select("*").eq("empresa_id", empresaId).order("created_at", { ascending: false });
+    setRecords(data || []); setLoading(false);
+  };
+  useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  const openMgmt = (r) => {
+    setSelected(r);
+    setMgmt({ estado: r.estado||"Abierto", responsable: r.responsable||"", fecha_limite: r.fecha_limite||"", medida_correctiva: r.medida_correctiva||"" });
+    setShowModal(true);
+  };
+
+  const saveMgmt = async () => {
+    setSaving(true);
+    await supabase.from("racs").update({ estado: mgmt.estado, responsable: mgmt.responsable, fecha_limite: mgmt.fecha_limite||null, medida_correctiva: mgmt.medida_correctiva, fecha_cierre: mgmt.estado==="Cerrado" ? new Date().toISOString().split("T")[0] : null }).eq("id", selected.id);
+    showToast("RAC actualizado", "success"); setSaving(false); setShowModal(false); load();
+  };
+
+  const anio = new Date().getFullYear(); const mes = new Date().getMonth();
+  const delMes = records.filter(r => { const d=new Date(r.created_at); return d.getFullYear()===anio&&d.getMonth()===mes; });
+  const abiertos = records.filter(r => r.estado==="Abierto");
+  const cerrados = records.filter(r => r.estado==="Cerrado");
+  const pct = records.length ? Math.round(cerrados.length/records.length*100) : 0;
+
+  const filtered = records.filter(r => (!fSistema||r.sistema===fSistema)&&(!fNivel||r.nivel_riesgo===fNivel)&&(!fEstado||r.estado===fEstado));
+  const nivelColor = n => ({Alto:"red",Medio:"amber",Bajo:"green"}[n]||"gray");
+  const estadoColor = e => ({Abierto:"red","En proceso":"amber",Cerrado:"green"}[e]||"gray");
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h3 className="text-white font-semibold text-sm mb-1">RACs — Reportes de Actos y Condiciones</h3>
+          <p className="text-gray-500 text-xs max-w-xl">Gestión de reportes enviados por trabajadores vía código QR. Sin login requerido para reportar.</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <Btn size="sm" variant="ghost" onClick={() => setShowQR(true)}><Info size={13} /> Código QR</Btn>
+          <ExportBtn data={records.map(r=>({ Fecha:r.created_at?.split("T")[0], Sistema:r.sistema, Naturaleza:r.naturaleza, Ubicación:r.ubicacion, Reportante:r.nombre_reportante||"—", Detalle:r.detalle_especifico||"—", Categorías:(r.categorizacion||[]).join(", "), "Nivel riesgo":r.nivel_riesgo, Descripción:r.descripcion, "Acción inmediata":r.accion_inmediata||"—", Estado:r.estado, Responsable:r.responsable||"—", "Fecha límite":r.fecha_limite||"—", "Medida correctiva":r.medida_correctiva||"—", "Fecha cierre":r.fecha_cierre||"—" }))} filename="racs" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <KpiCard label="RACs del mes" value={delMes.length} sub="reportes recibidos" accentColor="blue" />
+        <KpiCard label="Abiertos" value={abiertos.length} sub="sin cierre" accentColor={abiertos.length>0?"red":"emerald"} />
+        <KpiCard label="Cerrados" value={cerrados.length} sub="resueltos" accentColor="emerald" />
+        <KpiCard label="% Cierre" value={`${pct}%`} sub="tasa de resolución" accentColor={pct>=80?"emerald":pct>=50?"amber":"red"} />
+      </div>
+
+      <div className="flex items-center gap-2 mb-4 flex-wrap p-3 bg-gray-900/50 border border-gray-800 rounded-xl">
+        <Filter size={12} className="text-gray-500 shrink-0" />
+        <select value={fSistema} onChange={e=>setFSistema(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500"><option value="">Todo sistema</option><option>SST</option><option>M. Ambiente</option></select>
+        <select value={fNivel} onChange={e=>setFNivel(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500"><option value="">Todo nivel</option><option>Alto</option><option>Medio</option><option>Bajo</option></select>
+        <select value={fEstado} onChange={e=>setFEstado(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500"><option value="">Todo estado</option><option>Abierto</option><option>En proceso</option><option>Cerrado</option></select>
+        {(fSistema||fNivel||fEstado) && <button onClick={()=>{setFSistema("");setFNivel("");setFEstado("");}} className="text-xs text-blue-400 hover:text-blue-300 ml-1">✕ Limpiar</button>}
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-gray-800">
+            {["Fecha","Sistema","Naturaleza","Ubicación","Reportante","Nivel","Estado",""].map(h=>(
+              <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && filtered.map(r=>(
+              <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer" onClick={()=>openMgmt(r)}>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.created_at?.split("T")[0]}</td>
+                <td className="px-4 py-3 text-xs text-gray-300">{r.sistema}</td>
+                <td className="px-4 py-3 text-xs text-gray-400">{r.naturaleza}</td>
+                <td className="px-4 py-3 text-xs text-gray-400 max-w-[8rem] truncate">{r.ubicacion||"—"}</td>
+                <td className="px-4 py-3 text-xs text-gray-500">{r.nombre_reportante||"Anónimo"}</td>
+                <td className="px-4 py-3"><Badge color={nivelColor(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge></td>
+                <td className="px-4 py-3"><Badge color={estadoColor(r.estado)}>{r.estado}</Badge></td>
+                <td className="px-4 py-3"><Pencil size={13} className="text-gray-500 hover:text-blue-400" /></td>
+              </tr>
+            ))}
+            {!loading && !filtered.length && (
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">{records.length?"Sin resultados para el filtro.":"Aún no hay RACs. Comparte el código QR con tus trabajadores para que reporten."}</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal QR */}
+      {showQR && (
+        <Modal title="Código QR — Formulario público RAC" onClose={()=>setShowQR(false)}>
+          <div className="flex flex-col items-center gap-4 py-2">
+            <p className="text-xs text-gray-500 text-center">Imprime o muestra este QR en campo. Al escanearlo, el trabajador puede enviar un RAC sin necesidad de login.</p>
+            <div className="p-3 bg-white rounded-2xl shadow-lg">
+              <img src={qrSrc} alt="QR RAC" className="w-52 h-52" />
+            </div>
+            <div className="w-full bg-gray-800 rounded-xl px-4 py-3">
+              <p className="text-xs text-gray-600 mb-1.5">URL directa:</p>
+              <p className="text-xs text-blue-400 break-all font-mono leading-relaxed">{racUrl}</p>
+            </div>
+            <Btn variant="ghost" onClick={()=>navigator.clipboard?.writeText(racUrl).then(()=>showToast("URL copiada","success"))}>Copiar URL</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal gestión */}
+      {showModal && selected && (
+        <Modal title={`RAC — ${selected.naturaleza} ${selected.sistema}`} onClose={()=>setShowModal(false)} wide>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 p-3 bg-gray-800/50 rounded-xl border border-gray-700/50">
+              <div><p className="text-xs text-gray-600 mb-1">Sistema / Naturaleza</p><p className="text-sm text-white">{selected.sistema} — {selected.naturaleza}</p></div>
+              <div><p className="text-xs text-gray-600 mb-1">Nivel de riesgo</p><Badge color={nivelColor(selected.nivel_riesgo)}>{selected.nivel_riesgo}</Badge></div>
+              <div><p className="text-xs text-gray-600 mb-1">Ubicación</p><p className="text-sm text-gray-300">{selected.ubicacion||"—"}</p></div>
+              <div><p className="text-xs text-gray-600 mb-1">Reportante</p><p className="text-sm text-gray-300">{selected.nombre_reportante||"Anónimo"}</p></div>
+              {selected.detalle_especifico && <div><p className="text-xs text-gray-600 mb-1">Detalle</p><p className="text-sm text-gray-300">{selected.detalle_especifico}</p></div>}
+              <div className="col-span-2"><p className="text-xs text-gray-600 mb-1">Descripción</p><p className="text-sm text-gray-300 leading-relaxed">{selected.descripcion}</p></div>
+              {selected.accion_inmediata && <div className="col-span-2"><p className="text-xs text-gray-600 mb-1">Acción inmediata</p><p className="text-sm text-gray-300">{selected.accion_inmediata}</p></div>}
+              {selected.categorizacion?.length>0 && <div className="col-span-2"><p className="text-xs text-gray-600 mb-2">Categorías de riesgo</p><div className="flex flex-wrap gap-1">{selected.categorizacion.map(c=><Badge key={c} color="blue">{c}</Badge>)}</div></div>}
+              {(selected.foto_url_1||selected.foto_url_2) && <div className="col-span-2"><p className="text-xs text-gray-600 mb-2">Evidencia fotográfica</p><div className="flex gap-2">{[selected.foto_url_1,selected.foto_url_2].filter(Boolean).map((url,i)=><a key={i} href={url} target="_blank" rel="noreferrer"><img src={url} alt="" className="w-24 h-24 object-cover rounded-xl border border-gray-700 hover:border-blue-500 transition-colors" /></a>)}</div></div>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Estado">
+                <Select value={mgmt.estado} onChange={e=>setMgmt(m=>({...m,estado:e.target.value}))}>
+                  {["Abierto","En proceso","Cerrado"].map(e=><option key={e}>{e}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Responsable de cierre">
+                <Input value={mgmt.responsable} onChange={e=>setMgmt(m=>({...m,responsable:e.target.value}))} placeholder="Nombre del responsable" />
+              </FormField>
+              <FormField label="Fecha límite">
+                <Input type="date" value={mgmt.fecha_limite} onChange={e=>setMgmt(m=>({...m,fecha_limite:e.target.value}))} />
+              </FormField>
+            </div>
+            <FormField label="Medida correctiva implementada">
+              <Input value={mgmt.medida_correctiva} onChange={e=>setMgmt(m=>({...m,medida_correctiva:e.target.value}))} placeholder="Descripción de la acción correctiva tomada..." />
+            </FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" onClick={()=>setShowModal(false)}>Cancelar</Btn>
+              <Btn variant="primary" onClick={saveMgmt} disabled={saving}>{saving?"Guardando...":"Actualizar RAC"}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
 // PRÓXIMAMENTE (placeholder SSOMA)
 // ═══════════════════════════════════════════
 function ProximamentePage({ titulo, subtitulo }) {
@@ -4319,6 +4701,10 @@ export default function App() {
   };
   const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800" };
 
+  // Formulario público RAC (accesible via QR sin login)
+  const publicRacId = new URLSearchParams(window.location.search).get("rac");
+  if (publicRacId) return <PublicRacForm empresaId={publicRacId} />;
+
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando...</div>;
   if (!session) return <><Login /><ToastContainer /></>;
 
@@ -4420,7 +4806,7 @@ export default function App() {
           {page === "vigilancia" && <Vigilancia workers={workers} empresaId={empresaId} />}
           {/* ── Plataforma SSOMA ── */}
           {page === "ssoma_dashboard" && <SSOMADashboard empresaId={empresaId} workers={workers} />}
-          {page === "racs"         && <ProximamentePage titulo="RACs — Reportes de Actos y Condiciones" subtitulo="Formulario público por QR + panel de gestión. En construcción." />}
+          {page === "racs"         && <RacsModulo empresaId={empresaId} />}
           {page === "iperc"        && <ProximamentePage titulo="IPERC / Matriz de Riesgos" subtitulo="Identificación de peligros, evaluación de riesgos y controles por área (Ley 29783)." />}
           {page === "inspecciones" && <ProximamentePage titulo="Inspecciones de Seguridad" subtitulo="Checklist de inspecciones periódicas con hallazgos y seguimiento de cierre." />}
           {page === "ats"          && <ProximamentePage titulo="ATS / PETAR" subtitulo="Análisis de Trabajo Seguro y Permiso Escrito de Trabajo de Alto Riesgo." />}
