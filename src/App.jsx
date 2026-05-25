@@ -4068,6 +4068,135 @@ function Vigilancia({ workers, empresaId }) {
 }
 
 // ═══════════════════════════════════════════
+// PRÓXIMAMENTE (placeholder SSOMA)
+// ═══════════════════════════════════════════
+function ProximamentePage({ titulo, subtitulo }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-96 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-amber-900/20 border border-amber-800/40 flex items-center justify-center mb-4">
+        <ShieldAlert size={28} className="text-amber-500" />
+      </div>
+      <div className="text-lg font-semibold text-white mb-2">{titulo}</div>
+      <div className="text-sm text-gray-500 max-w-xs">{subtitulo || "Módulo en construcción. Disponible en la próxima actualización."}</div>
+      <div className="mt-4 px-3 py-1.5 rounded-full bg-amber-900/30 border border-amber-800/40 text-xs text-amber-500 font-medium">En desarrollo</div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
+// DASHBOARD SSOMA
+// ═══════════════════════════════════════════
+function SSOMADashboard({ empresaId, workers }) {
+  const [accidentes, setAccidentes] = useState([]);
+  const [loadingAcc, setLoadingAcc] = useState(true);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    supabase.from("accidentes_incidentes").select("*").eq("empresa_id", empresaId)
+      .order("fecha_evento", { ascending: false })
+      .then(({ data }) => { setAccidentes(data || []); setLoadingAcc(false); });
+  }, [empresaId]);
+
+  const anio = new Date().getFullYear();
+  const mesActual = new Date().getMonth();
+  const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+  const accLaborales = accidentes.filter(a => a.tipo === "Accidente Laboral");
+  const incPeligrosos = accidentes.filter(a => a.tipo === "Incidente Peligroso");
+  const delAnio = accidentes.filter(a => new Date(a.fecha_evento).getFullYear() === anio);
+  const delMes  = delAnio.filter(a => new Date(a.fecha_evento).getMonth() === mesActual);
+  const diasPerdidos = delAnio.reduce((s, a) => s + (a.dias_perdidos || 0), 0);
+  const abiertos = accidentes.filter(a => ["Pendiente","En proceso"].includes(a.estado_investigacion));
+
+  const trendData = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(); d.setMonth(d.getMonth() - (5 - i));
+    const m = d.getMonth(); const y = d.getFullYear();
+    return {
+      mes: MESES[m],
+      Accidentes: accidentes.filter(a => { const ad = new Date(a.fecha_evento); return ad.getMonth()===m && ad.getFullYear()===y && a.tipo==="Accidente Laboral"; }).length,
+      Incidentes: accidentes.filter(a => { const ad = new Date(a.fecha_evento); return ad.getMonth()===m && ad.getFullYear()===y && a.tipo!=="Accidente Laboral"; }).length,
+    };
+  });
+
+  const chartTip = { backgroundColor:'#111827', border:'1px solid #374151', borderRadius:'8px', color:'#f3f4f6', fontSize:'12px' };
+  const pctEpp = workers.length ? Math.round(workers.filter(w => w.epp_recibido).length / workers.length * 100) : 0;
+
+  return (
+    <div>
+      <div className="mb-5">
+        <h2 className="text-white font-semibold">Dashboard SSOMA</h2>
+        <p className="text-gray-600 text-xs mt-0.5">Seguridad, Salud Ocupacional y Medio Ambiente — {anio}</p>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <KpiCard label={`Accidentes ${anio}`} value={accLaborales.filter(a=>new Date(a.fecha_evento).getFullYear()===anio).length} sub={`${delMes.filter(a=>a.tipo==="Accidente Laboral").length} este mes`} accentColor="red" />
+        <KpiCard label="Días perdidos" value={diasPerdidos} sub={`año ${anio}`} accentColor="amber" />
+        <KpiCard label="Incidentes peligrosos" value={incPeligrosos.filter(a=>new Date(a.fecha_evento).getFullYear()===anio).length} sub={`año ${anio}`} accentColor="purple" />
+        <KpiCard label="Investigaciones abiertas" value={abiertos.length} sub="pendientes de cierre" accentColor={abiertos.length > 0 ? "red" : "emerald"} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="text-sm font-semibold text-white mb-4">Tendencia — últimos 6 meses</div>
+          {loadingAcc ? <div className="flex items-center justify-center h-44 text-xs text-gray-600">Cargando...</div> : (
+            <>
+              <ResponsiveContainer width="100%" height={170}>
+                <BarChart data={trendData} margin={{ top:0, right:8, left:-22, bottom:0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                  <XAxis dataKey="mes" stroke="#374151" tick={{ fill:'#6b7280', fontSize:11 }} />
+                  <YAxis stroke="#374151" tick={{ fill:'#6b7280', fontSize:10 }} allowDecimals={false} />
+                  <ChartTooltip contentStyle={chartTip} />
+                  <Bar dataKey="Accidentes" fill="#ef4444" radius={[3,3,0,0]} maxBarSize={20} />
+                  <Bar dataKey="Incidentes" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="flex gap-4 mt-1 justify-center">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500"><div className="w-2.5 h-2.5 rounded-sm bg-red-500" />Accidentes</div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-500"><div className="w-2.5 h-2.5 rounded-sm bg-amber-500" />Incidentes</div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="text-sm font-semibold text-white mb-4">Indicadores del personal</div>
+          <div className="space-y-0">
+            {[
+              { label:"Trabajadores activos", value: workers.filter(w=>w.estado==="Activo").length, color:"text-blue-400" },
+              { label:"Con restricción médica", value: workers.filter(w=>(w.aptitud||"").toLowerCase().includes("restricc")).length, color:"text-amber-400" },
+              { label:"EPP entregado", value: `${pctEpp}%`, color:"text-emerald-400" },
+              { label:"Sin EMO vigente", value: workers.filter(w=>{ const v=calcularVigencia(w.ultima_emo,w.duracion_emo); return v && new Date(v)<new Date(); }).length, color:"text-red-400" },
+            ].map(item => (
+              <div key={item.label} className="flex items-center justify-between py-2.5 border-b border-gray-800/60">
+                <span className="text-xs text-gray-500">{item.label}</span>
+                <span className={`text-sm font-bold ${item.color}`}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {abiertos.length > 0 && (
+        <div className="bg-red-900/20 border border-red-800 rounded-xl p-4">
+          <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <AlertTriangle size={15} className="text-red-400" />Investigaciones pendientes de cierre
+          </div>
+          <div className="space-y-2">
+            {abiertos.slice(0, 5).map(a => (
+              <div key={a.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-red-900/10 border border-red-900/30 text-xs">
+                <Badge color={a.gravedad==="Fatal"||a.gravedad==="Grave" ? "red" : "amber"}>{a.gravedad}</Badge>
+                <span className="text-gray-300 flex-1 truncate">{a.tipo} — {a.descripcion?.substring(0,70)}</span>
+                <span className="text-gray-600 shrink-0 font-mono">{a.fecha_evento}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
 // APP PRINCIPAL
 // ═══════════════════════════════════════════
 const NAV = [
@@ -4079,6 +4208,18 @@ const NAV = [
   { id: "reportes", label: "Reportes PDF", icon: FileDown },
 ];
 
+const SSOMA_NAV = [
+  { id: "ssoma_dashboard", label: "Dashboard SSOMA", icon: LayoutDashboard },
+  { id: "directorio",      label: "Directorio",      icon: Users },
+  { id: "accidentes",      label: "Accidentes",       icon: ShieldAlert },
+  { id: "racs",            label: "RACs",              icon: AlertTriangle },
+  { id: "iperc",           label: "IPERC / Riesgos",  icon: FileText },
+  { id: "inspecciones",    label: "Inspecciones",      icon: ClipboardList },
+  { id: "ats",             label: "ATS / PETAR",       icon: CheckCircle },
+  { id: "epps",            label: "Control de EPPs",   icon: Shield },
+  { id: "monitoreo",       label: "Monitoreo",         icon: Activity },
+];
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -4086,6 +4227,7 @@ export default function App() {
   const [empresa, setEmpresa] = useState(null);
   const [allEmpresas, setAllEmpresas] = useState([]);
   const [switching, setSwitching] = useState(false);
+  const [platform, setPlatform] = useState("salud"); // "salud" | "ssoma"
   const [page, setPage] = useState("dashboard");
   const [workers, setWorkers] = useState([]);
   const [trainings, setTrainings] = useState([]);
@@ -4148,6 +4290,11 @@ export default function App() {
     supabase.from("kpis").select("*").eq("empresa_id", empresaId).then(({ data }) => setKpis((data || []).map(k => ({ ...k, real: k.valor_real }))));
   };
 
+  const switchPlatform = (p) => {
+    setPlatform(p);
+    setPage(p === "salud" ? "dashboard" : "ssoma_dashboard");
+  };
+
   const navigate = (p) => {
     if (p === "vigilancia" && profile?.rol === "SEGURIDAD") { showToast("Acceso denegado: módulo exclusivo para MEDICO/ADMIN", "error"); return; }
     setPage(p);
@@ -4159,7 +4306,17 @@ export default function App() {
   const empresaId = profile?.empresa_id;
   const isSuperAdmin = role === "SUPERADMIN";
 
-  const pageTitles = { dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones", documentos: "Centro Documental", kpis: "Gestión de KPIs", reportes: "Reportes PDF", vigilancia: "Vigilancia Médica", accidentes: "Accidentes e Incidentes", seguimiento: "Seguimiento Médico", epps: "Control de EPPs", monitoreo: "Monitoreo de Agentes", superadmin: "Panel de Administración" };
+  const pageTitles = {
+    // Salud Ocupacional
+    dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones",
+    documentos: "Centro Documental", kpis: "Gestión de KPIs", reportes: "Reportes PDF",
+    vigilancia: "Vigilancia Médica", accidentes: "Accidentes e Incidentes", seguimiento: "Seguimiento Médico",
+    epps: "Control de EPPs", monitoreo: "Monitoreo de Agentes", superadmin: "Panel de Administración",
+    // SSOMA
+    ssoma_dashboard: "Dashboard SSOMA", racs: "RACs — Reportes de Actos y Condiciones",
+    iperc: "IPERC / Matriz de Riesgos", inspecciones: "Inspecciones de Seguridad",
+    ats: "ATS / PETAR",
+  };
   const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800" };
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando...</div>;
@@ -4188,21 +4345,54 @@ export default function App() {
           )}
         </div>
         <nav className="flex-1 px-2 py-3 space-y-0.5">
+
+          {/* ── Selector de plataforma ── */}
+          <div className="flex bg-gray-800/60 rounded-lg p-0.5 mb-3 border border-gray-700/50">
+            <button
+              onClick={() => switchPlatform("salud")}
+              className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "salud" ? "bg-blue-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}
+            >
+              <Stethoscope size={11} /> Salud
+            </button>
+            <button
+              onClick={() => switchPlatform("ssoma")}
+              className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "ssoma" ? "bg-amber-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}
+            >
+              <ShieldAlert size={11} /> SSOMA
+            </button>
+          </div>
+
+          {/* ── Panel Admin (ambas plataformas) ── */}
           {isSuperAdmin && (
             <>
               <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2">Administración</div>
               <button onClick={() => setPage("superadmin")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "superadmin" ? "bg-orange-900/40 text-orange-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Building2 size={16} />Panel Admin</button>
             </>
           )}
-          <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">Módulos</div>
-          {NAV.map(({ id, label, icon: Icon }) => (<button key={id} onClick={() => navigate(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Icon size={16} />{label}</button>))}
-          <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Salud Ocupacional</div>
-          <button onClick={() => navigate("vigilancia")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "vigilancia" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Stethoscope size={16} />Vigilancia Médica<span className="ml-auto flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-500 border border-purple-900"><Lock size={9} />MED</span></button>
-          <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Seguridad</div>
-          <button onClick={() => setPage("accidentes")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "accidentes" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ShieldAlert size={16} />Accidentes</button>
-          <button onClick={() => setPage("seguimiento")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "seguimiento" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ClipboardList size={16} />Seguimiento</button>
-          <button onClick={() => setPage("epps")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "epps" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Shield size={16} />Control de EPPs</button>
-          <button onClick={() => setPage("monitoreo")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "monitoreo" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Activity size={16} />Monitoreo</button>
+
+          {platform === "salud" ? (
+            <>
+              <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">Módulos</div>
+              {NAV.map(({ id, label, icon: Icon }) => (<button key={id} onClick={() => navigate(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Icon size={16} />{label}</button>))}
+              <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Salud Ocupacional</div>
+              <button onClick={() => navigate("vigilancia")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "vigilancia" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Stethoscope size={16} />Vigilancia Médica<span className="ml-auto flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-500 border border-purple-900"><Lock size={9} />MED</span></button>
+              <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Seguridad</div>
+              <button onClick={() => setPage("accidentes")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "accidentes" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ShieldAlert size={16} />Accidentes</button>
+              <button onClick={() => setPage("seguimiento")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "seguimiento" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ClipboardList size={16} />Seguimiento</button>
+              <button onClick={() => setPage("epps")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "epps" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Shield size={16} />Control de EPPs</button>
+              <button onClick={() => setPage("monitoreo")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "monitoreo" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Activity size={16} />Monitoreo</button>
+            </>
+          ) : (
+            <>
+              <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">SSOMA</div>
+              {SSOMA_NAV.map(({ id, label, icon: Icon }) => (
+                <button key={id} onClick={() => setPage(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-amber-900/40 text-amber-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                  <Icon size={16} />{label}
+                  {["racs","iperc","inspecciones","ats"].includes(id) && <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-600 border border-gray-700">Próx.</span>}
+                </button>
+              ))}
+            </>
+          )}
         </nav>
         <div className="p-3 border-t border-gray-800">
           <div className="text-xs font-medium text-white mb-0.5 truncate">{profile?.nombre || session.user.email}</div>
@@ -4228,6 +4418,12 @@ export default function App() {
           {page === "epps" && <EppModulo workers={workers} empresaId={empresaId} />}
           {page === "monitoreo" && <MonitoreoModulo empresaId={empresaId} />}
           {page === "vigilancia" && <Vigilancia workers={workers} empresaId={empresaId} />}
+          {/* ── Plataforma SSOMA ── */}
+          {page === "ssoma_dashboard" && <SSOMADashboard empresaId={empresaId} workers={workers} />}
+          {page === "racs"         && <ProximamentePage titulo="RACs — Reportes de Actos y Condiciones" subtitulo="Formulario público por QR + panel de gestión. En construcción." />}
+          {page === "iperc"        && <ProximamentePage titulo="IPERC / Matriz de Riesgos" subtitulo="Identificación de peligros, evaluación de riesgos y controles por área (Ley 29783)." />}
+          {page === "inspecciones" && <ProximamentePage titulo="Inspecciones de Seguridad" subtitulo="Checklist de inspecciones periódicas con hallazgos y seguimiento de cierre." />}
+          {page === "ats"          && <ProximamentePage titulo="ATS / PETAR" subtitulo="Análisis de Trabajo Seguro y Permiso Escrito de Trabajo de Alto Riesgo." />}
         </main>
       </div>
       <ToastContainer />
