@@ -4918,7 +4918,7 @@ export default function App() {
               {SSOMA_NAV.map(({ id, label, icon: Icon }) => (
                 <button key={id} onClick={() => setPage(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-amber-900/40 text-amber-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
                   <Icon size={16} />{label}
-                  {["racs","iperc","inspecciones","ats"].includes(id) && <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-600 border border-gray-700">Próx.</span>}
+                  {["inspecciones","ats"].includes(id) && <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-600 border border-gray-700">Próx.</span>}
                 </button>
               ))}
             </>
