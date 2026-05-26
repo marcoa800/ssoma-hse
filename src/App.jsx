@@ -5618,8 +5618,8 @@ const makeCrBlank = () => ({
   ergo_levantamiento_cargas: false,  ergo_levantamiento_limite: "",
   ergo_esfuerzo_manos: false,        ergo_manos_detalle: [],
   ergo_movimientos_repetitivos: false, ergo_repetitivos_grupos: [],
-  ergo_impacto_repetido: false,
-  ergo_vibracion_brazo: false,
+  ergo_impacto_repetido: false,   ergo_impacto_detalle: [],
+  ergo_vibracion_brazo: false,    ergo_vibracion_nivel: "",
   // Controles
   control_eliminacion: "", control_ingenieria: "", control_administrativo: "", control_epp: "",
   conclusiones: "", recomendaciones: "",
@@ -5742,7 +5742,9 @@ function generarPDFCaracterizacion(r, empresaNombre = "SSOMA HSE") {
   addCheck("Movimientos Repetitivos", r.ergo_movimientos_repetitivos);
   if (r.ergo_movimientos_repetitivos && (r.ergo_repetitivos_grupos||[]).length) { doc.setFontSize(7.5); doc.setTextColor(80,80,80); doc.text(`   Grupos: ${(r.ergo_repetitivos_grupos||[]).join(", ")}`, 22, y); y += 4.5; }
   addCheck("Impacto Repetido", r.ergo_impacto_repetido);
+  if (r.ergo_impacto_repetido && (r.ergo_impacto_detalle||[]).length) { doc.setFontSize(7.5); doc.setTextColor(80,80,80); doc.text(`   Zona: ${(r.ergo_impacto_detalle||[]).join(", ")}`, 22, y); y += 4.5; }
   addCheck("Vibración Brazo-Mano", r.ergo_vibracion_brazo);
+  if (r.ergo_vibracion_brazo && r.ergo_vibracion_nivel) { doc.setFontSize(7.5); doc.setTextColor(80,80,80); doc.text(`   Nivel: ${r.ergo_vibracion_nivel}`, 22, y); y += 4.5; }
   doc.setTextColor(30,30,30);
   y += 2;
 
@@ -6257,27 +6259,51 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
             </div>
 
             {/* 5 — Impacto Repetido */}
-            <div className={`bg-gray-900 border rounded-xl px-5 py-4 flex items-center justify-between cursor-pointer select-none ${form.ergo_impacto_repetido ? "border-amber-600 bg-amber-900/10" : "border-gray-800"}`}
-              onClick={() => f("ergo_impacto_repetido", !form.ergo_impacto_repetido)}>
-              <div>
-                <div className="text-sm font-semibold text-white">Impacto Repetido</div>
-                <div className="text-xs text-gray-500">Manos/rodillas como martillo (&gt;10/hr).</div>
+            <div className={`bg-gray-900 border rounded-xl overflow-hidden ${form.ergo_impacto_repetido ? "border-amber-600" : "border-gray-800"}`}>
+              <div onClick={() => f("ergo_impacto_repetido", !form.ergo_impacto_repetido)} className="flex items-center justify-between px-5 py-4 cursor-pointer select-none">
+                <div>
+                  <div className="text-sm font-semibold text-white">Impacto Repetido</div>
+                  <div className="text-xs text-gray-500">Manos/rodillas como martillo (&gt;10/hr).</div>
+                </div>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${form.ergo_impacto_repetido ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
+                  {form.ergo_impacto_repetido && <CheckCircle size={12} className="text-white" />}
+                </div>
               </div>
-              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${form.ergo_impacto_repetido ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
-                {form.ergo_impacto_repetido && <CheckCircle size={12} className="text-white" />}
-              </div>
+              {form.ergo_impacto_repetido && (
+                <div className="px-5 pb-4 pt-2 border-t border-amber-900/40 bg-amber-900/10">
+                  <p className="text-xs text-gray-400 mb-2 font-medium">Zona de impacto:</p>
+                  <div className="flex gap-5">
+                    {["Manos", "Rodillas"].map(op => (
+                      <label key={op} className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={(form.ergo_impacto_detalle||[]).includes(op)} onChange={() => toggleArr("ergo_impacto_detalle", op)} className="accent-amber-500 w-3.5 h-3.5" />
+                        <span className="text-xs text-gray-300">{op}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 6 — Vibración */}
-            <div className={`bg-gray-900 border rounded-xl px-5 py-4 flex items-center justify-between cursor-pointer select-none ${form.ergo_vibracion_brazo ? "border-amber-600 bg-amber-900/10" : "border-gray-800"}`}
-              onClick={() => f("ergo_vibracion_brazo", !form.ergo_vibracion_brazo)}>
-              <div>
-                <div className="text-sm font-semibold text-white">Vibración Brazo-Mano</div>
-                <div className="text-xs text-gray-500">Moderada (&gt;30 m/día) o Alta.</div>
+            <div className={`bg-gray-900 border rounded-xl overflow-hidden ${form.ergo_vibracion_brazo ? "border-amber-600" : "border-gray-800"}`}>
+              <div onClick={() => f("ergo_vibracion_brazo", !form.ergo_vibracion_brazo)} className="flex items-center justify-between px-5 py-4 cursor-pointer select-none">
+                <div>
+                  <div className="text-sm font-semibold text-white">Vibración Brazo-Mano</div>
+                  <div className="text-xs text-gray-500">Moderada (&gt;30 m/día) o Alta.</div>
+                </div>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${form.ergo_vibracion_brazo ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
+                  {form.ergo_vibracion_brazo && <CheckCircle size={12} className="text-white" />}
+                </div>
               </div>
-              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${form.ergo_vibracion_brazo ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
-                {form.ergo_vibracion_brazo && <CheckCircle size={12} className="text-white" />}
-              </div>
+              {form.ergo_vibracion_brazo && (
+                <div className="px-5 pb-4 pt-3 border-t border-amber-900/40 bg-amber-900/10">
+                  <label className="text-xs text-gray-500 mb-1 block">Nivel de vibración</label>
+                  <select value={form.ergo_vibracion_nivel} onChange={e => f("ergo_vibracion_nivel", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="">- Nivel -</option>
+                    {["Moderada (>30 m/día)","Alta (>100 m/día)"].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
 
             {ergoCount > 0 && (
