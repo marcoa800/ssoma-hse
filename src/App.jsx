@@ -278,39 +278,53 @@ function Login() {
 // PANEL SUPERADMIN
 // ═══════════════════════════════════════════
 function SuperAdmin() {
-  const [empresas, setEmpresas] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
-  const [tab, setTab] = useState("empresas");
-  const [modalEmpresa, setModalEmpresa] = useState(false);
-  const [modalUsuario, setModalUsuario] = useState(false);
-  const [formEmpresa, setFormEmpresa] = useState({ nombre: "", ruc: "", sector: "" });
-  const [formUsuario, setFormUsuario] = useState({ email: "", password: "", nombre: "", rol: "SEGURIDAD", empresa_id: "" });
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(null);
+  const [empresas,        setEmpresas]        = useState([]);
+  const [usuarios,        setUsuarios]        = useState([]);
+  const [tab,             setTab]             = useState("empresas");
+  const [modalEmpresa,    setModalEmpresa]    = useState(false);
+  const [editingEmpresa,  setEditingEmpresa]  = useState(null); // null = nueva, id = editar
+  const [modalUsuario,    setModalUsuario]    = useState(false);
+  const [formEmpresa,     setFormEmpresa]     = useState({ nombre: "", ruc: "", sector: "" });
+  const [formUsuario,     setFormUsuario]     = useState({ email: "", password: "", nombre: "", rol: "SEGURIDAD", empresa_id: "" });
+  const [isSaving,        setIsSaving]        = useState(false);
+  const [isDeleting,      setIsDeleting]      = useState(null);
+  // Modal confirmación eliminar
+  const [deleteTarget,    setDeleteTarget]    = useState(null); // empresa obj
+  const [deleteInput,     setDeleteInput]     = useState("");
 
-  useEffect(() => {
-    loadEmpresas();
-    loadUsuarios();
-  }, []);
+  useEffect(() => { loadEmpresas(); loadUsuarios(); }, []);
 
   const loadEmpresas = async () => {
     const { data } = await supabase.from("empresas").select("*").order("nombre");
     setEmpresas(data || []);
   };
-
   const loadUsuarios = async () => {
     const { data } = await supabase.from("profiles").select("*, empresas(nombre)").order("nombre");
     setUsuarios(data || []);
   };
 
+  const openNuevaEmpresa = () => {
+    setEditingEmpresa(null);
+    setFormEmpresa({ nombre: "", ruc: "", sector: "" });
+    setModalEmpresa(true);
+  };
+  const openEditarEmpresa = (e) => {
+    setEditingEmpresa(e.id);
+    setFormEmpresa({ nombre: e.nombre, ruc: e.ruc || "", sector: e.sector || "" });
+    setModalEmpresa(true);
+  };
+
   const saveEmpresa = async () => {
     if (!formEmpresa.nombre) { showToast("El nombre es requerido", "error"); return; }
     setIsSaving(true);
-    const { error } = await supabase.from("empresas").insert([{ nombre: formEmpresa.nombre, ruc: formEmpresa.ruc || null, sector: formEmpresa.sector || null }]);
+    const payload = { nombre: formEmpresa.nombre, ruc: formEmpresa.ruc || null, sector: formEmpresa.sector || null };
+    const { error } = editingEmpresa
+      ? await supabase.from("empresas").update(payload).eq("id", editingEmpresa)
+      : await supabase.from("empresas").insert([payload]);
     if (error) { showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
-    showToast("Empresa creada", "success");
+    showToast(editingEmpresa ? "Empresa actualizada" : "Empresa creada", "success");
     setIsSaving(false); setModalEmpresa(false);
-    setFormEmpresa({ nombre: "", ruc: "", sector: "" });
+    setFormEmpresa({ nombre: "", ruc: "", sector: "" }); setEditingEmpresa(null);
     loadEmpresas();
   };
 
@@ -320,12 +334,16 @@ function SuperAdmin() {
     showToast(activa ? "Empresa desactivada" : "Empresa activada", "info");
   };
 
-  const deleteEmpresa = async (id) => {
-    if (!confirm("¿Eliminar esta empresa? Se eliminarán todos sus datos.")) return;
-    setIsDeleting(id);
-    await supabase.from("empresas").delete().eq("id", id);
-    showToast("Empresa eliminada", "success");
-    setIsDeleting(null); loadEmpresas();
+  // Abrir modal de confirmación
+  const pedirConfirmDelete = (e) => { setDeleteTarget(e); setDeleteInput(""); };
+
+  const confirmarDeleteEmpresa = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(deleteTarget.id);
+    await supabase.from("empresas").delete().eq("id", deleteTarget.id);
+    showToast("Empresa eliminada permanentemente", "success");
+    setIsDeleting(null); setDeleteTarget(null); setDeleteInput("");
+    loadEmpresas();
   };
 
   const saveUsuario = async () => {
@@ -375,7 +393,7 @@ function SuperAdmin() {
       {tab === "empresas" && (
         <div>
           <div className="flex justify-end mb-3">
-            <Btn size="sm" variant="primary" onClick={() => setModalEmpresa(true)}><Plus size={13} /> Nueva Empresa</Btn>
+            <Btn size="sm" variant="primary" onClick={openNuevaEmpresa}><Plus size={13} /> Nueva Empresa</Btn>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
             <table className="w-full text-sm">
@@ -392,8 +410,9 @@ function SuperAdmin() {
                       <td className="px-4 py-3"><Badge color={e.activa ? "green" : "red"}>{e.activa ? "Activa" : "Inactiva"}</Badge></td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
+                          <Btn size="sm" onClick={() => openEditarEmpresa(e)}><Pencil size={12} /></Btn>
                           <Btn size="sm" variant={e.activa ? "danger" : "success"} onClick={() => toggleEmpresa(e.id, e.activa)}>{e.activa ? "Suspender" : "Activar"}</Btn>
-                          <Btn size="sm" variant="danger" disabled={isDeleting === e.id} onClick={() => deleteEmpresa(e.id)}><Trash2 size={12} /></Btn>
+                          <Btn size="sm" variant="danger" disabled={isDeleting === e.id} onClick={() => pedirConfirmDelete(e)}><Trash2 size={12} /></Btn>
                         </div>
                       </td>
                     </tr>
@@ -430,16 +449,18 @@ function SuperAdmin() {
       )}
 
       {modalEmpresa && (
-        <Modal title="Nueva Empresa" onClose={() => setModalEmpresa(false)}>
-          <FormField label="Nombre de la empresa"><Input value={formEmpresa.nombre} onChange={e => setFormEmpresa(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Hydro Global Perú SAC" /></FormField>
+        <Modal title={editingEmpresa ? "Editar Empresa" : "Nueva Empresa"} onClose={() => setModalEmpresa(false)}>
+          <FormField label="Nombre de la empresa">
+            <Input value={formEmpresa.nombre} onChange={e => setFormEmpresa(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Hydro Global Perú SAC" />
+          </FormField>
           <FormField label="RUC">
-  <Input 
-    value={formEmpresa.ruc || ""} 
-    maxLength={11} 
-    onChange={e => setFormEmpresa(f => ({ ...f, ruc: e.target.value.replace(/\D/g, "") }))} 
-    placeholder="20123456789" 
-  />
-</FormField>
+            <Input
+              value={formEmpresa.ruc}
+              maxLength={11}
+              onChange={e => setFormEmpresa(f => ({ ...f, ruc: e.target.value.replace(/\D/g, "") }))}
+              placeholder="20123456789"
+            />
+          </FormField>
           <FormField label="Sector">
             <Select value={formEmpresa.sector} onChange={e => setFormEmpresa(f => ({ ...f, sector: e.target.value }))}>
               <option value="">Seleccionar...</option>
@@ -448,7 +469,46 @@ function SuperAdmin() {
           </FormField>
           <div className="flex gap-2 justify-end mt-4">
             <Btn onClick={() => setModalEmpresa(false)}>Cancelar</Btn>
-            <Btn variant="primary" disabled={isSaving} onClick={saveEmpresa}>{isSaving ? "Guardando..." : "Crear Empresa"}</Btn>
+            <Btn variant="primary" disabled={isSaving} onClick={saveEmpresa}>
+              {isSaving ? "Guardando..." : editingEmpresa ? "Guardar cambios" : "Crear Empresa"}
+            </Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal de confirmación para eliminar empresa */}
+      {deleteTarget && (
+        <Modal title="⚠ Eliminar empresa" onClose={() => setDeleteTarget(null)}>
+          <div className="space-y-4">
+            <div className="bg-red-900/20 border border-red-800/50 rounded-lg p-3">
+              <p className="text-sm text-red-400 font-medium mb-1">Esta acción es irreversible.</p>
+              <p className="text-xs text-red-400/70">Se eliminarán <strong>todos los datos</strong> de la empresa: trabajadores, capacitaciones, vigilancia médica, RACs, inspecciones, EPPs y documentos.</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-2">
+                Para confirmar, escribe el nombre exacto de la empresa:
+              </p>
+              <p className="text-sm font-semibold text-white mb-2 px-3 py-2 bg-gray-800 rounded-lg border border-gray-700 font-mono">
+                {deleteTarget.nombre}
+              </p>
+              <Input
+                value={deleteInput}
+                onChange={e => setDeleteInput(e.target.value)}
+                placeholder="Escribe el nombre para confirmar..."
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <Btn onClick={() => setDeleteTarget(null)} className="flex-1 justify-center">Cancelar</Btn>
+              <button
+                onClick={confirmarDeleteEmpresa}
+                disabled={deleteInput.trim() !== deleteTarget.nombre.trim() || isDeleting === deleteTarget.id}
+                className="flex-1 flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2 rounded-lg transition-colors"
+              >
+                <Trash2 size={14} />
+                {isDeleting === deleteTarget.id ? "Eliminando..." : "Eliminar definitivamente"}
+              </button>
+            </div>
           </div>
         </Modal>
       )}
