@@ -6765,8 +6765,8 @@ export default function App() {
       if (prof.empresa_id) {
         loadData(prof.empresa_id);
       }
-      // Cargar lista de empresas para el selector (roles con acceso multi-empresa)
-      if (["SUPERADMIN", "ADMIN", "MEDICO"].includes(prof.rol)) {
+      // Cargar lista de empresas para el selector (solo SUPERADMIN puede cambiar de empresa)
+      if (prof.rol === "SUPERADMIN") {
         supabase.from("empresas").select("id, nombre").order("nombre")
           .then(({ data }) => setAllEmpresas(data || []));
       }
@@ -6775,6 +6775,7 @@ export default function App() {
 
   const switchEmpresa = async (newId) => {
     if (!newId || newId === profile?.empresa_id || switching) return;
+    if (profile?.rol !== "SUPERADMIN") { showToast("No tienes permisos para cambiar de empresa", "error"); return; }
     setSwitching(true);
     const { error } = await supabase.from("profiles").update({ empresa_id: newId }).eq("id", session.user.id);
     if (error) { showToast("Error al cambiar empresa: " + error.message, "error"); setSwitching(false); return; }
