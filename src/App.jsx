@@ -13,7 +13,7 @@ import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 // ═══════════════════════════════════════════
 // TEMAS DE COLOR
@@ -4020,7 +4020,7 @@ function ReportesModulo({ workers, trainings, empresaId, empresa }) {
       // ── SECCIÓN 1: RESUMEN DE PERSONAL ──
       doc.setFontSize(11); doc.setFont("helvetica", "bold");
       doc.text("1. RESUMEN DE PERSONAL", 14, 50);
-      doc.autoTable({
+      autoTable(doc, {
         startY: 55,
         head: [["Indicador", "Valor"]],
         body: [
@@ -4049,7 +4049,7 @@ function ReportesModulo({ workers, trainings, empresaId, empresa }) {
         const isV = v && new Date(v) < now; const porV = !isV && v && new Date(v) <= in30;
         return [w.nombre, w.cargo || "—", w.ultima_emo || "—", v || "Sin registro", isV ? "VENCIDO" : porV ? "Por vencer" : v ? "Vigente" : "Sin EMO"];
       });
-      doc.autoTable({
+      autoTable(doc, {
         startY: y2 + 5,
         head: [["Trabajador", "Cargo", "Última EMO", "Vigente Hasta", "Estado"]],
         body: emoRows,
@@ -4071,7 +4071,7 @@ function ReportesModulo({ workers, trainings, empresaId, empresa }) {
       const y3 = doc.lastAutoTable.finalY > 220 ? 20 : doc.lastAutoTable.finalY + 12;
       doc.setFontSize(11); doc.setFont("helvetica", "bold");
       doc.text(`3. VIGILANCIA MÉDICA — ${mesLabel().toUpperCase()}`, 14, y3);
-      doc.autoTable({
+      autoTable(doc, {
         startY: y3 + 5,
         head: [["Programa de Vigilancia", `Evaluaciones en ${mesLabel()}`, "Observación"]],
         body: [
@@ -5478,7 +5478,7 @@ function ReportesSSOMAModulo({ empresaId, empresa, workers }) {
       // ── 1. RESUMEN EJECUTIVO ──
       doc.setFontSize(11); doc.setFont("helvetica", "bold");
       doc.text("1. RESUMEN EJECUTIVO DEL PERÍODO", 14, 50);
-      doc.autoTable({
+      autoTable(doc, {
         startY: 55,
         head: [["Indicador", "Valor"]],
         body: [
@@ -5502,7 +5502,7 @@ function ReportesSSOMAModulo({ empresaId, empresa, workers }) {
       const y2 = doc.lastAutoTable.finalY + 12;
       doc.setFontSize(11); doc.setFont("helvetica", "bold");
       doc.text(`2. REPORTES DE ACTOS Y CONDICIONES (RACs) — ${mesLabel().toUpperCase()}`, 14, y2);
-      doc.autoTable({
+      autoTable(doc, {
         startY: y2 + 5,
         head: [["Nivel de Riesgo", "Tipo", "Cantidad", "% del total"]],
         body: [
@@ -5529,7 +5529,7 @@ function ReportesSSOMAModulo({ empresaId, empresa, workers }) {
       const inspRows = inspecs.length
         ? inspecs.map(i => [i.fecha || "—", i.tipo || "—", i.resultado || "—"])
         : [["Sin inspecciones en el período", "", ""]];
-      doc.autoTable({
+      autoTable(doc, {
         startY: y3 + 5,
         head: [["Fecha", "Tipo de inspección", "Resultado"]],
         body: inspRows,
@@ -5552,7 +5552,7 @@ function ReportesSSOMAModulo({ empresaId, empresa, workers }) {
       const atsRows = atsDocs.length
         ? atsDocs.map(d => [d.fecha || "—", d.tipo || "—", d.tipo_trabajo || "—", d.estado || "—"])
         : [["Sin documentos en el período", "", "", ""]];
-      doc.autoTable({
+      autoTable(doc, {
         startY: y4 + 5,
         head: [["Fecha", "Tipo", "Trabajo", "Estado"]],
         body: atsRows,
@@ -5566,7 +5566,7 @@ function ReportesSSOMAModulo({ empresaId, empresa, workers }) {
       const y5 = doc.lastAutoTable.finalY > 210 ? 20 : doc.lastAutoTable.finalY + 12;
       doc.setFontSize(11); doc.setFont("helvetica", "bold");
       doc.text("5. ESTADO DE HALLAZGOS (ACUMULADO)", 14, y5);
-      doc.autoTable({
+      autoTable(doc, {
         startY: y5 + 5,
         head: [["Estado", "Cantidad"]],
         body: [
