@@ -1386,10 +1386,15 @@ function PsicosocialModulo({ workers, empresaId }) {
     closeModal(); load();
   };
 
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+
   const now = new Date();
   const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
   const altoRiesgo = records.filter(r => r.nivel_riesgo === "Alto" || r.nivel_riesgo === "Muy Alto");
   const derivados = records.filter(r => r.derivacion && r.derivacion !== "No aplica");
+
+  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo));
 
   return (
     <div>
@@ -1421,6 +1426,8 @@ function PsicosocialModulo({ workers, empresaId }) {
         </div>
       )}
 
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -1432,7 +1439,7 @@ function PsicosocialModulo({ workers, empresaId }) {
           </thead>
           <tbody>
             {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
-            {!loading && records.map(r => (
+            {!loading && filtered.map(r => (
               <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                 <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
                 <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_evaluacion}</td>
@@ -1996,6 +2003,9 @@ function GestanteModulo({ workers, empresaId }) {
     closeModal(); load();
   };
 
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+
   const activas = records.filter(r => r.estado === "Gestante");
   const proximasControl = records.filter(r => {
     if (!r.proximo_control) return false;
@@ -2006,6 +2016,8 @@ function GestanteModulo({ workers, empresaId }) {
     const d = diasParaParto(r.fecha_probable_parto);
     return d !== null && d >= 0 && d <= 30;
   });
+
+  const filtered = records.filter(r => (!fFrom || r.fecha_registro >= fFrom) && (!fTo || r.fecha_registro <= fTo));
 
   return (
     <div>
@@ -2036,6 +2048,8 @@ function GestanteModulo({ workers, empresaId }) {
         </div>
       )}
 
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -2047,7 +2061,7 @@ function GestanteModulo({ workers, empresaId }) {
           </thead>
           <tbody>
             {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
-            {!loading && records.map(r => {
+            {!loading && filtered.map(r => {
               const dias = diasParaParto(r.fecha_probable_parto);
               return (
                 <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
@@ -2194,10 +2208,15 @@ function EstilosVidaModulo({ workers, empresaId }) {
   const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
   const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_estilos_vida").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
 
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+
   const now = new Date();
   const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
   const conSobrepeso = records.filter(r => r.imc && r.imc >= 25);
   const conHabitos = records.filter(r => r.fumador || r.consume_alcohol);
+
+  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo));
 
   return (
     <div>
@@ -2218,6 +2237,8 @@ function EstilosVidaModulo({ workers, empresaId }) {
         <KpiCard label="Con hábitos de riesgo" value={conHabitos.length} sub="Fumador y/o alcohol" accentColor="red" />
       </div>
 
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -2229,7 +2250,7 @@ function EstilosVidaModulo({ workers, empresaId }) {
           </thead>
           <tbody>
             {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
-            {!loading && records.map(r => {
+            {!loading && filtered.map(r => {
               const imcCat = getIMCCategoria(r.imc);
               const presCat = getPresionCategoria(r.presion_sistolica, r.presion_diastolica);
               const glucCat = getGlucosaCategoria(r.glucosa);
@@ -2405,6 +2426,9 @@ function DescansosMedicosModulo({ workers, empresaId }) {
   const diasMes = mesActual.reduce((acc, r) => acc + diasDescanso(r), 0);
   const proximos = records.filter(r => estadoDescanso(r) === "Próximo a vencer");
 
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+
   const [editing, setEditing] = useState(null);
   const resetForm = () => setForm({ trabajador_id: "", fecha_inicio: "", fecha_fin: "", tipo_reposo: "Domiciliario", diagnostico: "", cie10: "", medico_responsable: "", centro_medico: "", observaciones: "" });
   const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_inicio: r.fecha_inicio, fecha_fin: r.fecha_fin, tipo_reposo: r.tipo_reposo || "Domiciliario", diagnostico: r.diagnostico || "", cie10: r.cie10 || "", medico_responsable: r.medico_responsable || "", centro_medico: r.centro_medico || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
@@ -2431,6 +2455,8 @@ function DescansosMedicosModulo({ workers, empresaId }) {
 
   const badgeColor = (e) => e === "Activo" ? "green" : e === "Vencido" ? "red" : "amber";
 
+  const filtered = records.filter(r => (!fFrom || r.fecha_inicio >= fFrom) && (!fTo || r.fecha_inicio <= fTo));
+
   return (
     <div>
       <div className="flex items-start justify-between mb-5">
@@ -2450,6 +2476,8 @@ function DescansosMedicosModulo({ workers, empresaId }) {
         <KpiCard label="Próximos a vencer" value={proximos.length} sub="vencen en los próximos 7 días" accentColor="blue" />
       </div>
 
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-gray-500 text-sm">Cargando...</div>
@@ -2463,7 +2491,7 @@ function DescansosMedicosModulo({ workers, empresaId }) {
               </tr>
             </thead>
             <tbody>
-              {records.map(r => {
+              {filtered.map(r => {
                 const estado = estadoDescanso(r);
                 return (
                   <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
@@ -2579,6 +2607,9 @@ function MorbilidadModulo({ workers, empresaId }) {
     return top ? top[0].substring(0, 20) + (top[0].length > 20 ? "…" : "") : "—";
   })();
 
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+
   const [editing, setEditing] = useState(null);
   const resetForm = () => setForm({ trabajador_id: "", fecha_consulta: "", diagnostico: "", cie10: "", tipo_atencion: "Consulta", tipo_morbilidad: "No laboral", dias_reposo: "0", medico_responsable: "", observaciones: "" });
   const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_consulta: r.fecha_consulta, diagnostico: r.diagnostico || "", cie10: r.cie10 || "", tipo_atencion: r.tipo_atencion || "Consulta", tipo_morbilidad: r.tipo_morbilidad || "No laboral", dias_reposo: String(r.dias_reposo ?? 0), medico_responsable: r.medico_responsable || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
@@ -2607,6 +2638,8 @@ function MorbilidadModulo({ workers, empresaId }) {
   const tipoColor = (t) => t === "Accidente de trabajo" ? "red" : t === "Laboral" ? "amber" : "blue";
   const atencionColor = (t) => t === "Hospitalización" ? "red" : t === "Emergencia" ? "amber" : "green";
 
+  const filtered = records.filter(r => (!fFrom || r.fecha_consulta >= fFrom) && (!fTo || r.fecha_consulta <= fTo));
+
   return (
     <div>
       <div className="flex items-start justify-between mb-5">
@@ -2626,6 +2659,8 @@ function MorbilidadModulo({ workers, empresaId }) {
         <KpiCard label="Días perdidos (mes)" value={diasPerdidosMes} sub="días de reposo acumulados" accentColor="red" />
       </div>
 
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-gray-500 text-sm">Cargando...</div>
@@ -2639,7 +2674,7 @@ function MorbilidadModulo({ workers, empresaId }) {
               </tr>
             </thead>
             <tbody>
-              {records.map(r => (
+              {filtered.map(r => (
                 <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                   <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-400">{r.fecha_consulta}</td>
@@ -2753,6 +2788,9 @@ function RadiacionUVModulo({ workers, empresaId }) {
   const now = new Date();
   const delMes = records.filter(r => { const f = new Date(r.fecha_evaluacion + "T00:00:00"); return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear(); });
 
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+
   const [editing, setEditing] = useState(null);
   const resetForm = () => setForm({ trabajador_id: "", fecha_evaluacion: "", zona_area: "", horas_exposicion: "", indice_uv: "", epp_asignado: "", fotoprotector: "Sí", proxima_revision: "", observaciones: "" });
   const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, zona_area: r.zona_area || "", horas_exposicion: r.horas_exposicion != null ? String(r.horas_exposicion) : "", indice_uv: r.indice_uv != null ? String(r.indice_uv) : "", epp_asignado: r.epp_asignado || "", fotoprotector: r.fotoprotector || "Sí", proxima_revision: r.proxima_revision || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
@@ -2768,6 +2806,8 @@ function RadiacionUVModulo({ workers, empresaId }) {
     setSaving(false);
   };
   const handleDelete = async (id) => { if (!confirm("¿Eliminar?")) return; await supabase.from("vigilancia_radiacion").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
+
+  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo));
 
   return (
     <div>
@@ -2788,6 +2828,8 @@ function RadiacionUVModulo({ workers, empresaId }) {
         <KpiCard label="Con fotoprotector" value={records.filter(r => r.fotoprotector === "Sí").length} sub="de un total de " accentColor="green" />
       </div>
 
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {loading ? <div className="flex items-center justify-center py-16 text-gray-500 text-sm">Cargando...</div> : (
           <table className="w-full text-sm">
@@ -2797,7 +2839,7 @@ function RadiacionUVModulo({ workers, empresaId }) {
               ))}
             </tr></thead>
             <tbody>
-              {records.map(r => {
+              {filtered.map(r => {
                 const nivel = nivelUV(r.indice_uv);
                 return (
                   <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
@@ -2892,6 +2934,9 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
   const now = new Date();
   const delMes = records.filter(r => { const f = new Date(r.fecha_evaluacion + "T00:00:00"); return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear(); });
 
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+
   const ajusteColor = (v) => v === "Aprobado" ? "green" : v === "Rechazado" ? "red" : "amber";
   const espiroColor = (v) => v === "Normal" ? "green" : v === "Pendiente" ? "amber" : "red";
 
@@ -2909,6 +2954,8 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
     setSaving(false);
   };
   const handleDelete = async (id) => { if (!confirm("¿Eliminar?")) return; await supabase.from("vigilancia_respiratoria").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
+
+  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo));
 
   return (
     <div>
@@ -2929,6 +2976,8 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
         <KpiCard label="Espirometría pendiente" value={espiroPendiente} sub="requieren evaluación pulmonar" accentColor="amber" />
       </div>
 
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {loading ? <div className="flex items-center justify-center py-16 text-gray-500 text-sm">Cargando...</div> : (
           <table className="w-full text-sm">
@@ -2938,7 +2987,7 @@ function ProteccionRespiratoriaModulo({ workers, empresaId }) {
               ))}
             </tr></thead>
             <tbody>
-              {records.map(r => (
+              {filtered.map(r => (
                 <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                   <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-400">{r.fecha_evaluacion}</td>
@@ -5532,7 +5581,7 @@ function ReportesSSOMAModulo({ empresaId, empresa, workers }) {
 // ═══════════════════════════════════════════
 // CARACTERIZACIÓN DE RIESGO (Salud Ocupacional)
 // ═══════════════════════════════════════════
-const CR_TABS = ["Datos", "Tareas", "Físico", "Ergo", "Controles", "Cierre"];
+const CR_TABS = ["Datos", "Tareas", "Físico", "Ergo", "Controles", "Fotos", "Cierre"];
 
 const CR_CONTROL_STYLES = {
   eliminacion: { label: "text-emerald-400", area: "bg-emerald-900/10 border-emerald-900/40 focus:border-emerald-600" },
@@ -5575,6 +5624,7 @@ const makeCrBlank = () => ({
   control_eliminacion: "", control_ingenieria: "", control_administrativo: "", control_epp: "",
   conclusiones: "", recomendaciones: "",
   estado: "Borrador",
+  fotos_urls: [],
 });
 
 function crRiesgoLabel(r) {
@@ -5587,6 +5637,144 @@ function crRiesgoLabel(r) {
   return "Bajo";
 }
 
+function generarPDFCaracterizacion(r, empresaNombre = "SSOMA HSE") {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();
+  let y = 15;
+
+  const addSection = (title, color = [37, 99, 235]) => {
+    if (y > 250) { doc.addPage(); y = 15; }
+    doc.setFillColor(...color);
+    doc.rect(10, y, W - 20, 7, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(title.toUpperCase(), 14, y + 5);
+    doc.setTextColor(30, 30, 30);
+    doc.setFont("helvetica", "normal");
+    y += 10;
+  };
+
+  const addRow = (label, value, indent = 14) => {
+    if (y > 270) { doc.addPage(); y = 15; }
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(80, 80, 80);
+    doc.text(label + ":", indent, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(30, 30, 30);
+    const val = String(value || "—");
+    const lines = doc.splitTextToSize(val, W - indent - 60);
+    doc.text(lines, indent + 55, y);
+    y += Math.max(5, lines.length * 4.5);
+  };
+
+  const addCheck = (label, checked, indent = 18) => {
+    if (y > 270) { doc.addPage(); y = 15; }
+    doc.setFontSize(8);
+    doc.setTextColor(checked ? 30 : 120, 30, 30);
+    doc.text((checked ? "☑ " : "☐ ") + label, indent, y);
+    y += 5;
+  };
+
+  // ── HEADER ──
+  doc.setFillColor(30, 58, 138);
+  doc.rect(0, 0, W, 28, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("CARACTERIZACIÓN DE RIESGO", W / 2, 11, { align: "center" });
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text("Evaluación Ergonómica y de Factores Físicos (RM-375)", W / 2, 18, { align: "center" });
+  doc.setFontSize(8);
+  doc.text(empresaNombre, 14, 24);
+  doc.text("Estado: " + (r.estado || "Borrador"), W - 14, 24, { align: "right" });
+  y = 35;
+
+  // ── DATOS DEL PROCESO ──
+  addSection("1. Identificación del Proceso", [30, 64, 175]);
+  addRow("Puesto de Trabajo", r.puesto_trabajo);
+  addRow("Fecha de Evaluación", r.fecha);
+  addRow("Evaluador Responsable", r.evaluador);
+  addRow("Macroproceso", r.macroproceso);
+  addRow("Subproceso", r.subproceso);
+  addRow("N° Varones", r.num_varones || 0);
+  addRow("N° Mujeres", r.num_mujeres || 0);
+  const especiales = [r.trabajadores_sensibles && "Sensibles", r.trabajadores_pcd && "PCD", r.trabajadores_gestantes && "Gestantes"].filter(Boolean);
+  addRow("Grupos especiales", especiales.length ? especiales.join(", ") : "Ninguno");
+  y += 2;
+
+  // ── TAREAS ──
+  addSection("2. Descripción de Tareas", [30, 64, 175]);
+  addRow("Tareas principales (80%)", r.tareas_principales);
+  addRow("Tareas secundarias", r.tareas_secundarias);
+  addRow("Tareas no rutinarias", r.tareas_no_rutinarias);
+  if (r.dim_largo || r.dim_ancho || r.dim_alto) {
+    addRow("Dimensiones (m)", `L:${r.dim_largo||0} × A:${r.dim_ancho||0} × H:${r.dim_alto||0}`);
+  }
+  addRow("Herramientas", r.herramientas);
+  addRow("Equipos", r.equipos);
+  y += 2;
+
+  // ── FACTORES FÍSICOS ──
+  addSection("3. Factores Físicos", [30, 64, 175]);
+  addCheck("Ruido" + (r.ruido_decibeles ? ` (${r.ruido_decibeles} dB(A))` : ""), r.expuesto_ruido);
+  if (r.expuesto_ruido && r.ruido_tipo) { doc.setFontSize(7.5); doc.setTextColor(80,80,80); doc.text(`   Tipo: ${r.ruido_tipo} | Tiempo: ${r.ruido_tiempo_exposicion||"—"} | ¿Dificulta conversación?: ${r.ruido_dificulta_conversacion||"—"}`, 22, y); y += 4.5; }
+  addCheck("Polvo / Material Particulado" + (r.polvo_tipo_principal ? ` — ${r.polvo_tipo_principal}` : ""), r.expuesto_polvo);
+  if (r.expuesto_polvo && r.polvo_fuente) { doc.setFontSize(7.5); doc.setTextColor(80,80,80); doc.text(`   Fuente: ${r.polvo_fuente} | Nivel visual: ${r.polvo_nivel_visual||"—"}`, 22, y); y += 4.5; }
+  addCheck("Ambiente Térmico (Calor)" + (r.termico_nivel_riesgo ? ` — ${r.termico_nivel_riesgo}` : ""), r.expuesto_ambiente_termico);
+  if (r.expuesto_ambiente_termico && r.termico_fuente) { doc.setFontSize(7.5); doc.setTextColor(80,80,80); doc.text(`   Fuente: ${r.termico_fuente}`, 22, y); y += 4.5; }
+  doc.setTextColor(30,30,30);
+  if (r.iluminacion_tipo) addRow("Iluminación", `${r.iluminacion_tipo} — ${r.iluminacion_nivel||"—"}`);
+  if (r.ventilacion_tipo) addRow("Ventilación", `${r.ventilacion_tipo} — ${r.ventilacion_calidad||"—"}`);
+  if (r.radiacion)        addRow("Radiación", r.radiacion);
+  y += 2;
+
+  // ── ERGONOMÍA ──
+  addSection("4. Checklist Ergonómico (RM-375)", [30, 64, 175]);
+  addCheck("Posturas Incómodas o Forzadas", r.ergo_posturas_incomodas);
+  if (r.ergo_posturas_incomodas && (r.ergo_posturas_detalle||[]).length) { doc.setFontSize(7.5); doc.setTextColor(80,80,80); doc.text(`   ${(r.ergo_posturas_detalle||[]).join(", ")}`, 22, y); y += 4.5; }
+  addCheck("Levantamiento de Cargas", r.ergo_levantamiento_cargas);
+  if (r.ergo_levantamiento_cargas && r.ergo_levantamiento_limite) { doc.setFontSize(7.5); doc.setTextColor(80,80,80); doc.text(`   Límite: ${r.ergo_levantamiento_limite}`, 22, y); y += 4.5; }
+  addCheck("Esfuerzo de Manos y Muñecas", r.ergo_esfuerzo_manos);
+  if (r.ergo_esfuerzo_manos && (r.ergo_manos_detalle||[]).length) { doc.setFontSize(7.5); doc.setTextColor(80,80,80); doc.text(`   ${(r.ergo_manos_detalle||[]).join(", ")}`, 22, y); y += 4.5; }
+  addCheck("Movimientos Repetitivos", r.ergo_movimientos_repetitivos);
+  if (r.ergo_movimientos_repetitivos && (r.ergo_repetitivos_grupos||[]).length) { doc.setFontSize(7.5); doc.setTextColor(80,80,80); doc.text(`   Grupos: ${(r.ergo_repetitivos_grupos||[]).join(", ")}`, 22, y); y += 4.5; }
+  addCheck("Impacto Repetido", r.ergo_impacto_repetido);
+  addCheck("Vibración Brazo-Mano", r.ergo_vibracion_brazo);
+  doc.setTextColor(30,30,30);
+  y += 2;
+
+  // ── CONTROLES ──
+  addSection("5. Jerarquía de Controles", [30, 64, 175]);
+  if (r.control_eliminacion) addRow("1. Eliminación/Sustitución", r.control_eliminacion);
+  if (r.control_ingenieria)  addRow("2. Controles de Ingeniería", r.control_ingenieria);
+  if (r.control_administrativo) addRow("3. Controles Administrativos", r.control_administrativo);
+  if (r.control_epp)         addRow("4. EPP", r.control_epp);
+  y += 2;
+
+  // ── CIERRE ──
+  addSection("6. Conclusiones y Recomendaciones", [30, 64, 175]);
+  const ergoC = [r.ergo_posturas_incomodas, r.ergo_levantamiento_cargas, r.ergo_esfuerzo_manos, r.ergo_movimientos_repetitivos, r.ergo_impacto_repetido, r.ergo_vibracion_brazo].filter(Boolean).length;
+  const fisC  = [r.expuesto_ruido, r.expuesto_polvo, r.expuesto_ambiente_termico].filter(Boolean).length;
+  const nivel = (ergoC + fisC) >= 4 ? "ALTO" : (ergoC + fisC) >= 2 ? "MEDIO" : "BAJO";
+  addRow("Nivel de Riesgo Global", nivel + ` (${fisC} físico(s) + ${ergoC} ergonómico(s))`);
+  addRow("Conclusiones", r.conclusiones);
+  addRow("Recomendaciones", r.recomendaciones);
+
+  // ── FOOTER ──
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Generado: ${new Date().toLocaleDateString("es-PE")} | Pág. ${i}/${pages}`, W / 2, 290, { align: "center" });
+  }
+
+  doc.save(`Caracterizacion_${(r.puesto_trabajo || "evaluacion").replace(/\s+/g, "_")}_${r.fecha || "sin_fecha"}.pdf`);
+}
+
 function CaracterizacionRiesgoModulo({ empresaId }) {
   const [records, setRecords]     = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -5595,6 +5783,9 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
   const [form, setForm]           = useState(makeCrBlank());
   const [activeTab, setActiveTab] = useState(0);
   const [saving, setSaving]       = useState(false);
+  const [search, setSearch]   = useState("");
+  const [fEstado, setFEstado] = useState("");
+  const [fNivel, setFNivel]   = useState("");
 
   const load = async () => {
     if (!empresaId) return;
@@ -5629,6 +5820,7 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
       dim_largo: form.dim_largo ? Number(form.dim_largo) : null,
       dim_ancho: form.dim_ancho ? Number(form.dim_ancho) : null,
       dim_alto:  form.dim_alto  ? Number(form.dim_alto)  : null,
+      fotos_urls: form.fotos_urls || [],
     };
     delete payload.id; delete payload.created_at;
     const { error } = editing
@@ -6122,8 +6314,62 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
           </div>
         )}
 
-        {/* ── Tab 5: Cierre ── */}
+        {/* ── Tab 5: Fotos ── */}
         {activeTab === 5 && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h3 className="text-white font-semibold text-sm mb-2 flex items-center gap-2">
+              <Upload size={16} className="text-blue-400" />
+              Registro Fotográfico
+            </h3>
+            <p className="text-xs text-gray-500 mb-4">Adjunte fotos del entorno, postura o herramientas del puesto de trabajo.</p>
+            <label className="block cursor-pointer">
+              <div className="border-2 border-dashed border-gray-700 rounded-xl p-8 flex flex-col items-center gap-3 hover:border-blue-600 transition-colors">
+                <Upload size={28} className="text-gray-600" />
+                <p className="text-sm text-blue-400 font-medium">Tocar para subir fotos</p>
+                <p className="text-xs text-gray-600">(Puede seleccionar varias — JPG, PNG, WebP)</p>
+              </div>
+              <input type="file" accept="image/*" multiple className="hidden"
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files);
+                  if (!files.length) return;
+                  const urls = [];
+                  for (const file of files) {
+                    const ext = file.name.split(".").pop();
+                    const path = `caracterizacion/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+                    const { data, error } = await supabase.storage.from("cr-fotos").upload(path, file, { upsert: true });
+                    if (!error) {
+                      const { data: urlData } = supabase.storage.from("cr-fotos").getPublicUrl(path);
+                      urls.push(urlData.publicUrl);
+                    }
+                  }
+                  if (urls.length) {
+                    f("fotos_urls", [...(form.fotos_urls || []), ...urls]);
+                    showToast(`${urls.length} foto(s) subida(s)`, "success");
+                  }
+                }}
+              />
+            </label>
+            {(form.fotos_urls || []).length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs text-gray-500 mb-2">{form.fotos_urls.length} foto(s) adjunta(s)</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {form.fotos_urls.map((url, i) => (
+                    <div key={i} className="relative group rounded-xl overflow-hidden border border-gray-800 aspect-square">
+                      <img src={url} alt={`Foto ${i+1}`} className="w-full h-full object-cover" />
+                      <button onClick={() => f("fotos_urls", form.fotos_urls.filter((_, j) => j !== i))}
+                        className="absolute top-1 right-1 bg-red-600 rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <XCircle size={12} className="text-white" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Tab 6: Cierre ── */}
+        {activeTab === 6 && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2"><CheckCircle size={16} className="text-blue-400" />Conclusiones y Recomendaciones</h3>
             {/* Resumen de riesgo */}
@@ -6153,6 +6399,7 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
             </div>
             <div className="mt-5 flex justify-end gap-3">
               <button onClick={() => save("Borrador")} disabled={saving} className="px-4 py-2 rounded-lg text-sm border border-gray-700 text-gray-400 hover:text-white transition-colors">Guardar borrador</button>
+              {editing && <button onClick={() => { const r = records.find(x => x.id === editing); if (r) generarPDFCaracterizacion({...r, ...form}); }} className="px-4 py-2 rounded-lg text-sm bg-gray-700 hover:bg-gray-600 text-white transition-colors flex items-center gap-2"><FileDown size={14} /> Ver PDF</button>}
               <button onClick={() => save("Completado")} disabled={saving} className="px-4 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors">
                 {saving ? "Guardando…" : "✓ Completar evaluación"}
               </button>
@@ -6174,6 +6421,14 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
       </div>
     );
   }
+
+  const crFiltered = records.filter(r => {
+    const nombre = (r.puesto_trabajo || "").toLowerCase();
+    const matchSearch = !search || nombre.includes(search.toLowerCase());
+    const matchEstado = !fEstado || r.estado === fEstado;
+    const matchNivel  = !fNivel  || crRiesgoLabel(r) === fNivel;
+    return matchSearch && matchEstado && matchNivel;
+  });
 
   // ── LIST VIEW ──
   const completados = records.filter(r => r.estado === "Completado").length;
@@ -6199,6 +6454,41 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
         <KpiCard label="Riesgo alto"         value={altoRiesgo}     sub="Requieren acción inmediata" accentColor="red"     />
       </div>
 
+      <div className="flex flex-wrap gap-3 mb-4">
+        <div className="flex-1 min-w-48 relative">
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por puesto de trabajo…" className="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-600 pl-9" />
+          <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
+        </div>
+        <select value={fEstado} onChange={e => setFEstado(e.target.value)} className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white min-w-36">
+          <option value="">Todos los estados</option>
+          <option>Borrador</option>
+          <option>Completado</option>
+        </select>
+        <select value={fNivel} onChange={e => setFNivel(e.target.value)} className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white min-w-36">
+          <option value="">Todos los riesgos</option>
+          <option>Bajo</option>
+          <option>Medio</option>
+          <option>Alto</option>
+        </select>
+        <ExportBtn
+          data={crFiltered.map(r => ({
+            "Puesto de Trabajo": r.puesto_trabajo,
+            Macroproceso: r.macroproceso || "",
+            Subproceso: r.subproceso || "",
+            Fecha: r.fecha,
+            Evaluador: r.evaluador || "",
+            "N° Trabajadores": (r.num_varones||0) + (r.num_mujeres||0),
+            "Riesgo Físico": [r.expuesto_ruido && "Ruido", r.expuesto_polvo && "Polvo", r.expuesto_ambiente_termico && "Térmico"].filter(Boolean).join(", ") || "Ninguno",
+            "Riesgo Ergonómico": [r.ergo_posturas_incomodas && "Posturas", r.ergo_levantamiento_cargas && "Cargas", r.ergo_esfuerzo_manos && "Manos", r.ergo_movimientos_repetitivos && "Repetitivos", r.ergo_impacto_repetido && "Impacto", r.ergo_vibracion_brazo && "Vibración"].filter(Boolean).join(", ") || "Ninguno",
+            "Nivel de Riesgo": crRiesgoLabel(r),
+            Estado: r.estado,
+            Conclusiones: r.conclusiones || "",
+            Recomendaciones: r.recomendaciones || "",
+          }))}
+          filename="caracterizacion_riesgo"
+        />
+      </div>
+
       {loading ? (
         <div className="text-center py-16 text-gray-600 text-sm">Cargando evaluaciones…</div>
       ) : records.length === 0 ? (
@@ -6214,7 +6504,7 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {records.map(r => {
+          {crFiltered.map(r => {
             const nivel = crRiesgoLabel(r);
             const eC = [r.ergo_posturas_incomodas, r.ergo_levantamiento_cargas, r.ergo_esfuerzo_manos, r.ergo_movimientos_repetitivos, r.ergo_impacto_repetido, r.ergo_vibracion_brazo].filter(Boolean).length;
             const fC = [r.expuesto_ruido, r.expuesto_polvo, r.expuesto_ambiente_termico].filter(Boolean).length;
@@ -6239,6 +6529,7 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
+                    <button onClick={() => generarPDFCaracterizacion(r)} title="Descargar PDF" className="p-2 rounded-lg hover:bg-blue-900/20 text-gray-500 hover:text-blue-400 transition-colors"><FileDown size={14} /></button>
                     <button onClick={() => openEdit(r)} className="p-2 rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white transition-colors"><Pencil size={14} /></button>
                     <button onClick={() => handleDelete(r.id)} className="p-2 rounded-lg hover:bg-red-900/20 text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={14} /></button>
                   </div>
