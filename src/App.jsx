@@ -16,6 +16,51 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 
 // ═══════════════════════════════════════════
+// TEMAS DE COLOR
+// ═══════════════════════════════════════════
+export const THEMES = [
+  { id: "obsidian", label: "Obsidian", dot: "#374151" },
+  { id: "slate",    label: "Slate",    dot: "#1e3a5f" },
+  { id: "violet",   label: "Violeta",  dot: "#3b2d6e" },
+  { id: "forest",   label: "Bosque",   dot: "#1a4d2b" },
+  { id: "rose",     label: "Carmín",   dot: "#6b1f2e" },
+];
+const THEME_CSS = {
+  obsidian: "",
+  slate:
+    ".t-slate.bg-gray-950,.t-slate .bg-gray-950{background-color:#020c18!important}" +
+    ".t-slate.bg-gray-900,.t-slate .bg-gray-900{background-color:#091627!important}" +
+    ".t-slate.bg-gray-800,.t-slate .bg-gray-800{background-color:#12253e!important}" +
+    ".t-slate.border-gray-800,.t-slate .border-gray-800{border-color:#193255!important}" +
+    ".t-slate.border-gray-700,.t-slate .border-gray-700{border-color:#244070!important}",
+  violet:
+    ".t-violet.bg-gray-950,.t-violet .bg-gray-950{background-color:#06030f!important}" +
+    ".t-violet.bg-gray-900,.t-violet .bg-gray-900{background-color:#0e091e!important}" +
+    ".t-violet.bg-gray-800,.t-violet .bg-gray-800{background-color:#170f36!important}" +
+    ".t-violet.border-gray-800,.t-violet .border-gray-800{border-color:#22154c!important}" +
+    ".t-violet.border-gray-700,.t-violet .border-gray-700{border-color:#2f1e65!important}",
+  forest:
+    ".t-forest.bg-gray-950,.t-forest .bg-gray-950{background-color:#020e05!important}" +
+    ".t-forest.bg-gray-900,.t-forest .bg-gray-900{background-color:#071a0d!important}" +
+    ".t-forest.bg-gray-800,.t-forest .bg-gray-800{background-color:#0c2918!important}" +
+    ".t-forest.border-gray-800,.t-forest .border-gray-800{border-color:#0e3218!important}" +
+    ".t-forest.border-gray-700,.t-forest .border-gray-700{border-color:#164825!important}",
+  rose:
+    ".t-rose.bg-gray-950,.t-rose .bg-gray-950{background-color:#0f0306!important}" +
+    ".t-rose.bg-gray-900,.t-rose .bg-gray-900{background-color:#1a060b!important}" +
+    ".t-rose.bg-gray-800,.t-rose .bg-gray-800{background-color:#250910!important}" +
+    ".t-rose.border-gray-800,.t-rose .border-gray-800{border-color:#330c16!important}" +
+    ".t-rose.border-gray-700,.t-rose .border-gray-700{border-color:#45141f!important}",
+};
+function applyThemeCSS(id) {
+  let el = document.getElementById("ssoma-theme-css");
+  if (!el) { el = document.createElement("style"); el.id = "ssoma-theme-css"; document.head.appendChild(el); }
+  el.textContent = THEME_CSS[id] || "";
+}
+// Aplica el tema guardado antes del primer render (evita flash)
+applyThemeCSS(localStorage.getItem("ssoma-theme") || "obsidian");
+
+// ═══════════════════════════════════════════
 // TOAST
 // ═══════════════════════════════════════════
 let toastQueue = [];
@@ -5558,6 +5603,8 @@ export default function App() {
   const [allEmpresas, setAllEmpresas] = useState([]);
   const [switching, setSwitching] = useState(false);
   const [platform, setPlatform] = useState("salud"); // "salud" | "ssoma"
+  const [theme, setTheme] = useState(() => localStorage.getItem("ssoma-theme") || "obsidian");
+  useEffect(() => { applyThemeCSS(theme); localStorage.setItem("ssoma-theme", theme); }, [theme]);
   const [page, setPage] = useState("dashboard");
   const [workers, setWorkers] = useState([]);
   const [trainings, setTrainings] = useState([]);
@@ -5657,7 +5704,7 @@ export default function App() {
   if (!session) return <><Login /><ToastContainer /></>;
 
   return (
-    <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
+    <div className={`flex h-screen bg-gray-950 text-white overflow-hidden t-${theme}`}>
       <aside className="w-56 min-w-56 bg-gray-900 border-r border-gray-800 flex flex-col overflow-y-auto">
         <div className="px-4 py-4 border-b border-gray-800">
           <div className="flex items-center gap-2.5 mb-2"><div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-xs font-bold">S</div><span className="font-semibold text-sm">SSOMA <span className="text-gray-500 font-normal">HSE</span></span></div>
@@ -5731,6 +5778,18 @@ export default function App() {
         <div className="p-3 border-t border-gray-800">
           <div className="text-xs font-medium text-white mb-0.5 truncate">{profile?.nombre || session.user.email}</div>
           <div className="text-xs text-gray-600 mb-2 truncate">{session.user.email}</div>
+          {/* Selector de tema */}
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-xs text-gray-700">Tema</span>
+            <div className="flex gap-1 ml-1">
+              {THEMES.map(t => (
+                <button key={t.id} onClick={() => setTheme(t.id)} title={t.label}
+                  className="w-4 h-4 rounded-full transition-all hover:scale-125"
+                  style={{ backgroundColor: t.dot, outline: theme === t.id ? "2px solid white" : "2px solid transparent", outlineOffset: "1px" }}
+                />
+              ))}
+            </div>
+          </div>
           <button onClick={logout} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-gray-600 hover:text-red-400 hover:bg-gray-800 transition-colors"><LogOut size={13} /> Cerrar sesión</button>
         </div>
       </aside>
