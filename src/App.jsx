@@ -5530,6 +5530,496 @@ function ReportesSSOMAModulo({ empresaId, empresa, workers }) {
 }
 
 // ═══════════════════════════════════════════
+// CARACTERIZACIÓN DE RIESGO (Salud Ocupacional)
+// ═══════════════════════════════════════════
+const CR_TABS = ["Datos", "Tareas", "Físico", "Ergo", "Controles", "Cierre"];
+
+const CR_CONTROL_STYLES = {
+  eliminacion: { label: "text-emerald-400", area: "bg-emerald-900/10 border-emerald-900/40 focus:border-emerald-600" },
+  ingenieria:  { label: "text-blue-400",    area: "bg-blue-900/10 border-blue-900/40 focus:border-blue-600" },
+  admin:       { label: "text-amber-400",   area: "bg-amber-900/10 border-amber-900/40 focus:border-amber-600" },
+  epp:         { label: "text-red-400",     area: "bg-red-900/10 border-red-900/40 focus:border-red-600" },
+};
+const CR_RIESGO_BADGE = {
+  Bajo:  "bg-emerald-900/40 text-emerald-400 border border-emerald-800",
+  Medio: "bg-amber-900/40 text-amber-400 border border-amber-800",
+  Alto:  "bg-red-900/40 text-red-400 border border-red-800",
+};
+
+const makeCrBlank = () => ({
+  fecha: new Date().toISOString().split("T")[0],
+  macroproceso: "", subproceso: "", puesto_trabajo: "", evaluador: "",
+  num_varones: 0, num_mujeres: 0,
+  trabajadores_sensibles: false, trabajadores_pcd: false, trabajadores_gestantes: false,
+  tareas_principales: "", tareas_secundarias: "", tareas_no_rutinarias: "",
+  dim_largo: "", dim_ancho: "", dim_alto: "", herramientas: "", equipos: "",
+  expuesto_ruido: false, expuesto_polvo: false, expuesto_ambiente_termico: false,
+  iluminacion_tipo: "", iluminacion_nivel: "", ventilacion_tipo: "", ventilacion_calidad: "", radiacion: "",
+  ergo_posturas_incomodas: false, ergo_levantamiento_cargas: false, ergo_esfuerzo_manos: false,
+  ergo_movimientos_repetitivos: false, ergo_impacto_repetido: false, ergo_vibracion_brazo: false,
+  control_eliminacion: "", control_ingenieria: "", control_administrativo: "", control_epp: "",
+  conclusiones: "", recomendaciones: "",
+  estado: "Borrador",
+});
+
+function crRiesgoLabel(r) {
+  const ergo  = [r.ergo_posturas_incomodas, r.ergo_levantamiento_cargas, r.ergo_esfuerzo_manos,
+                 r.ergo_movimientos_repetitivos, r.ergo_impacto_repetido, r.ergo_vibracion_brazo].filter(Boolean).length;
+  const fisico = [r.expuesto_ruido, r.expuesto_polvo, r.expuesto_ambiente_termico].filter(Boolean).length;
+  const t = ergo + fisico;
+  if (t >= 4) return "Alto";
+  if (t >= 2) return "Medio";
+  return "Bajo";
+}
+
+function CaracterizacionRiesgoModulo({ empresaId }) {
+  const [records, setRecords]     = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [view, setView]           = useState("list"); // "list" | "form"
+  const [editing, setEditing]     = useState(null);
+  const [form, setForm]           = useState(makeCrBlank());
+  const [activeTab, setActiveTab] = useState(0);
+  const [saving, setSaving]       = useState(false);
+
+  const load = async () => {
+    if (!empresaId) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from("caracterizacion_riesgo")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("created_at", { ascending: false });
+    setRecords(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [empresaId]);
+
+  const openNew = () => { setEditing(null); setForm(makeCrBlank()); setActiveTab(0); setView("form"); };
+  const openEdit = (r) => { setEditing(r.id); setForm({ ...makeCrBlank(), ...r }); setActiveTab(0); setView("form"); };
+
+  const handleDelete = async (id) => {
+    if (!confirm("¿Eliminar esta caracterización?")) return;
+    await supabase.from("caracterizacion_riesgo").delete().eq("id", id);
+    showToast("Eliminado", "info"); load();
+  };
+
+  const save = async (estadoFinal) => {
+    if (!form.puesto_trabajo.trim()) { showToast("El puesto de trabajo es obligatorio", "error"); return; }
+    setSaving(true);
+    const payload = {
+      ...form, empresa_id: empresaId, estado: estadoFinal || form.estado,
+      num_varones: Number(form.num_varones) || 0,
+      num_mujeres: Number(form.num_mujeres) || 0,
+      dim_largo: form.dim_largo ? Number(form.dim_largo) : null,
+      dim_ancho: form.dim_ancho ? Number(form.dim_ancho) : null,
+      dim_alto:  form.dim_alto  ? Number(form.dim_alto)  : null,
+    };
+    delete payload.id; delete payload.created_at;
+    const { error } = editing
+      ? await supabase.from("caracterizacion_riesgo").update(payload).eq("id", editing)
+      : await supabase.from("caracterizacion_riesgo").insert([payload]);
+    setSaving(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast(editing ? "Evaluación actualizada" : "Evaluación creada", "success");
+    setView("list"); load();
+  };
+
+  const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const ergoCount  = [form.ergo_posturas_incomodas, form.ergo_levantamiento_cargas, form.ergo_esfuerzo_manos,
+                      form.ergo_movimientos_repetitivos, form.ergo_impacto_repetido, form.ergo_vibracion_brazo].filter(Boolean).length;
+  const fisicoCount = [form.expuesto_ruido, form.expuesto_polvo, form.expuesto_ambiente_termico].filter(Boolean).length;
+  const totalRiesgo = ergoCount + fisicoCount;
+  const nivelActual = totalRiesgo >= 4 ? "Alto" : totalRiesgo >= 2 ? "Medio" : "Bajo";
+
+  // ── FORM VIEW ──
+  if (view === "form") {
+    return (
+      <div className="max-w-3xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <button onClick={() => setView("list")} className="text-gray-500 hover:text-white transition-colors">
+            <ChevronLeft size={20} />
+          </button>
+          <div>
+            <h2 className="text-white font-semibold">{editing ? "Editar" : "Nueva"} Caracterización de Riesgo</h2>
+            <p className="text-xs text-gray-500">{form.puesto_trabajo || "Sin puesto asignado"}</p>
+          </div>
+          <div className="ml-auto flex gap-2">
+            <button onClick={() => save("Borrador")} disabled={saving} className="px-3 py-1.5 rounded-lg text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">
+              Guardar borrador
+            </button>
+            <button onClick={() => save("Completado")} disabled={saving} className="px-3 py-1.5 rounded-lg text-xs bg-blue-600 hover:bg-blue-500 text-white transition-colors">
+              {saving ? "Guardando…" : "Completar"}
+            </button>
+          </div>
+        </div>
+
+        {/* Tab bar */}
+        <div className="flex gap-1 mb-6 bg-gray-900 rounded-xl p-1 border border-gray-800 overflow-x-auto">
+          {CR_TABS.map((t, i) => (
+            <button key={i} onClick={() => setActiveTab(i)}
+              className={`flex-1 min-w-max px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${activeTab === i ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-300"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Tab 0: Datos ── */}
+        {activeTab === 0 && (
+          <div className="space-y-5">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2"><FileText size={16} className="text-blue-400" />Identificación del Proceso</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Fecha *</label>
+                  <input type="date" value={form.fecha} onChange={e => f("fecha", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Evaluador Responsable</label>
+                  <input value={form.evaluador} onChange={e => f("evaluador", e.target.value)} placeholder="Nombre del evaluador" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Macroproceso</label>
+                  <input value={form.macroproceso} onChange={e => f("macroproceso", e.target.value)} placeholder="Ej. Producción, Mantenimiento…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Subproceso</label>
+                  <input value={form.subproceso} onChange={e => f("subproceso", e.target.value)} placeholder="Ej. Soldadura, Ensamble…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 mb-1 block">Puesto de Trabajo *</label>
+                  <input value={form.puesto_trabajo} onChange={e => f("puesto_trabajo", e.target.value)} placeholder="Ej. Operador de maquinaria pesada" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2"><Users size={16} className="text-blue-400" />Trabajadores Asignados</h3>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Nº Varones</label>
+                  <input type="number" min="0" value={form.num_varones} onChange={e => f("num_varones", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Nº Mujeres</label>
+                  <input type="number" min="0" value={form.num_mujeres} onChange={e => f("num_mujeres", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-5">
+                {[["trabajadores_sensibles","Sensibles"],["trabajadores_pcd","Discapacitados (PCD)"],["trabajadores_gestantes","Gestantes"]].map(([k, lbl]) => (
+                  <label key={k} className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={form[k]} onChange={e => f(k, e.target.checked)} className="accent-blue-500 w-4 h-4" />
+                    <span className="text-sm text-gray-300">{lbl}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tab 1: Tareas ── */}
+        {activeTab === 1 && (
+          <div className="space-y-5">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2"><ClipboardList size={16} className="text-blue-400" />Descripción de Tareas</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Tareas Principales (80% de la jornada)</label>
+                  <textarea rows={3} value={form.tareas_principales} onChange={e => f("tareas_principales", e.target.value)} placeholder="Describe las tareas más frecuentes y de mayor exposición…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 resize-none" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Tareas Secundarias</label>
+                  <textarea rows={2} value={form.tareas_secundarias} onChange={e => f("tareas_secundarias", e.target.value)} placeholder="Actividades ocasionales…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 resize-none" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Tareas No Rutinarias</label>
+                  <textarea rows={2} value={form.tareas_no_rutinarias} onChange={e => f("tareas_no_rutinarias", e.target.value)} placeholder="Actividades esporádicas o de emergencia…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 resize-none" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <h3 className="text-white font-semibold text-sm mb-4">Dimensiones y Recursos del Puesto</h3>
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {[["dim_largo","Largo (m)"],["dim_ancho","Ancho (m)"],["dim_alto","Alto (m)"]].map(([k,lbl]) => (
+                  <div key={k}>
+                    <label className="text-xs text-gray-500 mb-1 block">{lbl}</label>
+                    <input type="number" step="0.1" min="0" value={form[k]} onChange={e => f(k, e.target.value)} placeholder="0.0" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Herramientas</label>
+                  <input value={form.herramientas} onChange={e => f("herramientas", e.target.value)} placeholder="Ej. Taladro, esmeril, martillo…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Equipos</label>
+                  <input value={form.equipos} onChange={e => f("equipos", e.target.value)} placeholder="Ej. Montacargas, compresora…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tab 2: Físico ── */}
+        {activeTab === 2 && (
+          <div className="space-y-5">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2"><Activity size={16} className="text-blue-400" />Agentes Físicos Principales</h3>
+              <div className="space-y-3">
+                {[
+                  { key: "expuesto_ruido",             label: "Ruido",             desc: "Exposición a niveles de ruido significativos en el puesto." },
+                  { key: "expuesto_polvo",             label: "Polvo",             desc: "Presencia de polvo, humo o material particulado en el ambiente." },
+                  { key: "expuesto_ambiente_termico",  label: "Ambiente Térmico",  desc: "Calor extremo, frío intenso o variaciones térmicas importantes." },
+                ].map(({ key, label, desc }) => (
+                  <div key={key} onClick={() => f(key, !form[key])} className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-colors select-none ${form[key] ? "border-blue-600 bg-blue-900/20" : "border-gray-800 hover:border-gray-700"}`}>
+                    <div>
+                      <div className="text-sm font-medium text-white">{label}</div>
+                      <div className="text-xs text-gray-500">{desc}</div>
+                    </div>
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${form[key] ? "bg-blue-600 border-blue-600" : "border-gray-600"}`}>
+                      {form[key] && <CheckCircle size={12} className="text-white" />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <h3 className="text-white font-semibold text-sm mb-4">Otros Factores del Entorno</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Iluminación — Tipo</label>
+                  <select value={form.iluminacion_tipo} onChange={e => f("iluminacion_tipo", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="">Seleccionar…</option>
+                    {["Natural","Artificial","Mixta"].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Iluminación — Nivel</label>
+                  <select value={form.iluminacion_nivel} onChange={e => f("iluminacion_nivel", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="">Seleccionar…</option>
+                    {["Deficiente","Adecuado","Excesivo"].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Ventilación — Tipo</label>
+                  <select value={form.ventilacion_tipo} onChange={e => f("ventilacion_tipo", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="">Seleccionar…</option>
+                    {["Natural","Forzada","Local exhaustora","Sin ventilación"].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Ventilación — Calidad</label>
+                  <select value={form.ventilacion_calidad} onChange={e => f("ventilacion_calidad", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="">Seleccionar…</option>
+                    {["Buena","Regular","Deficiente"].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 mb-1 block">Radiación</label>
+                  <select value={form.radiacion} onChange={e => f("radiacion", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="">Sin exposición a radiación</option>
+                    {["Radiación UV solar","Radiación ionizante","Radiación infrarroja","Radiación electromagnética"].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tab 3: Ergo ── */}
+        {activeTab === 3 && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h3 className="text-white font-semibold text-sm mb-2 flex items-center gap-2"><BarChart2 size={16} className="text-blue-400" />Checklist Ergonomía (RM-375)</h3>
+            <p className="text-xs text-blue-300 bg-blue-900/20 border border-blue-900/40 rounded-lg px-3 py-2 mb-4">
+              Active la categoría si se supera el límite de tiempo o exposición recomendado. Luego seleccione los detalles para el reporte.
+            </p>
+            <div className="space-y-3">
+              {[
+                { key: "ergo_posturas_incomodas",      label: "Posturas Incómodas o Forzadas",  desc: "Posturas anómalas por más de 2 hrs/día." },
+                { key: "ergo_levantamiento_cargas",    label: "Levantamiento de Cargas",         desc: "Supera límites de peso y/o frecuencia." },
+                { key: "ergo_esfuerzo_manos",          label: "Esfuerzo de Manos y Muñecas",    desc: "Manipulación forzada por más de 2 hrs/día." },
+                { key: "ergo_movimientos_repetitivos", label: "Movimientos Repetitivos",         desc: "Mismo movimiento >4 veces/min por >2 hrs." },
+                { key: "ergo_impacto_repetido",        label: "Impacto Repetido",                desc: "Manos/rodillas como martillo (>10/hr)." },
+                { key: "ergo_vibracion_brazo",         label: "Vibración Brazo-Mano",            desc: "Moderada (>30 m/día) o Alta." },
+              ].map(({ key, label, desc }) => (
+                <div key={key} onClick={() => f(key, !form[key])} className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-colors select-none ${form[key] ? "border-amber-600 bg-amber-900/20" : "border-gray-800 hover:border-gray-700"}`}>
+                  <div>
+                    <div className="text-sm font-medium text-white">{label}</div>
+                    <div className="text-xs text-gray-500">{desc}</div>
+                  </div>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${form[key] ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
+                    {form[key] && <CheckCircle size={12} className="text-white" />}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {ergoCount > 0 && (
+              <div className="mt-4 text-xs text-amber-300 bg-amber-900/20 border border-amber-900/40 rounded-lg px-3 py-2">
+                ⚠ {ergoCount} factor{ergoCount > 1 ? "es" : ""} ergonómico{ergoCount > 1 ? "s" : ""} identificado{ergoCount > 1 ? "s" : ""}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Tab 4: Controles ── */}
+        {activeTab === 4 && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h3 className="text-white font-semibold text-sm mb-2 flex items-center gap-2"><Shield size={16} className="text-blue-400" />Jerarquía de Controles Actuales</h3>
+            <p className="text-xs text-gray-500 mb-5">¿Qué controles existen actualmente en el puesto de trabajo?</p>
+            <div className="space-y-5">
+              <div>
+                <label className={`text-xs font-bold uppercase tracking-wider mb-1.5 block ${CR_CONTROL_STYLES.eliminacion.label}`}>1. Eliminación / Sustitución</label>
+                <textarea rows={3} value={form.control_eliminacion} onChange={e => f("control_eliminacion", e.target.value)} placeholder="Ej. Se eliminó el uso de plomo, se automatizó el proceso…" className={`w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 resize-none border outline-none ${CR_CONTROL_STYLES.eliminacion.area}`} />
+              </div>
+              <div>
+                <label className={`text-xs font-bold uppercase tracking-wider mb-1.5 block ${CR_CONTROL_STYLES.ingenieria.label}`}>2. Controles de Ingeniería</label>
+                <textarea rows={3} value={form.control_ingenieria} onChange={e => f("control_ingenieria", e.target.value)} placeholder="Ej. Guardas, aislamiento acústico, extracción localizada…" className={`w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 resize-none border outline-none ${CR_CONTROL_STYLES.ingenieria.area}`} />
+              </div>
+              <div>
+                <label className={`text-xs font-bold uppercase tracking-wider mb-1.5 block ${CR_CONTROL_STYLES.admin.label}`}>3. Controles Administrativos</label>
+                <textarea rows={3} value={form.control_administrativo} onChange={e => f("control_administrativo", e.target.value)} placeholder="Ej. Rotación de personal, pausas activas, PETS, señalización…" className={`w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 resize-none border outline-none ${CR_CONTROL_STYLES.admin.area}`} />
+              </div>
+              <div>
+                <label className={`text-xs font-bold uppercase tracking-wider mb-1.5 block ${CR_CONTROL_STYLES.epp.label}`}>4. EPP — Equipos de Protección Personal</label>
+                <textarea rows={3} value={form.control_epp} onChange={e => f("control_epp", e.target.value)} placeholder="Ej. Tapones auditivos NRR 25, Respirador N95, Guantes anticorte…" className={`w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 resize-none border outline-none ${CR_CONTROL_STYLES.epp.area}`} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tab 5: Cierre ── */}
+        {activeTab === 5 && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2"><CheckCircle size={16} className="text-blue-400" />Conclusiones y Recomendaciones</h3>
+            {/* Resumen de riesgo */}
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className={`rounded-xl border p-3 text-center ${fisicoCount > 0 ? "border-orange-800 bg-orange-900/20" : "border-gray-800 bg-gray-800/30"}`}>
+                <div className="text-2xl font-bold text-white">{fisicoCount}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Riesgos físicos</div>
+              </div>
+              <div className={`rounded-xl border p-3 text-center ${ergoCount > 0 ? "border-amber-800 bg-amber-900/20" : "border-gray-800 bg-gray-800/30"}`}>
+                <div className="text-2xl font-bold text-white">{ergoCount}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Riesgos ergonómicos</div>
+              </div>
+              <div className={`rounded-xl border p-3 text-center ${nivelActual === "Alto" ? "border-red-800 bg-red-900/20" : nivelActual === "Medio" ? "border-amber-800 bg-amber-900/20" : "border-emerald-800 bg-emerald-900/20"}`}>
+                <div className={`text-sm font-bold ${nivelActual === "Alto" ? "text-red-400" : nivelActual === "Medio" ? "text-amber-400" : "text-emerald-400"}`}>{nivelActual.toUpperCase()}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Nivel de riesgo</div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Conclusiones de la Evaluación</label>
+                <textarea rows={4} value={form.conclusiones} onChange={e => f("conclusiones", e.target.value)} placeholder="Resumen de los hallazgos más críticos encontrados en el puesto…" className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 resize-none" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Recomendaciones Propuestas</label>
+                <textarea rows={4} value={form.recomendaciones} onChange={e => f("recomendaciones", e.target.value)} placeholder="¿Qué acciones correctivas o preventivas inmediatas se sugieren?" className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 resize-none" />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button onClick={() => save("Borrador")} disabled={saving} className="px-4 py-2 rounded-lg text-sm border border-gray-700 text-gray-400 hover:text-white transition-colors">Guardar borrador</button>
+              <button onClick={() => save("Completado")} disabled={saving} className="px-4 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors">
+                {saving ? "Guardando…" : "✓ Completar evaluación"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Prev / Next */}
+        <div className="flex justify-between mt-6">
+          <button onClick={() => setActiveTab(t => Math.max(0, t - 1))} disabled={activeTab === 0} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white disabled:opacity-30 transition-colors">
+            <ChevronLeft size={16} /> Anterior
+          </button>
+          {activeTab < CR_TABS.length - 1 && (
+            <button onClick={() => setActiveTab(t => t + 1)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-500 text-white transition-colors">
+              Siguiente <ChevronRight size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── LIST VIEW ──
+  const completados = records.filter(r => r.estado === "Completado").length;
+  const borradores  = records.filter(r => r.estado === "Borrador").length;
+  const altoRiesgo  = records.filter(r => crRiesgoLabel(r) === "Alto").length;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-white font-semibold text-lg">Caracterización de Riesgo</h2>
+          <p className="text-xs text-gray-500">Evaluación ergonómica y de factores físicos por puesto de trabajo (RM-375)</p>
+        </div>
+        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors">
+          <Plus size={16} /> Nueva Evaluación
+        </button>
+      </div>
+
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <KpiCard label="Total evaluaciones"  value={records.length} sub="Puestos caracterizados"    accentColor="blue"    />
+        <KpiCard label="Completadas"         value={completados}    sub="Evaluaciones finalizadas"   accentColor="emerald" />
+        <KpiCard label="Borradores"          value={borradores}     sub="Pendientes de completar"    accentColor="amber"   />
+        <KpiCard label="Riesgo alto"         value={altoRiesgo}     sub="Requieren acción inmediata" accentColor="red"     />
+      </div>
+
+      {loading ? (
+        <div className="text-center py-16 text-gray-600 text-sm">Cargando evaluaciones…</div>
+      ) : records.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-blue-900/20 border border-blue-800/40 flex items-center justify-center mb-4">
+            <FileText size={28} className="text-blue-500" />
+          </div>
+          <p className="text-gray-400 font-medium mb-1">Sin evaluaciones registradas</p>
+          <p className="text-gray-600 text-sm mb-4">Crea la primera caracterización de riesgo para un puesto de trabajo.</p>
+          <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm transition-colors">
+            <Plus size={15} /> Nueva Evaluación
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {records.map(r => {
+            const nivel = crRiesgoLabel(r);
+            const eC = [r.ergo_posturas_incomodas, r.ergo_levantamiento_cargas, r.ergo_esfuerzo_manos, r.ergo_movimientos_repetitivos, r.ergo_impacto_repetido, r.ergo_vibracion_brazo].filter(Boolean).length;
+            const fC = [r.expuesto_ruido, r.expuesto_polvo, r.expuesto_ambiente_termico].filter(Boolean).length;
+            return (
+              <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-white font-medium text-sm">{r.puesto_trabajo}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.estado === "Completado" ? "bg-emerald-900/40 text-emerald-400 border border-emerald-800" : "bg-amber-900/40 text-amber-400 border border-amber-800"}`}>{r.estado}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CR_RIESGO_BADGE[nivel]}`}>Riesgo {nivel}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mb-2 truncate">
+                      {r.macroproceso && <span>{r.macroproceso}{r.subproceso ? ` › ${r.subproceso}` : ""} · </span>}
+                      {r.fecha} {r.evaluador && `· ${r.evaluador}`}
+                    </div>
+                    <div className="flex gap-4 text-xs text-gray-600">
+                      <span>👥 {(r.num_varones || 0) + (r.num_mujeres || 0)} trabajadores</span>
+                      {fC > 0 && <span className="text-orange-400">⚠ {fC} físico{fC > 1 ? "s" : ""}</span>}
+                      {eC > 0 && <span className="text-amber-400">⚠ {eC} ergonómico{eC > 1 ? "s" : ""}</span>}
+                      {fC === 0 && eC === 0 && <span className="text-emerald-500">✓ Sin factores de riesgo</span>}
+                    </div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => openEdit(r)} className="p-2 rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white transition-colors"><Pencil size={14} /></button>
+                    <button onClick={() => handleDelete(r.id)} className="p-2 rounded-lg hover:bg-red-900/20 text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
 // PRÓXIMAMENTE (placeholder SSOMA)
 // ═══════════════════════════════════════════
 function ProximamentePage({ titulo, subtitulo }) {
@@ -5775,7 +6265,7 @@ export default function App() {
     // Salud Ocupacional
     dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones",
     documentos: "Centro Documental", kpis: "Gestión de KPIs", reportes: "Reportes PDF",
-    vigilancia: "Vigilancia Médica", accidentes: "Accidentes e Incidentes", seguimiento: "Seguimiento Médico",
+    vigilancia: "Vigilancia Médica", caracterizacion: "Caracterización de Riesgo", accidentes: "Accidentes e Incidentes", seguimiento: "Seguimiento Médico",
     epps: "Control de EPPs", monitoreo: "Monitoreo de Agentes", superadmin: "Panel de Administración",
     // SSOMA
     ssoma_dashboard: "Dashboard SSOMA", racs: "RACs — Reportes de Actos y Condiciones",
@@ -5845,6 +6335,7 @@ export default function App() {
               {NAV.map(({ id, label, icon: Icon }) => (<button key={id} onClick={() => navigate(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Icon size={16} />{label}</button>))}
               <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Salud Ocupacional</div>
               <button onClick={() => navigate("vigilancia")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "vigilancia" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Stethoscope size={16} />Vigilancia Médica<span className="ml-auto flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-500 border border-purple-900"><Lock size={9} />MED</span></button>
+              <button onClick={() => navigate("caracterizacion")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "caracterizacion" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><FileText size={16} />Caracterización Riesgo</button>
               <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Seguridad</div>
               <button onClick={() => setPage("accidentes")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "accidentes" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ShieldAlert size={16} />Accidentes</button>
               <button onClick={() => setPage("seguimiento")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "seguimiento" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ClipboardList size={16} />Seguimiento</button>
@@ -5904,6 +6395,7 @@ export default function App() {
           {page === "epps" && <EppModulo workers={workers} empresaId={empresaId} />}
           {page === "monitoreo" && <MonitoreoModulo empresaId={empresaId} />}
           {page === "vigilancia" && <Vigilancia workers={workers} empresaId={empresaId} />}
+          {page === "caracterizacion" && <CaracterizacionRiesgoModulo empresaId={empresaId} />}
           {/* ── Plataforma SSOMA ── */}
           {page === "ssoma_dashboard" && <SSOMADashboard empresaId={empresaId} workers={workers} />}
           {page === "racs"         && <RacsModulo empresaId={empresaId} />}
