@@ -4864,10 +4864,18 @@ function InspeccionesModulo({ empresaId }) {
 // ═══════════════════════════════════════════
 const TIPOS_TRABAJO_ATS = ["Trabajo en altura","Espacio confinado","Trabajo eléctrico","Trabajo en caliente","Excavación / Zanjas","Izaje de cargas","Sustancias peligrosas","Maquinaria / Equipos","Otro"];
 const EPPS_COMUNES = ["Casco","Lentes de seguridad","Guantes","Zapatos de seguridad","Arnés / línea de vida","Respirador","Tapones auditivos","Traje Tyvek","Careta facial","Guantes dieléctricos"];
+const ATS_ESTADO_COLOR = { Vigente: "green", Cerrado: "gray", Cancelado: "red" };
+const makeAtsBlank = () => ({
+  tipo: "ATS", tipo_trabajo: "", area: "", ubicacion: "", descripcion: "",
+  fecha: new Date().toISOString().split("T")[0], hora_inicio: "", hora_fin: "",
+  supervisor: "", responsable_ssoma: "", participantes: "",
+  epps_requeridos: [], estado: "Vigente", observaciones: "",
+});
 
-function ATSPetarModulo({ empresaId, workers }) {
+function ATSPetarModulo({ empresaId }) {
   const [docs,       setDocs]       = useState([]);
   const [loading,    setLoading]    = useState(true);
+  const [loadErr,    setLoadErr]    = useState(null);
   const [showForm,   setShowForm]   = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [editing,    setEditing]    = useState(null);
@@ -4875,38 +4883,39 @@ function ATSPetarModulo({ empresaId, workers }) {
   const [saving,     setSaving]     = useState(false);
   const [fTipo,      setFTipo]      = useState("");
   const [fEstado,    setFEstado]    = useState("");
-  const [tab,        setTab]        = useState("ATS"); // "ATS" | "PETAR"
-
-  const blankForm = {
-    tipo: "ATS", tipo_trabajo: "", area: "", ubicacion: "", descripcion: "",
-    fecha: new Date().toISOString().split("T")[0], hora_inicio: "", hora_fin: "",
-    supervisor: "", responsable_ssoma: "", participantes: "",
-    epps_requeridos: [], estado: "Vigente", observaciones: "",
-  };
-  const [form, setForm] = useState(blankForm);
+  const [tab,        setTab]        = useState("ATS");
+  const [form,       setForm]       = useState(makeAtsBlank);
 
   const load = async () => {
+    if (!empresaId) return;
     setLoading(true);
-    const { data } = await supabase.from("ats_petar").select("*").eq("empresa_id", empresaId).order("fecha", { ascending: false });
-    setDocs(data || []);
+    setLoadErr(null);
+    try {
+      const { data, error } = await supabase.from("ats_petar").select("*").eq("empresa_id", empresaId).order("fecha", { ascending: false });
+      if (error) { setLoadErr(error.message); setDocs([]); }
+      else { setDocs(data || []); }
+    } catch(e) {
+      setLoadErr(e.message);
+      setDocs([]);
+    }
     setLoading(false);
   };
   useEffect(() => { load(); }, [empresaId]);
 
-  const openNew = () => { setEditing(null); setForm({ ...blankForm, tipo: tab }); setShowForm(true); };
-  const openEdit = (d) => { setEditing(d.id); setForm({ ...blankForm, ...d, epps_requeridos: d.epps_requeridos || [] }); setShowForm(true); };
-  const openDetail = (d) => { setSelected(d); setShowDetail(true); };
+  const openNew   = () => { setEditing(null); setForm({ ...makeAtsBlank(), tipo: tab }); setShowForm(true); };
+  const openEdit  = (d) => { setEditing(d.id); setForm({ ...makeAtsBlank(), ...d, epps_requeridos: Array.isArray(d.epps_requeridos) ? d.epps_requeridos : [] }); setShowForm(true); };
+  const openDetail= (d) => { setSelected(d); setShowDetail(true); };
 
   const save = async () => {
     if (!form.tipo_trabajo || !form.area || !form.fecha) { showToast("Completa tipo de trabajo, área y fecha", "error"); return; }
     setSaving(true);
-    const payload = { ...form, empresa_id: empresaId };
+    const payload = { tipo:form.tipo, tipo_trabajo:form.tipo_trabajo, area:form.area, ubicacion:form.ubicacion||null, descripcion:form.descripcion||null, fecha:form.fecha, hora_inicio:form.hora_inicio||null, hora_fin:form.hora_fin||null, supervisor:form.supervisor||null, responsable_ssoma:form.responsable_ssoma||null, participantes:form.participantes||null, epps_requeridos:form.epps_requeridos||[], estado:form.estado, observaciones:form.observaciones||null, empresa_id:empresaId };
     const { error } = editing
       ? await supabase.from("ats_petar").update(payload).eq("id", editing)
       : await supabase.from("ats_petar").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
-    showToast(editing ? "Documento actualizado" : "Documento creado", "success");
+    showToast(editing ? "Actualizado" : "Documento creado", "success");
     setShowForm(false); load();
   };
 
@@ -4916,29 +4925,26 @@ function ATSPetarModulo({ empresaId, workers }) {
     showToast("Eliminado", "success"); load();
   };
 
-  const toggleEpp = (epp) => setForm(f => ({
-    ...f,
-    epps_requeridos: f.epps_requeridos.includes(epp)
-      ? f.epps_requeridos.filter(e => e !== epp)
-      : [...f.epps_requeridos, epp],
-  }));
+  const toggleEpp = (epp) => setForm(f => {
+    const arr = Array.isArray(f.epps_requeridos) ? f.epps_requeridos : [];
+    return { ...f, epps_requeridos: arr.includes(epp) ? arr.filter(e => e !== epp) : [...arr, epp] };
+  });
 
-  const estadoColor = { Vigente: "green", Cerrado: "gray", Cancelado: "red" };
-
-  const anio = new Date().getFullYear();
-  const docAnio = docs.filter(d => new Date(d.fecha).getFullYear() === anio);
+  const anio     = new Date().getFullYear();
+  const docAnio  = docs.filter(d => d.fecha && new Date(d.fecha).getFullYear() === anio);
   const vigentes = docs.filter(d => d.estado === "Vigente");
   const atsDocs  = docs.filter(d => d.tipo === "ATS");
   const petarDocs= docs.filter(d => d.tipo === "PETAR");
-
-  const byTab = docs.filter(d => d.tipo === tab);
-  const filtered = byTab.filter(d =>
-    (!fTipo   || d.tipo_trabajo === fTipo) &&
-    (!fEstado || d.estado === fEstado)
-  );
+  const byTab    = docs.filter(d => d.tipo === tab);
+  const filtered = byTab.filter(d => (!fTipo || d.tipo_trabajo === fTipo) && (!fEstado || d.estado === fEstado));
 
   return (
     <div className="space-y-4">
+      {loadErr && (
+        <div className="bg-red-900/20 border border-red-800 rounded-lg px-4 py-3 text-xs text-red-400">
+          ⚠ Error al cargar ATS/PETAR: {loadErr}. Asegúrate de haber creado la tabla <code className="font-mono bg-red-900/30 px-1 rounded">ats_petar</code> en Supabase.
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -5020,7 +5026,7 @@ function ATSPetarModulo({ empresaId, workers }) {
                   <td className="px-4 py-3 text-gray-400 text-xs">{d.supervisor || "—"}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{d.responsable_ssoma || "—"}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs font-mono">{d.fecha}{d.hora_inicio ? <div className="text-gray-600">{d.hora_inicio}{d.hora_fin ? ` → ${d.hora_fin}` : ""}</div> : null}</td>
-                  <td className="px-4 py-3"><Badge color={estadoColor[d.estado] || "gray"}>{d.estado}</Badge></td>
+                  <td className="px-4 py-3"><Badge color={ATS_ESTADO_COLOR[d.estado] || "gray"}>{d.estado}</Badge></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-end">
                       <button onClick={() => openDetail(d)} className="text-gray-500 hover:text-blue-400 transition-colors" title="Ver detalle"><Eye size={13} /></button>
@@ -5117,7 +5123,7 @@ function ATSPetarModulo({ empresaId, workers }) {
           <div className="space-y-4 text-sm">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Área / Ubicación</div><div className="text-gray-300 font-medium">{selected.area}</div>{selected.ubicacion && <div className="text-gray-500 text-xs">{selected.ubicacion}</div>}</div>
-              <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Estado</div><Badge color={estadoColor[selected.estado] || "gray"}>{selected.estado}</Badge></div>
+              <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Estado</div><Badge color={ATS_ESTADO_COLOR[selected.estado] || "gray"}>{selected.estado}</Badge></div>
               <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Fecha y horario</div><div className="text-gray-300">{selected.fecha}</div>{selected.hora_inicio && <div className="text-gray-500 text-xs">{selected.hora_inicio}{selected.hora_fin ? ` → ${selected.hora_fin}` : ""}</div>}</div>
               <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Supervisor</div><div className="text-gray-300">{selected.supervisor || "—"}</div><div className="text-gray-500 text-xs">SSOMA: {selected.responsable_ssoma || "—"}</div></div>
             </div>
