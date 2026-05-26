@@ -291,6 +291,10 @@ function SuperAdmin() {
   // Modal confirmación eliminar
   const [deleteTarget,    setDeleteTarget]    = useState(null); // empresa obj
   const [deleteInput,     setDeleteInput]     = useState("");
+  // Editar usuario
+  const [editingUsuario,  setEditingUsuario]  = useState(null); // profile obj
+  const [formEditUser,    setFormEditUser]    = useState({ nombre: "", rol: "SEGURIDAD", empresa_id: "" });
+  const [savingUser,      setSavingUser]      = useState(false);
 
   useEffect(() => { loadEmpresas(); loadUsuarios(); }, []);
 
@@ -370,6 +374,25 @@ function SuperAdmin() {
     loadUsuarios();
   };
 
+  const openEditUser = (u) => {
+    setEditingUsuario(u);
+    setFormEditUser({ nombre: u.nombre || "", rol: u.rol || "SEGURIDAD", empresa_id: u.empresa_id || "" });
+  };
+  const saveEditUser = async () => {
+    if (!formEditUser.empresa_id) { showToast("Selecciona una empresa", "error"); return; }
+    setSavingUser(true);
+    const { error } = await supabase.from("profiles").update({
+      nombre:     formEditUser.nombre,
+      rol:        formEditUser.rol,
+      empresa_id: formEditUser.empresa_id,
+    }).eq("id", editingUsuario.id);
+    setSavingUser(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast("Usuario actualizado", "success");
+    setEditingUsuario(null);
+    loadUsuarios();
+  };
+
   const rolColor = { SUPERADMIN: "orange", ADMIN: "purple", MEDICO: "green", SEGURIDAD: "amber" };
 
   return (
@@ -432,16 +455,37 @@ function SuperAdmin() {
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-gray-800">{["Nombre", "Empresa", "Rol"].map(h => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide">{h}</th>)}</tr></thead>
+              <thead>
+                <tr className="border-b border-gray-800">
+                  {["Nombre / Email", "Empresa", "Rol", ""].map(h => (
+                    <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide">{h}</th>
+                  ))}
+                </tr>
+              </thead>
               <tbody>
                 {usuarios.map(u => (
                   <tr key={u.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                    <td className="px-4 py-3 font-medium text-white">{u.nombre}</td>
-                    <td className="px-4 py-3 text-gray-400">{u.empresas?.nombre || <span className="text-gray-700">Sin empresa</span>}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-white">{u.nombre || <span className="text-gray-600 italic">Sin nombre</span>}</div>
+                      <div className="text-xs text-gray-600 mt-0.5">{u.email || ""}</div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 text-sm">
+                      {u.empresas?.nombre || <span className="text-red-500/70 text-xs">Sin empresa</span>}
+                    </td>
                     <td className="px-4 py-3"><Badge color={rolColor[u.rol] || "gray"}>{u.rol}</Badge></td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => openEditUser(u)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800 hover:border-gray-700 transition-colors"
+                      >
+                        <Pencil size={12} /> Editar
+                      </button>
+                    </td>
                   </tr>
                 ))}
-                {usuarios.length === 0 && <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-600 text-sm">No hay usuarios</td></tr>}
+                {usuarios.length === 0 && (
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-600 text-sm">No hay usuarios</td></tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -509,6 +553,39 @@ function SuperAdmin() {
                 {isDeleting === deleteTarget.id ? "Eliminando..." : "Eliminar definitivamente"}
               </button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Modal editar usuario ── */}
+      {editingUsuario && (
+        <Modal title="Editar Usuario" onClose={() => setEditingUsuario(null)}>
+          <div className="mb-4 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-xs text-gray-400 flex items-center gap-2">
+            <span className="text-gray-600">Email:</span>
+            <span className="text-white font-mono">{editingUsuario.email || "—"}</span>
+          </div>
+          <FormField label="Nombre completo">
+            <Input value={formEditUser.nombre} onChange={e => setFormEditUser(f => ({ ...f, nombre: e.target.value }))} placeholder="Nombre del usuario" />
+          </FormField>
+          <FormField label="Empresa">
+            <Select value={formEditUser.empresa_id} onChange={e => setFormEditUser(f => ({ ...f, empresa_id: e.target.value }))}>
+              <option value="">Seleccionar empresa...</option>
+              {empresas.filter(e => e.activa).map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+            </Select>
+          </FormField>
+          <FormField label="Rol">
+            <Select value={formEditUser.rol} onChange={e => setFormEditUser(f => ({ ...f, rol: e.target.value }))}>
+              <option value="SEGURIDAD">SEGURIDAD — Jefe de Seguridad</option>
+              <option value="MEDICO">MEDICO — Médico Ocupacional</option>
+              <option value="ADMIN">ADMIN — Administrador</option>
+              <option value="SUPERADMIN">SUPERADMIN — Super Administrador</option>
+            </Select>
+          </FormField>
+          <div className="flex gap-2 justify-end mt-4">
+            <Btn onClick={() => setEditingUsuario(null)}>Cancelar</Btn>
+            <Btn variant="primary" disabled={savingUser} onClick={saveEditUser}>
+              {savingUser ? "Guardando..." : "Guardar cambios"}
+            </Btn>
           </div>
         </Modal>
       )}
