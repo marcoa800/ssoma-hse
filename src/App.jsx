@@ -5553,10 +5553,25 @@ const makeCrBlank = () => ({
   trabajadores_sensibles: false, trabajadores_pcd: false, trabajadores_gestantes: false,
   tareas_principales: "", tareas_secundarias: "", tareas_no_rutinarias: "",
   dim_largo: "", dim_ancho: "", dim_alto: "", herramientas: "", equipos: "",
-  expuesto_ruido: false, expuesto_polvo: false, expuesto_ambiente_termico: false,
+  // Físico - Ruido
+  expuesto_ruido: false,
+  ruido_tipo: "", ruido_dificulta_conversacion: "", ruido_tiempo_exposicion: "", ruido_decibeles: "",
+  // Físico - Polvo
+  expuesto_polvo: false,
+  polvo_fuente: "", polvo_tipo_principal: "", polvo_nivel_visual: "",
+  // Físico - Térmico
+  expuesto_ambiente_termico: false,
+  termico_fuente: "", termico_nivel_riesgo: "",
+  // Físico - Otros
   iluminacion_tipo: "", iluminacion_nivel: "", ventilacion_tipo: "", ventilacion_calidad: "", radiacion: "",
-  ergo_posturas_incomodas: false, ergo_levantamiento_cargas: false, ergo_esfuerzo_manos: false,
-  ergo_movimientos_repetitivos: false, ergo_impacto_repetido: false, ergo_vibracion_brazo: false,
+  // Ergo
+  ergo_posturas_incomodas: false,    ergo_posturas_detalle: [],
+  ergo_levantamiento_cargas: false,  ergo_levantamiento_limite: "",
+  ergo_esfuerzo_manos: false,        ergo_manos_detalle: [],
+  ergo_movimientos_repetitivos: false, ergo_repetitivos_grupos: [],
+  ergo_impacto_repetido: false,
+  ergo_vibracion_brazo: false,
+  // Controles
   control_eliminacion: "", control_ingenieria: "", control_administrativo: "", control_epp: "",
   conclusiones: "", recomendaciones: "",
   estado: "Borrador",
@@ -5626,6 +5641,10 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
   };
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const toggleArr = (k, val) => setForm(p => ({
+    ...p,
+    [k]: (p[k] || []).includes(val) ? (p[k] || []).filter(x => x !== val) : [...(p[k] || []), val],
+  }));
 
   const ergoCount  = [form.ergo_posturas_incomodas, form.ergo_levantamiento_cargas, form.ergo_esfuerzo_manos,
                       form.ergo_movimientos_repetitivos, form.ergo_impacto_repetido, form.ergo_vibracion_brazo].filter(Boolean).length;
@@ -5764,27 +5783,138 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
 
         {/* ── Tab 2: Físico ── */}
         {activeTab === 2 && (
-          <div className="space-y-5">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2"><Activity size={16} className="text-blue-400" />Agentes Físicos Principales</h3>
-              <div className="space-y-3">
-                {[
-                  { key: "expuesto_ruido",             label: "Ruido",             desc: "Exposición a niveles de ruido significativos en el puesto." },
-                  { key: "expuesto_polvo",             label: "Polvo",             desc: "Presencia de polvo, humo o material particulado en el ambiente." },
-                  { key: "expuesto_ambiente_termico",  label: "Ambiente Térmico",  desc: "Calor extremo, frío intenso o variaciones térmicas importantes." },
-                ].map(({ key, label, desc }) => (
-                  <div key={key} onClick={() => f(key, !form[key])} className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-colors select-none ${form[key] ? "border-blue-600 bg-blue-900/20" : "border-gray-800 hover:border-gray-700"}`}>
+          <div className="space-y-4">
+            {/* RUIDO */}
+            <div className={`bg-gray-900 border rounded-xl overflow-hidden transition-colors ${form.expuesto_ruido ? "border-blue-700" : "border-gray-800"}`}>
+              <div onClick={() => f("expuesto_ruido", !form.expuesto_ruido)} className="flex items-center justify-between px-5 py-4 cursor-pointer select-none">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🔊</span>
+                  <div>
+                    <div className="text-sm font-semibold text-white">Ruido</div>
+                    <div className="text-xs text-gray-500">Exposición a ruido continuo, intermitente o de impacto</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-medium ${form.expuesto_ruido ? "text-blue-400" : "text-gray-600"}`}>Expuesto</span>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${form.expuesto_ruido ? "bg-blue-600 border-blue-600" : "border-gray-600"}`}>
+                    {form.expuesto_ruido && <CheckCircle size={12} className="text-white" />}
+                  </div>
+                </div>
+              </div>
+              {form.expuesto_ruido && (
+                <div className="px-5 pb-4 border-t border-blue-900/40 bg-blue-900/10 space-y-3">
+                  <div className="pt-3 grid grid-cols-2 gap-3">
                     <div>
-                      <div className="text-sm font-medium text-white">{label}</div>
-                      <div className="text-xs text-gray-500">{desc}</div>
+                      <label className="text-xs text-gray-500 mb-1 block">Tipo de Ruido</label>
+                      <select value={form.ruido_tipo} onChange={e => f("ruido_tipo", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                        <option value="">- Tipo de Ruido -</option>
+                        {["Continuo","Intermitente","De impacto"].map(o => <option key={o}>{o}</option>)}
+                      </select>
                     </div>
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${form[key] ? "bg-blue-600 border-blue-600" : "border-gray-600"}`}>
-                      {form[key] && <CheckCircle size={12} className="text-white" />}
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">¿Dificulta conversación a 1 m?</label>
+                      <select value={form.ruido_dificulta_conversacion} onChange={e => f("ruido_dificulta_conversacion", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                        <option value="">- Seleccionar -</option>
+                        {["Sí","No"].map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Tiempo de Exposición</label>
+                      <select value={form.ruido_tiempo_exposicion} onChange={e => f("ruido_tiempo_exposicion", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                        <option value="">- Límite Normativo -</option>
+                        {["> 8 hrs/día","4–8 hrs/día","1–4 hrs/día","< 1 hr/día"].map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Decibeles medidos/estimados</label>
+                      <div className="flex">
+                        <input type="number" step="0.1" value={form.ruido_decibeles} onChange={e => f("ruido_decibeles", e.target.value)} placeholder="Ej. 85" className="flex-1 bg-gray-800 border border-gray-700 rounded-l-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
+                        <span className="bg-gray-700 border border-gray-600 border-l-0 rounded-r-lg px-3 py-2 text-xs text-gray-400 flex items-center">dB(A)</span>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
+
+            {/* POLVO */}
+            <div className={`bg-gray-900 border rounded-xl overflow-hidden transition-colors ${form.expuesto_polvo ? "border-blue-700" : "border-gray-800"}`}>
+              <div onClick={() => f("expuesto_polvo", !form.expuesto_polvo)} className="flex items-center justify-between px-5 py-4 cursor-pointer select-none">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">💨</span>
+                  <div>
+                    <div className="text-sm font-semibold text-white">Polvo / Material Particulado</div>
+                    <div className="text-xs text-gray-500">Polvo, humo, neblina u otro material en suspensión</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-medium ${form.expuesto_polvo ? "text-blue-400" : "text-gray-600"}`}>Expuesto</span>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${form.expuesto_polvo ? "bg-blue-600 border-blue-600" : "border-gray-600"}`}>
+                    {form.expuesto_polvo && <CheckCircle size={12} className="text-white" />}
+                  </div>
+                </div>
+              </div>
+              {form.expuesto_polvo && (
+                <div className="px-5 pb-4 border-t border-blue-900/40 bg-blue-900/10 space-y-3">
+                  <div className="pt-3">
+                    <label className="text-xs text-gray-500 mb-1 block">Fuente generadora</label>
+                    <input value={form.polvo_fuente} onChange={e => f("polvo_fuente", e.target.value)} placeholder="Ej. Chancadora, Viento, Faja transportadora…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Tipo Principal</label>
+                      <select value={form.polvo_tipo_principal} onChange={e => f("polvo_tipo_principal", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                        <option value="">- Tipo Principal -</option>
+                        {["Sílice libre cristalina","Carbón","Madera","Metálico","Orgánico","Otro"].map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">Nivel Visual</label>
+                      <select value={form.polvo_nivel_visual} onChange={e => f("polvo_nivel_visual", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                        <option value="">- Nivel Visual -</option>
+                        {["Bajo (no visible)","Moderado (visible)","Alto (muy visible)"].map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* AMBIENTE TÉRMICO */}
+            <div className={`bg-gray-900 border rounded-xl overflow-hidden transition-colors ${form.expuesto_ambiente_termico ? "border-orange-700" : "border-gray-800"}`}>
+              <div onClick={() => f("expuesto_ambiente_termico", !form.expuesto_ambiente_termico)} className="flex items-center justify-between px-5 py-4 cursor-pointer select-none">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🌡️</span>
+                  <div>
+                    <div className="text-sm font-semibold text-white">Ambiente Térmico (Calor)</div>
+                    <div className="text-xs text-gray-500">Calor extremo, frío intenso o variaciones significativas</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-medium ${form.expuesto_ambiente_termico ? "text-orange-400" : "text-gray-600"}`}>Expuesto</span>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${form.expuesto_ambiente_termico ? "bg-orange-500 border-orange-500" : "border-gray-600"}`}>
+                    {form.expuesto_ambiente_termico && <CheckCircle size={12} className="text-white" />}
+                  </div>
+                </div>
+              </div>
+              {form.expuesto_ambiente_termico && (
+                <div className="px-5 pb-4 border-t border-orange-900/40 bg-orange-900/10 space-y-3">
+                  <div className="pt-3">
+                    <label className="text-xs text-gray-500 mb-1 block">Fuente de calor</label>
+                    <input value={form.termico_fuente} onChange={e => f("termico_fuente", e.target.value)} placeholder="Ej. Horno, Clima exterior, Motor, Fundición…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Nivel de Riesgo Térmico</label>
+                    <select value={form.termico_nivel_riesgo} onChange={e => f("termico_nivel_riesgo", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                      <option value="">- Nivel de Riesgo Térmico -</option>
+                      {["Leve","Moderado","Severo"].map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* OTROS FACTORES */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-white font-semibold text-sm mb-4">Otros Factores del Entorno</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -5830,33 +5960,136 @@ function CaracterizacionRiesgoModulo({ empresaId }) {
 
         {/* ── Tab 3: Ergo ── */}
         {activeTab === 3 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="text-white font-semibold text-sm mb-2 flex items-center gap-2"><BarChart2 size={16} className="text-blue-400" />Checklist Ergonomía (RM-375)</h3>
-            <p className="text-xs text-blue-300 bg-blue-900/20 border border-blue-900/40 rounded-lg px-3 py-2 mb-4">
-              Active la categoría si se supera el límite de tiempo o exposición recomendado. Luego seleccione los detalles para el reporte.
-            </p>
-            <div className="space-y-3">
-              {[
-                { key: "ergo_posturas_incomodas",      label: "Posturas Incómodas o Forzadas",  desc: "Posturas anómalas por más de 2 hrs/día." },
-                { key: "ergo_levantamiento_cargas",    label: "Levantamiento de Cargas",         desc: "Supera límites de peso y/o frecuencia." },
-                { key: "ergo_esfuerzo_manos",          label: "Esfuerzo de Manos y Muñecas",    desc: "Manipulación forzada por más de 2 hrs/día." },
-                { key: "ergo_movimientos_repetitivos", label: "Movimientos Repetitivos",         desc: "Mismo movimiento >4 veces/min por >2 hrs." },
-                { key: "ergo_impacto_repetido",        label: "Impacto Repetido",                desc: "Manos/rodillas como martillo (>10/hr)." },
-                { key: "ergo_vibracion_brazo",         label: "Vibración Brazo-Mano",            desc: "Moderada (>30 m/día) o Alta." },
-              ].map(({ key, label, desc }) => (
-                <div key={key} onClick={() => f(key, !form[key])} className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-colors select-none ${form[key] ? "border-amber-600 bg-amber-900/20" : "border-gray-800 hover:border-gray-700"}`}>
-                  <div>
-                    <div className="text-sm font-medium text-white">{label}</div>
-                    <div className="text-xs text-gray-500">{desc}</div>
-                  </div>
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${form[key] ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
-                    {form[key] && <CheckCircle size={12} className="text-white" />}
+          <div className="space-y-3">
+            <div className="text-xs text-blue-300 bg-blue-900/20 border border-blue-900/40 rounded-lg px-3 py-2 flex items-center gap-2">
+              <BarChart2 size={14} className="shrink-0" />
+              Active la categoría si se supera el límite de tiempo/exposición. Luego seleccione los detalles específicos observados.
+            </div>
+
+            {/* 1 — Posturas Incómodas */}
+            <div className={`bg-gray-900 border rounded-xl overflow-hidden ${form.ergo_posturas_incomodas ? "border-amber-600" : "border-gray-800"}`}>
+              <div onClick={() => f("ergo_posturas_incomodas", !form.ergo_posturas_incomodas)} className="flex items-center justify-between px-5 py-4 cursor-pointer select-none">
+                <div>
+                  <div className="text-sm font-semibold text-white">Posturas Incómodas o Forzadas</div>
+                  <div className="text-xs text-gray-500">Posturas anómalas por más de 2 hrs/día.</div>
+                </div>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${form.ergo_posturas_incomodas ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
+                  {form.ergo_posturas_incomodas && <CheckCircle size={12} className="text-white" />}
+                </div>
+              </div>
+              {form.ergo_posturas_incomodas && (
+                <div className="px-5 pb-4 pt-2 border-t border-amber-900/40 bg-amber-900/10">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                    {["Manos > cabeza","Codos > hombro","Espalda inclinada > 30°","Espalda extendida > 30°","Cuello doblado/girado > 30°","Sentado con espalda girada > 30°","De cuclillas o rodillas"].map(op => (
+                      <label key={op} className="flex items-center gap-2 cursor-pointer py-0.5">
+                        <input type="checkbox" checked={(form.ergo_posturas_detalle||[]).includes(op)} onChange={() => toggleArr("ergo_posturas_detalle", op)} className="accent-amber-500 w-3.5 h-3.5" />
+                        <span className="text-xs text-gray-300">{op}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
+
+            {/* 2 — Levantamiento de Cargas */}
+            <div className={`bg-gray-900 border rounded-xl overflow-hidden ${form.ergo_levantamiento_cargas ? "border-amber-600" : "border-gray-800"}`}>
+              <div onClick={() => f("ergo_levantamiento_cargas", !form.ergo_levantamiento_cargas)} className="flex items-center justify-between px-5 py-4 cursor-pointer select-none">
+                <div>
+                  <div className="text-sm font-semibold text-white">Levantamiento de Cargas</div>
+                  <div className="text-xs text-gray-500">Supera límites de peso y/o frecuencia.</div>
+                </div>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${form.ergo_levantamiento_cargas ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
+                  {form.ergo_levantamiento_cargas && <CheckCircle size={12} className="text-white" />}
+                </div>
+              </div>
+              {form.ergo_levantamiento_cargas && (
+                <div className="px-5 pb-4 pt-3 border-t border-amber-900/40 bg-amber-900/10">
+                  <label className="text-xs text-gray-500 mb-1 block">Seleccione el límite superado</label>
+                  <select value={form.ergo_levantamiento_limite} onChange={e => f("ergo_levantamiento_limite", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                    <option value="">- Seleccione el límite superado -</option>
+                    {["> 25 kg (hombre ocasional)","25 kg frecuente o > 15 kg (mujer)","Cargas en postura forzada","Frecuencia > 12 veces/hora","Distancia horizontal > 50 cm"].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* 3 — Esfuerzo de Manos y Muñecas */}
+            <div className={`bg-gray-900 border rounded-xl overflow-hidden ${form.ergo_esfuerzo_manos ? "border-amber-600" : "border-gray-800"}`}>
+              <div onClick={() => f("ergo_esfuerzo_manos", !form.ergo_esfuerzo_manos)} className="flex items-center justify-between px-5 py-4 cursor-pointer select-none">
+                <div>
+                  <div className="text-sm font-semibold text-white">Esfuerzo de Manos y Muñecas</div>
+                  <div className="text-xs text-gray-500">Manipulación forzada por más de 2 hrs/día.</div>
+                </div>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${form.ergo_esfuerzo_manos ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
+                  {form.ergo_esfuerzo_manos && <CheckCircle size={12} className="text-white" />}
+                </div>
+              </div>
+              {form.ergo_esfuerzo_manos && (
+                <div className="px-5 pb-4 pt-2 border-t border-amber-900/40 bg-amber-900/10">
+                  <div className="space-y-1.5">
+                    {["Pinza de objeto > 1 Kg","Fuerza con muñeca flexionada/extendida","Fuerza con muñeca lateralizada/girada","Atornillado de forma intensa"].map(op => (
+                      <label key={op} className="flex items-center gap-2 cursor-pointer py-0.5">
+                        <input type="checkbox" checked={(form.ergo_manos_detalle||[]).includes(op)} onChange={() => toggleArr("ergo_manos_detalle", op)} className="accent-amber-500 w-3.5 h-3.5" />
+                        <span className="text-xs text-gray-300">{op}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 4 — Movimientos Repetitivos */}
+            <div className={`bg-gray-900 border rounded-xl overflow-hidden ${form.ergo_movimientos_repetitivos ? "border-amber-600" : "border-gray-800"}`}>
+              <div onClick={() => f("ergo_movimientos_repetitivos", !form.ergo_movimientos_repetitivos)} className="flex items-center justify-between px-5 py-4 cursor-pointer select-none">
+                <div>
+                  <div className="text-sm font-semibold text-white">Movimientos Repetitivos</div>
+                  <div className="text-xs text-gray-500">Mismo movimiento &gt;4 veces/min por &gt;2 hrs.</div>
+                </div>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${form.ergo_movimientos_repetitivos ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
+                  {form.ergo_movimientos_repetitivos && <CheckCircle size={12} className="text-white" />}
+                </div>
+              </div>
+              {form.ergo_movimientos_repetitivos && (
+                <div className="px-5 pb-4 pt-3 border-t border-amber-900/40 bg-amber-900/10">
+                  <p className="text-xs text-gray-400 mb-2 font-medium">Grupos musculares afectados:</p>
+                  <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+                    {["Cuello","Hombros","Codos","Muñecas/Manos"].map(op => (
+                      <label key={op} className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={(form.ergo_repetitivos_grupos||[]).includes(op)} onChange={() => toggleArr("ergo_repetitivos_grupos", op)} className="accent-amber-500 w-3.5 h-3.5" />
+                        <span className="text-xs text-gray-300">{op}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 5 — Impacto Repetido */}
+            <div className={`bg-gray-900 border rounded-xl px-5 py-4 flex items-center justify-between cursor-pointer select-none ${form.ergo_impacto_repetido ? "border-amber-600 bg-amber-900/10" : "border-gray-800"}`}
+              onClick={() => f("ergo_impacto_repetido", !form.ergo_impacto_repetido)}>
+              <div>
+                <div className="text-sm font-semibold text-white">Impacto Repetido</div>
+                <div className="text-xs text-gray-500">Manos/rodillas como martillo (&gt;10/hr).</div>
+              </div>
+              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${form.ergo_impacto_repetido ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
+                {form.ergo_impacto_repetido && <CheckCircle size={12} className="text-white" />}
+              </div>
+            </div>
+
+            {/* 6 — Vibración */}
+            <div className={`bg-gray-900 border rounded-xl px-5 py-4 flex items-center justify-between cursor-pointer select-none ${form.ergo_vibracion_brazo ? "border-amber-600 bg-amber-900/10" : "border-gray-800"}`}
+              onClick={() => f("ergo_vibracion_brazo", !form.ergo_vibracion_brazo)}>
+              <div>
+                <div className="text-sm font-semibold text-white">Vibración Brazo-Mano</div>
+                <div className="text-xs text-gray-500">Moderada (&gt;30 m/día) o Alta.</div>
+              </div>
+              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${form.ergo_vibracion_brazo ? "bg-amber-500 border-amber-500" : "border-gray-600"}`}>
+                {form.ergo_vibracion_brazo && <CheckCircle size={12} className="text-white" />}
+              </div>
+            </div>
+
             {ergoCount > 0 && (
-              <div className="mt-4 text-xs text-amber-300 bg-amber-900/20 border border-amber-900/40 rounded-lg px-3 py-2">
+              <div className="text-xs text-amber-300 bg-amber-900/20 border border-amber-900/40 rounded-lg px-3 py-2">
                 ⚠ {ergoCount} factor{ergoCount > 1 ? "es" : ""} ergonómico{ergoCount > 1 ? "s" : ""} identificado{ergoCount > 1 ? "s" : ""}
               </div>
             )}
