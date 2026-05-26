@@ -24,6 +24,7 @@ export const THEMES = [
   { id: "violet",   label: "Violeta",  dot: "#3b2d6e" },
   { id: "forest",   label: "Bosque",   dot: "#1a4d2b" },
   { id: "rose",     label: "Carmín",   dot: "#6b1f2e" },
+  { id: "blanco",   label: "Blanco",   dot: "#e2e8f0" },
 ];
 const THEME_CSS = {
   obsidian: "",
@@ -51,6 +52,33 @@ const THEME_CSS = {
     ".t-rose.bg-gray-800,.t-rose .bg-gray-800{background-color:#250910!important}" +
     ".t-rose.border-gray-800,.t-rose .border-gray-800{border-color:#330c16!important}" +
     ".t-rose.border-gray-700,.t-rose .border-gray-700{border-color:#45141f!important}",
+  blanco:
+    // Fondos
+    ".t-blanco.bg-gray-950,.t-blanco .bg-gray-950{background-color:#f8fafc!important}" +
+    ".t-blanco.bg-gray-900,.t-blanco .bg-gray-900{background-color:#f1f5f9!important}" +
+    ".t-blanco.bg-gray-800,.t-blanco .bg-gray-800{background-color:#e2e8f0!important}" +
+    // Bordes
+    ".t-blanco.border-gray-800,.t-blanco .border-gray-800{border-color:#cbd5e1!important}" +
+    ".t-blanco.border-gray-700,.t-blanco .border-gray-700{border-color:#94a3b8!important}" +
+    // Textos — de claro a oscuro
+    ".t-blanco .text-white{color:#0f172a!important}" +
+    ".t-blanco .text-gray-300{color:#1e293b!important}" +
+    ".t-blanco .text-gray-400{color:#334155!important}" +
+    ".t-blanco .text-gray-500{color:#475569!important}" +
+    ".t-blanco .text-gray-600{color:#64748b!important}" +
+    ".t-blanco .text-gray-700{color:#475569!important}" +
+    // Placeholder
+    ".t-blanco .placeholder-gray-600::placeholder{color:#94a3b8!important}" +
+    // Restaurar texto blanco en botones con fondo de color
+    ".t-blanco .bg-blue-600.text-white,.t-blanco .bg-blue-600 .text-white{color:#fff!important}" +
+    ".t-blanco .bg-blue-500.text-white,.t-blanco .bg-blue-500 .text-white{color:#fff!important}" +
+    ".t-blanco .bg-amber-600.text-white,.t-blanco .bg-amber-600 .text-white{color:#fff!important}" +
+    ".t-blanco .bg-amber-500.text-white,.t-blanco .bg-amber-500 .text-white{color:#fff!important}" +
+    ".t-blanco .bg-emerald-600.text-white,.t-blanco .bg-emerald-600 .text-white{color:#fff!important}" +
+    ".t-blanco .bg-red-600.text-white,.t-blanco .bg-red-600 .text-white{color:#fff!important}" +
+    // Hover backgrounds
+    ".t-blanco .hover\\:bg-gray-800:hover{background-color:#cbd5e1!important}" +
+    ".t-blanco .hover\\:bg-gray-900:hover{background-color:#e2e8f0!important}",
 };
 function applyThemeCSS(id) {
   let el = document.getElementById("ssoma-theme-css");
@@ -5785,7 +5813,12 @@ export default function App() {
               {THEMES.map(t => (
                 <button key={t.id} onClick={() => setTheme(t.id)} title={t.label}
                   className="w-4 h-4 rounded-full transition-all hover:scale-125"
-                  style={{ backgroundColor: t.dot, outline: theme === t.id ? "2px solid white" : "2px solid transparent", outlineOffset: "1px" }}
+                  style={{
+                    backgroundColor: t.dot,
+                    outline: theme === t.id ? "2px solid white" : "2px solid transparent",
+                    outlineOffset: "1px",
+                    border: t.id === "blanco" ? "1px solid #64748b" : "none",
+                  }}
                 />
               ))}
             </div>
