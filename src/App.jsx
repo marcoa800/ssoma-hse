@@ -4434,21 +4434,44 @@ function PublicRacForm({ empresaId }) {
   const handleSubmit = async () => {
     if (!ubicacion.trim() || !descripcion.trim()) { setErr("Completa los campos obligatorios: Ubicación y Descripción."); return; }
     setSubmitting(true); setErr("");
+    // Subir fotos (si las hay)
     const urls = [];
     for (const f of fotos) {
       const path = `${empresaId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${f.name.split(".").pop()}`;
       const { error: upErr } = await supabase.storage.from("racs-fotos").upload(path, f, { contentType: f.type });
-      if (!upErr) { const { data: { publicUrl } } = supabase.storage.from("racs-fotos").getPublicUrl(path); urls.push(publicUrl); }
+      if (upErr) { console.warn("⚠ Error subiendo foto:", upErr.message); }
+      else { const { data: { publicUrl } } = supabase.storage.from("racs-fotos").getPublicUrl(path); urls.push(publicUrl); }
     }
-    const { error: insErr } = await supabase.from("racs").insert({
-      empresa_id: empresaId, sistema, naturaleza, ubicacion, nombre_reportante: nombre || null,
-      detalle_especifico: detalle || null, categorizacion: categorias, nivel_riesgo: nivel,
+    // Insertar RAC
+    const payload = {
+      empresa_id: empresaId, sistema, naturaleza, ubicacion,
+      nombre_reportante: nombre || null,
+      detalle_especifico: detalle || null,
+      categorizacion: categorias,
+      nivel_riesgo: nivel,
       tipo_reporte: `${sistema} - ${naturaleza}`,
-      descripcion, accion_inmediata: accion || null,
-      foto_url_1: urls[0] || null, foto_url_2: urls[1] || null, estado: "Abierto",
-    });
+      descripcion,
+      accion_inmediata: accion || null,
+      foto_url_1: urls[0] || null,
+      foto_url_2: urls[1] || null,
+      estado: "Abierto",
+    };
+    console.log("📤 Enviando RAC:", payload);
+    const { error: insErr } = await supabase.from("racs").insert(payload);
     setSubmitting(false);
-    if (insErr) { setErr("Error al enviar. Intenta nuevamente."); return; }
+    if (insErr) {
+      console.error("❌ Error RAC insert:", insErr);
+      // Mensaje amigable según el código de error
+      const msgs = {
+        "42501": "Permiso denegado (RLS). Contacta al administrador del sistema.",
+        "23502": "Falta un campo obligatorio en la base de datos.",
+        "23503": "ID de empresa no encontrado. Verifica el enlace QR.",
+        "23505": "Ya existe un registro duplicado.",
+      };
+      const detalle_err = msgs[insErr.code] || insErr.message || "Error desconocido";
+      setErr(`Error al enviar (${insErr.code || "?"}): ${detalle_err}`);
+      return;
+    }
     setSubmitted(true);
   };
 
@@ -4590,7 +4613,17 @@ function PublicRacForm({ empresaId }) {
           <textarea value={accion} onChange={e => setAccion(e.target.value)} rows={3} placeholder="¿Qué medida se tomó al momento del hallazgo?" className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-none" />
         </div>
 
-        {err && <div className="bg-red-900/30 border border-red-800 rounded-xl px-4 py-3 text-sm text-red-400">{err}</div>}
+        {err && (
+          <div className="bg-red-900/30 border border-red-800 rounded-xl px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-red-400">
+              <XCircle size={15} /> Error al enviar el reporte
+            </div>
+            <p className="text-xs text-red-300 leading-relaxed">{err}</p>
+            <p className="text-xs text-gray-600 mt-1">
+              Captura esta pantalla y envíala al administrador del sistema.
+            </p>
+          </div>
+        )}
 
         <button onClick={handleSubmit} disabled={submitting} className="w-full py-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-bold text-sm transition-colors shadow-lg">
           {submitting ? "Enviando reporte..." : "GENERAR REPORTE Y CONTINUAR"}
