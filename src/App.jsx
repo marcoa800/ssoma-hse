@@ -7,7 +7,8 @@ import {
   Download, ChevronRight, ChevronLeft, Lock,
   Trash2, LogOut, Filter, HelpCircle, Building2,
   Settings, UserPlus, Eye, EyeOff, Pencil, FileDown,
-  ClipboardList, ShieldAlert, Shield, Activity
+  ClipboardList, ShieldAlert, Shield, Activity,
+  Home, HeartPulse, Microscope, Menu, X
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
@@ -19,12 +20,12 @@ import autoTable from "jspdf-autotable";
 // TEMAS DE COLOR
 // ═══════════════════════════════════════════
 export const THEMES = [
+  { id: "blanco",   label: "Blanco",   dot: "#e2e8f0" },
   { id: "obsidian", label: "Obsidian", dot: "#374151" },
   { id: "slate",    label: "Slate",    dot: "#1e3a5f" },
   { id: "violet",   label: "Violeta",  dot: "#3b2d6e" },
   { id: "forest",   label: "Bosque",   dot: "#1a4d2b" },
   { id: "rose",     label: "Carmín",   dot: "#6b1f2e" },
-  { id: "blanco",   label: "Blanco",   dot: "#e2e8f0" },
 ];
 const THEME_CSS = {
   obsidian: "",
@@ -53,32 +54,84 @@ const THEME_CSS = {
     ".t-rose.border-gray-800,.t-rose .border-gray-800{border-color:#330c16!important}" +
     ".t-rose.border-gray-700,.t-rose .border-gray-700{border-color:#45141f!important}",
   blanco:
-    // Fondos
+    // ── Color base (fix raíz: text-white en mismo elemento que t-blanco) ──
+    ".t-blanco{color:#0f172a!important}" +
+    ".t-blanco.text-white{color:#0f172a!important}" +
+    // ── Fondos sólidos ──
     ".t-blanco.bg-gray-950,.t-blanco .bg-gray-950{background-color:#f8fafc!important}" +
     ".t-blanco.bg-gray-900,.t-blanco .bg-gray-900{background-color:#f1f5f9!important}" +
     ".t-blanco.bg-gray-800,.t-blanco .bg-gray-800{background-color:#e2e8f0!important}" +
-    // Bordes
+    // ── Fondos con opacidad (variantes /XX) — elimina manchas oscuras ──
+    ".t-blanco [class*='bg-gray-950/']{background-color:rgba(248,250,252,0.95)!important}" +
+    ".t-blanco [class*='bg-gray-900/']{background-color:rgba(241,245,249,0.85)!important}" +
+    ".t-blanco [class*='bg-gray-800/']{background-color:rgba(226,232,240,0.75)!important}" +
+    ".t-blanco [class*='bg-blue-900/']{background-color:rgba(219,234,254,0.9)!important}" +
+    ".t-blanco [class*='bg-amber-900/']{background-color:rgba(254,243,199,0.9)!important}" +
+    ".t-blanco [class*='bg-orange-900/']{background-color:rgba(255,237,213,0.9)!important}" +
+    ".t-blanco [class*='bg-purple-900/']{background-color:rgba(237,233,254,0.9)!important}" +
+    ".t-blanco [class*='bg-emerald-900/']{background-color:rgba(209,250,229,0.9)!important}" +
+    ".t-blanco [class*='bg-red-900/']{background-color:rgba(254,226,226,0.9)!important}" +
+    ".t-blanco [class*='bg-green-900/']{background-color:rgba(220,252,231,0.9)!important}" +
+    ".t-blanco [class*='bg-rose-900/']{background-color:rgba(255,228,230,0.9)!important}" +
+    // ── Bordes ──
     ".t-blanco.border-gray-800,.t-blanco .border-gray-800{border-color:#cbd5e1!important}" +
     ".t-blanco.border-gray-700,.t-blanco .border-gray-700{border-color:#94a3b8!important}" +
-    // Textos — de claro a oscuro
+    // ── Texto gris — todos los tonos claros se vuelven oscuros ──
     ".t-blanco .text-white{color:#0f172a!important}" +
-    ".t-blanco .text-gray-300{color:#1e293b!important}" +
-    ".t-blanco .text-gray-400{color:#334155!important}" +
-    ".t-blanco .text-gray-500{color:#475569!important}" +
+    ".t-blanco .text-gray-50{color:#0f172a!important}" +
+    ".t-blanco .text-gray-100{color:#1e293b!important}" +
+    ".t-blanco .text-gray-200{color:#1e293b!important}" +   // FIX: puntuaciones invisibles
+    ".t-blanco .text-gray-300{color:#334155!important}" +
+    ".t-blanco .text-gray-400{color:#475569!important}" +
+    ".t-blanco .text-gray-500{color:#64748b!important}" +
     ".t-blanco .text-gray-600{color:#64748b!important}" +
     ".t-blanco .text-gray-700{color:#475569!important}" +
-    // Placeholder
-    ".t-blanco .placeholder-gray-600::placeholder{color:#94a3b8!important}" +
-    // Restaurar texto blanco en botones con fondo de color
-    ".t-blanco .bg-blue-600.text-white,.t-blanco .bg-blue-600 .text-white{color:#fff!important}" +
-    ".t-blanco .bg-blue-500.text-white,.t-blanco .bg-blue-500 .text-white{color:#fff!important}" +
-    ".t-blanco .bg-amber-600.text-white,.t-blanco .bg-amber-600 .text-white{color:#fff!important}" +
-    ".t-blanco .bg-amber-500.text-white,.t-blanco .bg-amber-500 .text-white{color:#fff!important}" +
-    ".t-blanco .bg-emerald-600.text-white,.t-blanco .bg-emerald-600 .text-white{color:#fff!important}" +
-    ".t-blanco .bg-red-600.text-white,.t-blanco .bg-red-600 .text-white{color:#fff!important}" +
-    // Hover backgrounds
+    // ── Hover text — FIX principal: desaparecían al hacer hover ──
+    ".t-blanco .hover\\:text-white:hover{color:#0f172a!important}" +
+    ".t-blanco .hover\\:text-gray-200:hover{color:#1e293b!important}" +
+    ".t-blanco .hover\\:text-gray-300:hover{color:#334155!important}" +
+    ".t-blanco .hover\\:text-red-400:hover{color:#dc2626!important}" +
+    ".t-blanco .hover\\:text-blue-400:hover{color:#1d4ed8!important}" +
+    // ── Colores de acento — más oscuros para contraste sobre blanco ──
+    ".t-blanco .text-blue-400{color:#1d4ed8!important}" +
+    ".t-blanco .text-blue-500{color:#1d4ed8!important}" +
+    ".t-blanco .text-amber-400{color:#b45309!important}" +
+    ".t-blanco .text-amber-500{color:#92400e!important}" +
+    ".t-blanco .text-orange-400{color:#c2410c!important}" +
+    ".t-blanco .text-orange-500{color:#9a3412!important}" +
+    ".t-blanco .text-emerald-400{color:#047857!important}" +
+    ".t-blanco .text-emerald-500{color:#065f46!important}" +
+    ".t-blanco .text-red-400{color:#dc2626!important}" +
+    ".t-blanco .text-red-500{color:#b91c1c!important}" +
+    ".t-blanco .text-rose-400{color:#e11d48!important}" +
+    ".t-blanco .text-purple-400{color:#7c3aed!important}" +
+    ".t-blanco .text-purple-500{color:#6d28d9!important}" +
+    ".t-blanco .text-cyan-400{color:#0891b2!important}" +
+    ".t-blanco .text-teal-400{color:#0d9488!important}" +
+    ".t-blanco .text-green-400{color:#16a34a!important}" +
+    ".t-blanco .text-yellow-400{color:#ca8a04!important}" +
+    // ── Placeholder ──
+    ".t-blanco ::placeholder,.t-blanco .placeholder-gray-600::placeholder{color:#94a3b8!important}" +
+    // ── Restaurar blanco en botones con fondo sólido de color ──
+    ".t-blanco .bg-blue-600{color:#fff!important}" +
+    ".t-blanco .bg-blue-500{color:#fff!important}" +
+    ".t-blanco .bg-amber-600{color:#fff!important}" +
+    ".t-blanco .bg-amber-500{color:#fff!important}" +
+    ".t-blanco .bg-emerald-600{color:#fff!important}" +
+    ".t-blanco .bg-emerald-500{color:#fff!important}" +
+    ".t-blanco .bg-red-600{color:#fff!important}" +
+    ".t-blanco .bg-red-500{color:#fff!important}" +
+    ".t-blanco .bg-orange-600{color:#fff!important}" +
+    // pero text-white explícito dentro de esos botones también se restaura
+    ".t-blanco .bg-blue-600 .text-white,.t-blanco .bg-blue-600.text-white{color:#fff!important}" +
+    ".t-blanco .bg-amber-600 .text-white,.t-blanco .bg-amber-600.text-white{color:#fff!important}" +
+    ".t-blanco .bg-emerald-600 .text-white,.t-blanco .bg-emerald-600.text-white{color:#fff!important}" +
+    ".t-blanco .bg-red-600 .text-white,.t-blanco .bg-red-600.text-white{color:#fff!important}" +
+    // ── Hover backgrounds ──
     ".t-blanco .hover\\:bg-gray-800:hover{background-color:#cbd5e1!important}" +
-    ".t-blanco .hover\\:bg-gray-900:hover{background-color:#e2e8f0!important}",
+    ".t-blanco .hover\\:bg-gray-900:hover{background-color:#e2e8f0!important}" +
+    ".t-blanco .hover\\:bg-gray-700:hover{background-color:#e2e8f0!important}" +
+    ".t-blanco .hover\\:bg-red-900:hover{background-color:rgba(254,202,202,1)!important}",
 };
 function applyThemeCSS(id) {
   let el = document.getElementById("ssoma-theme-css");
@@ -189,7 +242,7 @@ function Select({ children, ...props }) {
 function Btn({ children, variant = "default", size = "md", disabled, onClick, className = "" }) {
   const base = "inline-flex items-center gap-1.5 font-medium rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed";
   const sizes = { sm: "px-3 py-1.5 text-xs", md: "px-4 py-2 text-sm" };
-  const variants = { default: "bg-transparent border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white", primary: "bg-blue-600 text-white hover:bg-blue-500 border border-transparent", danger: "bg-red-900/40 text-red-400 border border-red-800 hover:bg-red-900", success: "bg-emerald-900/40 text-emerald-400 border border-emerald-800 hover:bg-emerald-900" };
+  const variants = { default: "bg-transparent border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white", ghost: "bg-transparent border border-gray-700/50 text-gray-500 hover:bg-gray-800 hover:text-gray-300", primary: "bg-blue-600 text-white hover:bg-blue-500 border border-transparent", danger: "bg-red-900/40 text-red-400 border border-red-800 hover:bg-red-900", success: "bg-emerald-900/40 text-emerald-400 border border-emerald-800 hover:bg-emerald-900" };
   return <button className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} disabled={disabled} onClick={onClick}>{children}</button>;
 }
 
@@ -4390,6 +4443,7 @@ function PublicRacForm({ empresaId }) {
     const { error: insErr } = await supabase.from("racs").insert({
       empresa_id: empresaId, sistema, naturaleza, ubicacion, nombre_reportante: nombre || null,
       detalle_especifico: detalle || null, categorizacion: categorias, nivel_riesgo: nivel,
+      tipo_reporte: `${sistema} - ${naturaleza}`,
       descripcion, accion_inmediata: accion || null,
       foto_url_1: urls[0] || null, foto_url_2: urls[1] || null, estado: "Abierto",
     });
@@ -4555,12 +4609,17 @@ function RacsModulo({ empresaId }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [fSistema, setFSistema] = useState("");
   const [fNivel, setFNivel] = useState("");
   const [fEstado, setFEstado] = useState("");
   const [mgmt, setMgmt] = useState({ estado:"Abierto", responsable:"", fecha_limite:"", medida_correctiva:"" });
+  const racBlank = { sistema:"SST", naturaleza:"Acto", ubicacion:"", nombre_reportante:"", detalle_especifico:"", categorizacion:[], nivel_riesgo:"Medio", descripcion:"", accion_inmediata:"" };
+  const [racForm, setRacForm] = useState(racBlank);
+  const rfToggleCat = (c) => setRacForm(p => ({ ...p, categorizacion: p.categorizacion.includes(c) ? p.categorizacion.filter(x=>x!==c) : [...p.categorizacion, c] }));
 
   const racUrl = `${window.location.origin}${window.location.pathname}?rac=${empresaId}`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(racUrl)}&size=220x220&margin=10`;
@@ -4580,8 +4639,31 @@ function RacsModulo({ empresaId }) {
 
   const saveMgmt = async () => {
     setSaving(true);
-    await supabase.from("racs").update({ estado: mgmt.estado, responsable: mgmt.responsable, fecha_limite: mgmt.fecha_limite||null, medida_correctiva: mgmt.medida_correctiva, fecha_cierre: mgmt.estado==="Cerrado" ? new Date().toISOString().split("T")[0] : null }).eq("id", selected.id);
-    showToast("RAC actualizado", "success"); setSaving(false); setShowModal(false); load();
+    const { error } = await supabase.from("racs").update({ estado: mgmt.estado, responsable: mgmt.responsable, fecha_limite: mgmt.fecha_limite||null, medida_correctiva: mgmt.medida_correctiva, fecha_cierre: mgmt.estado==="Cerrado" ? new Date().toISOString().split("T")[0] : null }).eq("id", selected.id);
+    if (error) { showToast("Error al actualizar: " + error.message, "error"); } else { showToast("RAC actualizado", "success"); setShowModal(false); load(); }
+    setSaving(false);
+  };
+
+  const saveNewRac = async () => {
+    if (!racForm.ubicacion.trim() || !racForm.descripcion.trim()) { showToast("Ubicación y descripción son obligatorios", "error"); return; }
+    setCreating(true);
+    const { error } = await supabase.from("racs").insert({
+      empresa_id: empresaId,
+      sistema: racForm.sistema,
+      naturaleza: racForm.naturaleza,
+      ubicacion: racForm.ubicacion,
+      nombre_reportante: racForm.nombre_reportante || null,
+      detalle_especifico: racForm.detalle_especifico || null,
+      categorizacion: racForm.categorizacion,
+      nivel_riesgo: racForm.nivel_riesgo,
+      tipo_reporte: `${racForm.sistema} - ${racForm.naturaleza}`,
+      descripcion: racForm.descripcion,
+      accion_inmediata: racForm.accion_inmediata || null,
+      estado: "Abierto",
+    });
+    if (error) { showToast("Error al crear RAC: " + error.message, "error"); }
+    else { showToast("RAC creado correctamente", "success"); setShowCreate(false); setRacForm(racBlank); load(); }
+    setCreating(false);
   };
 
   const anio = new Date().getFullYear(); const mes = new Date().getMonth();
@@ -4604,6 +4686,7 @@ function RacsModulo({ empresaId }) {
         <div className="flex items-center gap-2 shrink-0 ml-4">
           <Btn size="sm" variant="ghost" onClick={() => setShowQR(true)}><Info size={13} /> Código QR</Btn>
           <ExportBtn data={records.map(r=>({ Fecha:r.created_at?.split("T")[0], Sistema:r.sistema, Naturaleza:r.naturaleza, Ubicación:r.ubicacion, Reportante:r.nombre_reportante||"—", Detalle:r.detalle_especifico||"—", Categorías:(r.categorizacion||[]).join(", "), "Nivel riesgo":r.nivel_riesgo, Descripción:r.descripcion, "Acción inmediata":r.accion_inmediata||"—", Estado:r.estado, Responsable:r.responsable||"—", "Fecha límite":r.fecha_limite||"—", "Medida correctiva":r.medida_correctiva||"—", "Fecha cierre":r.fecha_cierre||"—" }))} filename="racs" />
+          <Btn size="sm" variant="primary" onClick={() => { setRacForm(racBlank); setShowCreate(true); }}><Plus size={13} /> Nuevo RAC</Btn>
         </div>
       </div>
 
@@ -4649,6 +4732,70 @@ function RacsModulo({ empresaId }) {
           </tbody>
         </table>
       </div>
+
+      {/* Modal crear RAC */}
+      {showCreate && (
+        <Modal title="Nuevo RAC" onClose={()=>setShowCreate(false)} wide>
+          <div className="space-y-4">
+            {/* Sistema + Naturaleza */}
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Sistema">
+                <Select value={racForm.sistema} onChange={e=>setRacForm(p=>({...p,sistema:e.target.value,detalle_especifico:""}))}>
+                  <option>SST</option><option>M. Ambiente</option>
+                </Select>
+              </FormField>
+              <FormField label="Naturaleza">
+                <Select value={racForm.naturaleza} onChange={e=>setRacForm(p=>({...p,naturaleza:e.target.value,detalle_especifico:""}))}>
+                  <option>Acto</option><option>Condición</option>
+                </Select>
+              </FormField>
+            </div>
+            <FormField label="Ubicación *">
+              <Input value={racForm.ubicacion} onChange={e=>setRacForm(p=>({...p,ubicacion:e.target.value}))} placeholder="¿Dónde ocurrió el acto o condición?" />
+            </FormField>
+            <FormField label="Nombre del reportante (opcional)">
+              <Input value={racForm.nombre_reportante} onChange={e=>setRacForm(p=>({...p,nombre_reportante:e.target.value}))} placeholder="Nombre completo" />
+            </FormField>
+            {(DETALLES_ESPECIFICOS[`${racForm.sistema}-${racForm.naturaleza}`]||[]).length > 0 && (
+              <FormField label="Detalle específico">
+                <Select value={racForm.detalle_especifico} onChange={e=>setRacForm(p=>({...p,detalle_especifico:e.target.value}))}>
+                  <option value="">Seleccionar...</option>
+                  {(DETALLES_ESPECIFICOS[`${racForm.sistema}-${racForm.naturaleza}`]||[]).map(d=><option key={d}>{d}</option>)}
+                </Select>
+              </FormField>
+            )}
+            <FormField label="Nivel de riesgo">
+              <Select value={racForm.nivel_riesgo} onChange={e=>setRacForm(p=>({...p,nivel_riesgo:e.target.value}))}>
+                <option>Alto</option><option>Medio</option><option>Bajo</option>
+              </Select>
+            </FormField>
+            <FormField label="Categorización del riesgo">
+              <div className="grid grid-cols-2 gap-1.5 mt-1">
+                {CATEGORIAS_RIESGO.map(cat=>(
+                  <button key={cat} type="button" onClick={()=>rfToggleCat(cat)}
+                    className={`text-left px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${racForm.categorizacion.includes(cat) ? "bg-blue-900/40 border-blue-600 text-blue-300" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"}`}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </FormField>
+            <FormField label="Descripción del hallazgo *">
+              <textarea value={racForm.descripcion} onChange={e=>setRacForm(p=>({...p,descripcion:e.target.value}))}
+                rows={3} placeholder="Describe el acto o condición observada..."
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-none" />
+            </FormField>
+            <FormField label="Acción inmediata tomada (opcional)">
+              <Input value={racForm.accion_inmediata} onChange={e=>setRacForm(p=>({...p,accion_inmediata:e.target.value}))} placeholder="Medida correctiva inmediata" />
+            </FormField>
+            <div className="flex gap-2 pt-2">
+              <Btn variant="ghost" onClick={()=>setShowCreate(false)} className="flex-1 justify-center">Cancelar</Btn>
+              <Btn variant="primary" onClick={saveNewRac} disabled={creating} className="flex-1 justify-center">
+                {creating ? "Guardando..." : "Crear RAC"}
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Modal QR */}
       {showQR && (
@@ -6776,6 +6923,175 @@ function SSOMADashboard({ empresaId, workers }) {
 }
 
 // ═══════════════════════════════════════════
+// HOME — PÁGINA DE INICIO
+// ═══════════════════════════════════════════
+function HomeModulo({ profile, role, platform, setPlatform, navigate, setPage, empresa }) {
+  const isSuperAdmin = role === "SUPERADMIN";
+  const canMedico = ["SUPERADMIN", "ADMIN", "MEDICO"].includes(role);
+  const today = new Date().toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+  const SALUD_CARDS = [
+    { id: "dashboard",       label: "Dashboard General",         desc: "Métricas y KPIs en tiempo real",          Icon: LayoutDashboard, color: "blue" },
+    { id: "directorio",      label: "Directorio de Personal",    desc: "Sábana completa de trabajadores",         Icon: Users,           color: "emerald" },
+    { id: "capacitaciones",  label: "Capacitaciones",            desc: "Registro y seguimiento de cursos",        Icon: BookOpen,        color: "purple" },
+    { id: "vigilancia",      label: "Vigilancia Médica",         desc: "Programas de vigilancia activos",         Icon: HeartPulse,      color: "red",    locked: !canMedico, requiredRole: "MEDICO" },
+    { id: "caracterizacion", label: "Caracterización de Riesgo", desc: "Evaluación ergonómica RM-375",            Icon: Microscope,      color: "orange" },
+    { id: "accidentes",      label: "Accidentes",                desc: "Registro de incidentes y accidentes",     Icon: ShieldAlert,     color: "rose" },
+    { id: "seguimiento",     label: "Seguimiento Médico",        desc: "Control y seguimiento de casos",          Icon: ClipboardList,   color: "blue" },
+    { id: "epps",            label: "Control de EPPs",           desc: "Equipos de protección personal",          Icon: Shield,          color: "green" },
+    { id: "monitoreo",       label: "Monitoreo",                 desc: "Monitoreo de agentes ocupacionales",      Icon: Activity,        color: "cyan" },
+    { id: "documentos",      label: "Documentos",                desc: "Centro documental y normativa",           Icon: FileText,        color: "gray" },
+    { id: "kpis",            label: "KPIs",                      desc: "Indicadores de gestión y desempeño",      Icon: BarChart2,       color: "yellow" },
+    { id: "reportes",        label: "Reportes PDF",              desc: "Generación de informes y reportes",       Icon: FileDown,        color: "gray" },
+  ];
+
+  const SSOMA_CARDS = [
+    { id: "ssoma_dashboard",  label: "Dashboard SSOMA",     desc: "Panel de seguridad operacional",      Icon: LayoutDashboard, color: "amber" },
+    { id: "directorio",       label: "Directorio",          desc: "Personal y organización",             Icon: Users,           color: "emerald" },
+    { id: "accidentes",       label: "Accidentes",          desc: "Registro de accidentes e incidentes", Icon: ShieldAlert,     color: "red" },
+    { id: "racs",             label: "RACs",                desc: "Reportes de actos y condiciones",     Icon: AlertTriangle,   color: "orange" },
+    { id: "iperc",            label: "IPERC / Riesgos",     desc: "Matriz de identificación de riesgos", Icon: Shield,          color: "red" },
+    { id: "inspecciones",     label: "Inspecciones",        desc: "Inspecciones de seguridad",           Icon: ClipboardList,   color: "blue" },
+    { id: "ats",              label: "ATS / PETAR",         desc: "Análisis de trabajo seguro",          Icon: CheckCircle,     color: "green" },
+    { id: "epps",             label: "Control de EPPs",     desc: "Equipos de protección personal",      Icon: Shield,          color: "teal" },
+    { id: "monitoreo",        label: "Monitoreo",           desc: "Monitoreo de agentes físicos",        Icon: Activity,        color: "cyan" },
+    { id: "reportes_ssoma",   label: "Reportes PDF",        desc: "Generación de informes SSOMA",        Icon: FileDown,        color: "gray" },
+  ];
+
+  const CM = {
+    blue:    { border: "border-l-blue-500",    text: "text-blue-400",    glow: "hover:border-blue-600 hover:shadow-blue-500/20",    bg: "bg-blue-500/10" },
+    emerald: { border: "border-l-emerald-500", text: "text-emerald-400", glow: "hover:border-emerald-600 hover:shadow-emerald-500/20", bg: "bg-emerald-500/10" },
+    purple:  { border: "border-l-purple-500",  text: "text-purple-400",  glow: "hover:border-purple-600 hover:shadow-purple-500/20",  bg: "bg-purple-500/10" },
+    red:     { border: "border-l-red-500",     text: "text-red-400",     glow: "hover:border-red-600 hover:shadow-red-500/20",        bg: "bg-red-500/10" },
+    orange:  { border: "border-l-orange-500",  text: "text-orange-400",  glow: "hover:border-orange-600 hover:shadow-orange-500/20",  bg: "bg-orange-500/10" },
+    amber:   { border: "border-l-amber-500",   text: "text-amber-400",   glow: "hover:border-amber-600 hover:shadow-amber-500/20",   bg: "bg-amber-500/10" },
+    yellow:  { border: "border-l-yellow-500",  text: "text-yellow-400",  glow: "hover:border-yellow-600 hover:shadow-yellow-500/20",  bg: "bg-yellow-500/10" },
+    gray:    { border: "border-l-gray-600",    text: "text-gray-400",    glow: "hover:border-gray-500 hover:shadow-gray-500/10",      bg: "bg-gray-500/10" },
+    rose:    { border: "border-l-rose-500",    text: "text-rose-400",    glow: "hover:border-rose-600 hover:shadow-rose-500/20",      bg: "bg-rose-500/10" },
+    green:   { border: "border-l-green-500",   text: "text-green-400",   glow: "hover:border-green-600 hover:shadow-green-500/20",   bg: "bg-green-500/10" },
+    cyan:    { border: "border-l-cyan-500",    text: "text-cyan-400",    glow: "hover:border-cyan-600 hover:shadow-cyan-500/20",      bg: "bg-cyan-500/10" },
+    teal:    { border: "border-l-teal-500",    text: "text-teal-400",    glow: "hover:border-teal-600 hover:shadow-teal-500/20",      bg: "bg-teal-500/10" },
+  };
+
+  const cards = platform === "salud" ? SALUD_CARDS : SSOMA_CARDS;
+
+  const handleCard = (card) => {
+    if (card.locked) {
+      showToast(`Acceso denegado — requiere rol ${card.requiredRole || "ADMIN"} o superior`, "error");
+      return;
+    }
+    navigate(card.id);
+  };
+
+  return (
+    <div className="space-y-6 max-w-6xl">
+
+      {/* ── Hero ── */}
+      <div className="relative rounded-2xl overflow-hidden border border-gray-800 p-6"
+        style={{
+          background: "linear-gradient(135deg, #0c1220 0%, #030712 60%, #0a0e18 100%)",
+          backgroundImage: `radial-gradient(circle at 15% 55%, rgba(59,130,246,0.10) 0%, transparent 45%),
+                            radial-gradient(circle at 85% 20%, rgba(245,158,11,0.08) 0%, transparent 45%)`,
+        }}>
+        <div className="absolute inset-0 opacity-[0.035]"
+          style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "22px 22px" }} />
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="text-xs text-gray-600 mb-1 font-mono uppercase tracking-widest">{empresa?.nombre || "SSOMA HSE"}</div>
+            <h1 className="text-xl font-bold text-white">Bienvenido, {profile?.nombre || "Usuario"}</h1>
+            <p className="text-gray-500 text-sm mt-1">¿A dónde quieres ir hoy?</p>
+            <div className="text-xs text-gray-700 mt-2 capitalize">{today}</div>
+          </div>
+          <div className="flex gap-2 shrink-0 flex-wrap">
+            <button onClick={() => setPlatform("salud")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                platform === "salud"
+                  ? "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25"
+                  : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
+              }`}>
+              <Stethoscope size={14} /> Salud Ocupacional
+            </button>
+            <button onClick={() => setPlatform("ssoma")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                platform === "ssoma"
+                  ? "bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-500/25"
+                  : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
+              }`}>
+              <ShieldAlert size={14} /> SSOMA
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Section ── */}
+      <div>
+        <div className={`flex items-center gap-3 pl-3 border-l-2 mb-4 ${platform === "salud" ? "border-blue-500" : "border-amber-500"}`}>
+          <div>
+            <div className={`text-xs font-bold uppercase tracking-widest ${platform === "salud" ? "text-blue-400" : "text-amber-400"}`}>
+              {platform === "salud" ? "Salud Ocupacional" : "Seguridad y Medio Ambiente"}
+            </div>
+            <div className="text-xs text-gray-600 mt-0.5">Selecciona un módulo para comenzar</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {cards.map(card => {
+            const cc = CM[card.color] || CM.gray;
+            return (
+              <div key={`${platform}-${card.id}`} onClick={() => handleCard(card)}
+                className={`relative group bg-gray-900 border border-l-4 rounded-xl p-4 cursor-pointer transition-all duration-200 overflow-hidden select-none
+                  ${cc.border} border-gray-800
+                  ${card.locked ? "opacity-60" : `${cc.glow} hover:shadow-lg hover:-translate-y-0.5`}`}>
+                <div className={`mb-3 ${cc.bg} w-9 h-9 rounded-lg flex items-center justify-center`}>
+                  <card.Icon size={18} className={card.locked ? "text-gray-600" : cc.text} />
+                </div>
+                <div className="text-sm font-semibold text-white leading-tight mb-1">{card.label}</div>
+                <div className="text-xs text-gray-500 leading-relaxed">{card.desc}</div>
+                {!card.locked && (
+                  <div className={`absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity ${cc.text}`}>
+                    <ChevronRight size={14} />
+                  </div>
+                )}
+                {card.locked && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl gap-1"
+                    style={{ backdropFilter: "blur(4px)", backgroundColor: "rgba(3,7,18,0.68)" }}>
+                    <div className="w-8 h-8 rounded-full bg-red-900/60 border border-red-700/80 flex items-center justify-center">
+                      <Lock size={15} className="text-red-400" />
+                    </div>
+                    <div className="text-xs font-semibold text-red-300 mt-0.5">Sin acceso</div>
+                    <div className="text-xs text-gray-500">Requiere: {card.requiredRole || "ADMIN"}+</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Admin section ── */}
+      {isSuperAdmin && (
+        <div>
+          <div className="pl-3 border-l-2 border-orange-800 mb-3">
+            <div className="text-xs font-bold uppercase tracking-widest text-orange-600">Administración</div>
+          </div>
+          <div onClick={() => setPage("superadmin")}
+            className="group inline-flex items-center gap-4 bg-gray-900/50 border border-l-4 border-gray-800 border-l-orange-700 rounded-xl p-4 cursor-pointer hover:border-orange-600 hover:shadow-lg hover:shadow-orange-500/10 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center">
+              <Settings size={18} className="text-orange-400" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-gray-300">Panel de Administración</div>
+              <div className="text-xs text-gray-600">Gestión de empresas y usuarios del sistema</div>
+            </div>
+            <ChevronRight size={14} className="text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity ml-2" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════
 // APP PRINCIPAL
 // ═══════════════════════════════════════════
 const NAV = [
@@ -6810,7 +7126,8 @@ export default function App() {
   const [platform, setPlatform] = useState("salud"); // "salud" | "ssoma"
   const [theme, setTheme] = useState(() => localStorage.getItem("ssoma-theme") || "obsidian");
   useEffect(() => { applyThemeCSS(theme); localStorage.setItem("ssoma-theme", theme); }, [theme]);
-  const [page, setPage] = useState("dashboard");
+  const [page, setPage] = useState("home");
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" ? window.innerWidth >= 768 : true);
   const [workers, setWorkers] = useState([]);
   const [trainings, setTrainings] = useState([]);
   const [docs, setDocs] = useState([]);
@@ -6876,11 +7193,16 @@ export default function App() {
   const switchPlatform = (p) => {
     setPlatform(p);
     setPage(p === "salud" ? "dashboard" : "ssoma_dashboard");
+    setSidebarOpen(false);
   };
+
+  // go: navega y cierra sidebar (todos los módulos sin restricción)
+  const go = (id) => { setPage(id); setSidebarOpen(false); };
 
   const navigate = (p) => {
     if (p === "vigilancia" && profile?.rol === "SEGURIDAD") { showToast("Acceso denegado: módulo exclusivo para MEDICO/ADMIN", "error"); return; }
     setPage(p);
+    setSidebarOpen(false);
   };
 
   const logout = async () => { await supabase.auth.signOut(); setSession(null); setProfile(null); };
@@ -6890,6 +7212,7 @@ export default function App() {
   const isSuperAdmin = role === "SUPERADMIN";
 
   const pageTitles = {
+    home: "Inicio",
     // Salud Ocupacional
     dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones",
     documentos: "Centro Documental", kpis: "Gestión de KPIs", reportes: "Reportes PDF",
@@ -6909,108 +7232,182 @@ export default function App() {
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando...</div>;
   if (!session) return <><Login /><ToastContainer /></>;
 
+  // Contenido del sidebar (compartido entre desktop y mobile)
+  const SidebarContent = () => (
+    <>
+      {/* ── Logo header ── */}
+      <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-xs font-bold shrink-0">S</div>
+          <span className="font-semibold text-sm">SSOMA <span className="text-gray-500 font-normal">HSE</span></span>
+        </div>
+        <button onClick={() => setSidebarOpen(false)}
+          className="p-1 rounded-lg text-gray-600 hover:text-gray-300 hover:bg-gray-800 transition-colors">
+          <X size={15} />
+        </button>
+      </div>
+
+      {/* ── Nav ── */}
+      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+        {/* Inicio */}
+        <button onClick={() => go("home")}
+          className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left mb-2 ${page === "home" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+          <Home size={16} /> Inicio
+        </button>
+
+        {/* Plataforma toggle */}
+        <div className="flex bg-gray-800/60 rounded-lg p-0.5 mb-3 border border-gray-700/50">
+          <button onClick={() => switchPlatform("salud")}
+            className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "salud" ? "bg-blue-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+            <Stethoscope size={11} /> Salud
+          </button>
+          <button onClick={() => switchPlatform("ssoma")}
+            className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "ssoma" ? "bg-amber-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+            <ShieldAlert size={11} /> SSOMA
+          </button>
+        </div>
+
+        {/* Admin */}
+        {isSuperAdmin && (
+          <>
+            <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2">Administración</div>
+            <button onClick={() => go("superadmin")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "superadmin" ? "bg-orange-900/40 text-orange-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+              <Building2 size={16} />Panel Admin
+            </button>
+          </>
+        )}
+
+        {platform === "salud" ? (
+          <>
+            <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">Módulos</div>
+            {NAV.map(({ id, label, icon: Icon }) => (
+              <button key={id} onClick={() => navigate(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                <Icon size={16} />{label}
+              </button>
+            ))}
+            <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Salud Ocupacional</div>
+            <button onClick={() => navigate("vigilancia")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "vigilancia" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+              <Stethoscope size={16} />Vigilancia Médica
+              <span className="ml-auto flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-500 border border-purple-900"><Lock size={9} />MED</span>
+            </button>
+            <button onClick={() => navigate("caracterizacion")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "caracterizacion" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+              <FileText size={16} />Caracterización Riesgo
+            </button>
+            <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Seguridad</div>
+            <button onClick={() => go("accidentes")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "accidentes" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ShieldAlert size={16} />Accidentes</button>
+            <button onClick={() => go("seguimiento")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "seguimiento" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ClipboardList size={16} />Seguimiento</button>
+            <button onClick={() => go("epps")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "epps" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Shield size={16} />Control de EPPs</button>
+            <button onClick={() => go("monitoreo")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "monitoreo" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Activity size={16} />Monitoreo</button>
+          </>
+        ) : (
+          <>
+            <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">SSOMA</div>
+            {SSOMA_NAV.map(({ id, label, icon: Icon }) => (
+              <button key={id} onClick={() => go(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-amber-900/40 text-amber-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                <Icon size={16} />{label}
+              </button>
+            ))}
+          </>
+        )}
+      </nav>
+
+      {/* ── Footer ── */}
+      <div className="p-3 border-t border-gray-800 shrink-0">
+        <div className="text-xs font-medium text-white mb-0.5 truncate">{profile?.nombre || session.user.email}</div>
+        <div className="text-xs text-gray-600 mb-2 truncate">{session.user.email}</div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-xs text-gray-700">Tema</span>
+          <div className="flex gap-1 ml-1">
+            {THEMES.map(t => (
+              <button key={t.id} onClick={() => setTheme(t.id)} title={t.label}
+                className="w-4 h-4 rounded-full transition-all hover:scale-125"
+                style={{ backgroundColor: t.dot, outline: theme === t.id ? "2px solid white" : "2px solid transparent", outlineOffset: "1px", border: t.id === "blanco" ? "1px solid #64748b" : "none" }} />
+            ))}
+          </div>
+        </div>
+        <button onClick={logout} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-gray-600 hover:text-red-400 hover:bg-gray-800 transition-colors"><LogOut size={13} /> Cerrar sesión</button>
+      </div>
+    </>
+  );
+
   return (
     <div className={`flex h-screen bg-gray-950 text-white overflow-hidden t-${theme}`}>
-      <aside className="w-56 min-w-56 bg-gray-900 border-r border-gray-800 flex flex-col overflow-y-auto">
-        <div className="px-4 py-4 border-b border-gray-800">
-          <div className="flex items-center gap-2.5 mb-2"><div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-xs font-bold">S</div><span className="font-semibold text-sm">SSOMA <span className="text-gray-500 font-normal">HSE</span></span></div>
-          {allEmpresas.length > 1 ? (
-            <div>
-              <div className="text-xs text-gray-700 mb-1 flex items-center gap-1"><Building2 size={10} />Empresa activa</div>
-              <select
-                value={profile?.empresa_id || ""}
-                onChange={e => switchEmpresa(e.target.value)}
-                disabled={switching}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
-              >
-                {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-              </select>
-              {switching && <div className="text-xs text-blue-400 mt-1 animate-pulse">Cambiando...</div>}
-            </div>
-          ) : (
-            <div className="text-xs text-gray-600 truncate">{empresa?.nombre || "Sin empresa"}</div>
-          )}
-        </div>
-        <nav className="flex-1 px-2 py-3 space-y-0.5">
 
-          {/* ── Selector de plataforma ── */}
-          <div className="flex bg-gray-800/60 rounded-lg p-0.5 mb-3 border border-gray-700/50">
-            <button
-              onClick={() => switchPlatform("salud")}
-              className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "salud" ? "bg-blue-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}
-            >
-              <Stethoscope size={11} /> Salud
-            </button>
-            <button
-              onClick={() => switchPlatform("ssoma")}
-              className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "ssoma" ? "bg-amber-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}
-            >
-              <ShieldAlert size={11} /> SSOMA
-            </button>
-          </div>
+      {/* ── Backdrop móvil ── */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
 
-          {/* ── Panel Admin (ambas plataformas) ── */}
-          {isSuperAdmin && (
-            <>
-              <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2">Administración</div>
-              <button onClick={() => setPage("superadmin")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "superadmin" ? "bg-orange-900/40 text-orange-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Building2 size={16} />Panel Admin</button>
-            </>
-          )}
-
-          {platform === "salud" ? (
-            <>
-              <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">Módulos</div>
-              {NAV.map(({ id, label, icon: Icon }) => (<button key={id} onClick={() => navigate(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Icon size={16} />{label}</button>))}
-              <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Salud Ocupacional</div>
-              <button onClick={() => navigate("vigilancia")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "vigilancia" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Stethoscope size={16} />Vigilancia Médica<span className="ml-auto flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-500 border border-purple-900"><Lock size={9} />MED</span></button>
-              <button onClick={() => navigate("caracterizacion")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "caracterizacion" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><FileText size={16} />Caracterización Riesgo</button>
-              <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Seguridad</div>
-              <button onClick={() => setPage("accidentes")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "accidentes" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ShieldAlert size={16} />Accidentes</button>
-              <button onClick={() => setPage("seguimiento")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "seguimiento" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ClipboardList size={16} />Seguimiento</button>
-              <button onClick={() => setPage("epps")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "epps" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Shield size={16} />Control de EPPs</button>
-              <button onClick={() => setPage("monitoreo")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "monitoreo" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Activity size={16} />Monitoreo</button>
-            </>
-          ) : (
-            <>
-              <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">SSOMA</div>
-              {SSOMA_NAV.map(({ id, label, icon: Icon }) => (
-                <button key={id} onClick={() => setPage(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-amber-900/40 text-amber-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
-                  <Icon size={16} />{label}
-                  {false && <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-600 border border-gray-700">Próx.</span>}
-                </button>
-              ))}
-            </>
-          )}
-        </nav>
-        <div className="p-3 border-t border-gray-800">
-          <div className="text-xs font-medium text-white mb-0.5 truncate">{profile?.nombre || session.user.email}</div>
-          <div className="text-xs text-gray-600 mb-2 truncate">{session.user.email}</div>
-          {/* Selector de tema */}
-          <div className="flex items-center gap-1.5 mb-2">
-            <span className="text-xs text-gray-700">Tema</span>
-            <div className="flex gap-1 ml-1">
-              {THEMES.map(t => (
-                <button key={t.id} onClick={() => setTheme(t.id)} title={t.label}
-                  className="w-4 h-4 rounded-full transition-all hover:scale-125"
-                  style={{
-                    backgroundColor: t.dot,
-                    outline: theme === t.id ? "2px solid white" : "2px solid transparent",
-                    outlineOffset: "1px",
-                    border: t.id === "blanco" ? "1px solid #64748b" : "none",
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-          <button onClick={logout} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-gray-600 hover:text-red-400 hover:bg-gray-800 transition-colors"><LogOut size={13} /> Cerrar sesión</button>
+      {/* ── Sidebar desktop (push layout) ── */}
+      <aside
+        className="hidden md:flex flex-col bg-gray-900 border-r border-gray-800 shrink-0 overflow-hidden transition-all duration-300 ease-in-out"
+        style={{ width: sidebarOpen ? "224px" : "0px" }}
+      >
+        <div style={{ width: "224px", minWidth: "224px" }} className="flex flex-col h-full">
+          <SidebarContent />
         </div>
       </aside>
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between gap-4">
-          <div><div className="text-sm font-semibold">{pageTitles[page] || page}</div><div className="text-xs text-gray-600">{empresa?.nombre || "SSOMA HSE"}</div></div>
-          <span className={`text-xs px-2 py-1 rounded-lg border font-mono ${roleColors[role] || roleColors.SEGURIDAD}`}>{role}</span>
+
+      {/* ── Sidebar móvil (overlay) ── */}
+      <aside
+        className={`md:hidden fixed inset-y-0 left-0 z-40 flex flex-col bg-gray-900 border-r border-gray-800 overflow-hidden transition-all duration-300 ease-in-out`}
+        style={{ width: sidebarOpen ? "240px" : "0px" }}
+      >
+        <div style={{ width: "240px", minWidth: "240px" }} className="flex flex-col h-full">
+          <SidebarContent />
+        </div>
+      </aside>
+
+      {/* ── Área principal ── */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Header */}
+        <header className="bg-gray-900 border-b border-gray-800 px-3 md:px-4 py-2.5 flex items-center gap-2">
+
+          {/* ── Izquierda: hamburger + título ── */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <button onClick={() => setSidebarOpen(v => !v)}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors shrink-0">
+              {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+            <div className="text-sm font-semibold truncate text-gray-300 hidden sm:block">{pageTitles[page] || page}</div>
+          </div>
+
+          {/* ── Centro: botón Home ── */}
+          <button
+            onClick={() => setPage("home")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border shrink-0 ${
+              page === "home"
+                ? "bg-blue-600 text-white border-blue-500 shadow shadow-blue-500/30"
+                : "text-gray-400 border-gray-700 hover:border-gray-600 hover:text-gray-200 hover:bg-gray-800"
+            }`}
+          >
+            <Home size={13} />
+            <span>Inicio</span>
+          </button>
+
+          {/* ── Derecha: empresa + rol ── */}
+          <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+            {allEmpresas.length > 1 && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Building2 size={12} className="text-gray-600 shrink-0" />
+                <select
+                  value={profile?.empresa_id || ""}
+                  onChange={e => switchEmpresa(e.target.value)}
+                  disabled={switching}
+                  className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 max-w-[140px]"
+                >
+                  {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                </select>
+                {switching && <span className="text-xs text-blue-400 animate-pulse">...</span>}
+              </div>
+            )}
+            <span className={`text-xs px-2 py-1 rounded-lg border font-mono shrink-0 ${roleColors[role] || roleColors.SEGURIDAD}`}>{role}</span>
+          </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-950">
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-950">
+          {page === "home" && <HomeModulo profile={profile} role={role} platform={platform} setPlatform={setPlatform} navigate={navigate} setPage={setPage} empresa={empresa} />}
           {page === "superadmin" && isSuperAdmin && <SuperAdmin />}
           {page === "dashboard" && <Dashboard workers={workers} trainings={trainings} />}
           {page === "directorio" && <Directorio workers={workers} setWorkers={setWorkers} role={role} empresaId={empresaId} />}
@@ -7024,12 +7421,11 @@ export default function App() {
           {page === "monitoreo" && <MonitoreoModulo empresaId={empresaId} />}
           {page === "vigilancia" && <Vigilancia workers={workers} empresaId={empresaId} />}
           {page === "caracterizacion" && <CaracterizacionRiesgoModulo empresaId={empresaId} />}
-          {/* ── Plataforma SSOMA ── */}
           {page === "ssoma_dashboard" && <SSOMADashboard empresaId={empresaId} workers={workers} />}
-          {page === "racs"         && <RacsModulo empresaId={empresaId} />}
-          {page === "iperc"        && <IpercModulo empresaId={empresaId} />}
-          {page === "inspecciones" && <InspeccionesModulo empresaId={empresaId} />}
-          {page === "ats"          && <ATSPetarModulo empresaId={empresaId} workers={workers} />}
+          {page === "racs"           && <RacsModulo empresaId={empresaId} />}
+          {page === "iperc"          && <IpercModulo empresaId={empresaId} />}
+          {page === "inspecciones"   && <InspeccionesModulo empresaId={empresaId} />}
+          {page === "ats"            && <ATSPetarModulo empresaId={empresaId} workers={workers} />}
           {page === "reportes_ssoma" && <ReportesSSOMAModulo empresaId={empresaId} empresa={empresa} workers={workers} />}
         </main>
       </div>
