@@ -26,6 +26,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     { id: "monitoreo",       label: "Monitoreo",                 desc: "Monitoreo de agentes ocupacionales",      Icon: Activity,        color: "cyan" },
     { id: "documentos",      label: "Documentos",                desc: "Centro documental y normativa",           Icon: FileText,        color: "gray" },
     { id: "kpis",            label: "KPIs",                      desc: "Indicadores de gestión y desempeño",      Icon: BarChart2,       color: "yellow" },
+    { id: "topico",          label: "Tópico",                    desc: "Atenciones médicas del tópico",           Icon: HeartPulse,      color: "rose" },
     { id: "reportes",        label: "Reportes PDF",              desc: "Generación de informes y reportes",       Icon: FileDown,        color: "gray" },
     ...(esMultisel ? [{ id: "plan_so", label: "Plan SO Anual", desc: "Programa Anual de Salud Ocupacional 2026", Icon: ClipboardList, color: "blue" }] : []),
   ];

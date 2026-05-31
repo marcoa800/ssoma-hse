@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, BookOpen, FileText,
   BarChart2, FileDown, AlertTriangle, Stethoscope,
-  Shield, Activity, ClipboardList, ShieldAlert, Building2, CheckCircle
+  Shield, Activity, ClipboardList, ShieldAlert, Building2, CheckCircle, HeartPulse
 } from "lucide-react";
 
 export const THEMES = [
@@ -19,6 +19,7 @@ export const NAV = [
   { id: "capacitaciones", label: "Capacitaciones", icon: BookOpen },
   { id: "documentos", label: "Documentos", icon: FileText },
   { id: "kpis", label: "KPIs", icon: BarChart2 },
+  { id: "topico", label: "Tópico", icon: HeartPulse },
   { id: "reportes", label: "Reportes PDF", icon: FileDown },
 ];
 

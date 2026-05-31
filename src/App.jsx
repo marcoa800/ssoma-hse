@@ -19,6 +19,7 @@ import MonitoreoModulo from "./modulos/salud/Monitoreo.jsx";
 import Vigilancia from "./modulos/salud/vigilancia/Vigilancia.jsx";
 import CaracterizacionRiesgoModulo from "./modulos/salud/Caracterizacion.jsx";
 import PlanSOModulo from "./modulos/salud/PlanSO.jsx";
+import TopicoModulo from "./modulos/salud/TopicoModulo.jsx";
 import SSOMADashboard from "./modulos/ssoma/SSOMADashboard.jsx";
 import TriajeModulo from "./modulos/ssoma/TriajeModulo.jsx";
 import PublicTriajeForm from "./modulos/ssoma/PublicTriajeForm.jsx";
@@ -155,7 +156,7 @@ export default function App() {
   const pageTitles = {
     home: "Inicio",
     dashboard: "Dashboard General", directorio: "Sábana de Personal", capacitaciones: "Capacitaciones",
-    documentos: "Centro Documental", kpis: "Gestión de KPIs", reportes: "Reportes PDF",
+    documentos: "Centro Documental", kpis: "Gestión de KPIs", topico: "Tópico — Atenciones Médicas", reportes: "Reportes PDF",
     vigilancia: "Vigilancia Médica", caracterizacion: "Caracterización de Riesgo", accidentes: "Accidentes e Incidentes", seguimiento: "Seguimiento Médico",
     epps: "Control de EPPs", monitoreo: "Monitoreo de Agentes", superadmin: "Panel de Administración",
     plan_so: "Plan SO Anual 2026",
@@ -385,6 +386,7 @@ export default function App() {
           {page === "ats"            && <ATSPetarModulo empresaId={empresaId} workers={workers} />}
           {page === "reportes_ssoma" && <ReportesSSOMAModulo empresaId={empresaId} empresa={empresa} workers={workers} />}
           {page === "plan_so" && esMultisel && <PlanSOModulo empresaId={empresaId} />}
+          {page === "topico" && <TopicoModulo empresaId={empresaId} />}
           {page === "contratistas" && <ContratistasModulo empresaId={empresaId} />}
         </main>
       </div>
