@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase.js';
 import { calcularVigencia } from '../../../lib/helpers.js';
 import { Badge } from '../../../components/ui/Badge.jsx';
 import { KpiCard } from '../../../components/ui/KpiCard.jsx';
-import { Lock } from 'lucide-react';
+import { Lock, Plus } from 'lucide-react';
 import FatigaModulo from './Fatiga.jsx';
 import PsicosocialModulo from './Psicosocial.jsx';
 import DisergonomiaModulo from './Disergonomia.jsx';

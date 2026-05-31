@@ -20,7 +20,7 @@ import { FilterBar } from '../../components/ui/FilterBar.jsx';
 import {
   Plus, Upload, Download, ChevronRight, ChevronLeft, Lock,
   Trash2, Filter, HelpCircle, Pencil, FileDown, AlertTriangle,
-  CheckCircle, Home, HeartPulse, Microscope, Search, Shield,
+  CheckCircle, XCircle, Home, HeartPulse, Microscope, Search, Shield,
   ClipboardList, ShieldAlert, Activity, BarChart2, BookOpen,
   FileText, Users, LayoutDashboard, Stethoscope, Settings,
   Building2, Phone

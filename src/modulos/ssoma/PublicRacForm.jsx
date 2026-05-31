@@ -17,7 +17,7 @@ import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
 import {
-  Plus, Upload, Download, Trash2, Pencil, AlertTriangle, CheckCircle,
+  Plus, Upload, Download, Trash2, Pencil, AlertTriangle, CheckCircle, XCircle,
   Filter, HelpCircle, Lock, Shield, ClipboardList, ShieldAlert,
   Activity, FileText, Users, LayoutDashboard, Stethoscope, Search,
   ChevronRight, ChevronLeft, Phone, Eye, EyeOff, X, Copy, FileDown,

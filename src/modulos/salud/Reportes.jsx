@@ -18,7 +18,7 @@ import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
 import {
-  Plus, Upload, Download, ChevronRight, ChevronLeft, Lock,
+  Plus, Upload, Download, ChevronRight, ChevronLeft, Lock, Info,
   Trash2, Filter, HelpCircle, Pencil, FileDown, AlertTriangle,
   CheckCircle, Home, HeartPulse, Microscope, Search, Shield,
   ClipboardList, ShieldAlert, Activity, BarChart2, BookOpen,
