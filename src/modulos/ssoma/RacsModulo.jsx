@@ -18,13 +18,13 @@ import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
 import {
   Plus, Upload, Download, Trash2, Pencil, AlertTriangle, CheckCircle,
-  Filter, HelpCircle, Lock, Shield, ClipboardList, ShieldAlert,
+  Filter, HelpCircle, Lock, Shield, ClipboardList, ShieldAlert, Info,
   Activity, FileText, Users, LayoutDashboard, Stethoscope, Search,
   ChevronRight, ChevronLeft, Phone, Eye, EyeOff, X, Copy, FileDown,
   Building2, Settings
 } from 'lucide-react';
 
-export default function RacsModulo({ empresaId }) {
+export default function RacsModulo({ empresaId, empresa }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -37,9 +37,12 @@ export default function RacsModulo({ empresaId }) {
   const [fNivel, setFNivel] = useState("");
   const [fEstado, setFEstado] = useState("");
   const [mgmt, setMgmt] = useState({ estado:"Abierto", responsable:"", fecha_limite:"", medida_correctiva:"" });
+  const [rfOtroCategoria, setRfOtroCategoria] = useState("");
+  const [rfDetalleOtroTexto, setRfDetalleOtroTexto] = useState("");
   const racBlank = { sistema:"SST", naturaleza:"Acto", ubicacion:"", nombre_reportante:"", detalle_especifico:"", categorizacion:[], nivel_riesgo:"Medio", descripcion:"", accion_inmediata:"" };
   const [racForm, setRacForm] = useState(racBlank);
   const rfToggleCat = (c) => setRacForm(p => ({ ...p, categorizacion: p.categorizacion.includes(c) ? p.categorizacion.filter(x=>x!==c) : [...p.categorizacion, c] }));
+  const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria") || false;
 
   const racUrl = `${window.location.origin}${window.location.pathname}?rac=${empresaId}`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(racUrl)}&size=220x220&margin=10`;
@@ -84,6 +87,17 @@ export default function RacsModulo({ empresaId }) {
     if (error) { showToast("Error al crear RAC: " + error.message, "error"); }
     else { showToast("RAC creado correctamente", "success"); setShowCreate(false); setRacForm(racBlank); load(); }
     setCreating(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("¿Eliminar este RAC? Esta acción no se puede deshacer.")) return;
+    const { error, count } = await supabase.from("racs").delete({ count: "exact" }).eq("id", id).eq("empresa_id", empresaId);
+    if (error) { showToast("Error al eliminar: " + error.message, "error"); return; }
+    if (count === 0) { showToast("No se pudo eliminar. Verifica permisos en Supabase (política DELETE)", "error"); return; }
+    showToast("RAC eliminado", "info");
+    setShowModal(false);
+    setSelected(null);
+    load();
   };
 
   const anio = new Date().getFullYear(); const mes = new Date().getMonth();
@@ -143,7 +157,12 @@ export default function RacsModulo({ empresaId }) {
                 <td className="px-4 py-3 text-xs text-gray-500">{r.nombre_reportante||"Anónimo"}</td>
                 <td className="px-4 py-3"><Badge color={nivelColor(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge></td>
                 <td className="px-4 py-3"><Badge color={estadoColor(r.estado)}>{r.estado}</Badge></td>
-                <td className="px-4 py-3"><Pencil size={13} className="text-gray-500 hover:text-blue-400" /></td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Pencil size={13} className="text-gray-500 hover:text-blue-400" />
+                    <button onClick={e => { e.stopPropagation(); handleDelete(r.id); }} className="text-red-500/40 hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={13} /></button>
+                  </div>
+                </td>
               </tr>
             ))}
             {!loading && !filtered.length && (
@@ -265,9 +284,15 @@ export default function RacsModulo({ empresaId }) {
             <FormField label="Medida correctiva implementada">
               <Input value={mgmt.medida_correctiva} onChange={e=>setMgmt(m=>({...m,medida_correctiva:e.target.value}))} placeholder="Descripción de la acción correctiva tomada..." />
             </FormField>
-            <div className="flex justify-end gap-2 pt-2">
-              <Btn variant="ghost" onClick={()=>setShowModal(false)}>Cancelar</Btn>
-              <Btn variant="primary" onClick={saveMgmt} disabled={saving}>{saving?"Guardando...":"Actualizar RAC"}</Btn>
+            <div className="flex justify-between gap-2 pt-2">
+              <button onClick={() => handleDelete(selected.id)}
+                className="py-2 px-3 bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 border border-red-900 hover:border-red-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5">
+                <Trash2 size={13} /> Eliminar
+              </button>
+              <div className="flex gap-2">
+                <Btn variant="ghost" onClick={()=>setShowModal(false)}>Cancelar</Btn>
+                <Btn variant="primary" onClick={saveMgmt} disabled={saving}>{saving?"Guardando...":"Actualizar RAC"}</Btn>
+              </div>
             </div>
           </div>
         </Modal>
