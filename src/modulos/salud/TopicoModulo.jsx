@@ -46,7 +46,7 @@ const GRUPOS_COLORS = {
 
 // ─── Diagrama cuerpo humano ───────────────────────────────────────
 function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
-  const [bodyView, setBodyView] = useState("front"); // "front" | "back"
+  const [bodyView, setBodyView] = useState("front");
   const total = Object.values(partesCounts).reduce((a, b) => a + b, 0);
   const maxCount = Math.max(...Object.values(partesCounts), 1);
 
@@ -66,129 +66,184 @@ function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
   const strokeColor = (id) => selectedParte === id ? "#f59e0b" : (partesCounts[id] ? "#4b5563" : "#374151");
   const strokeW     = (id) => selectedParte === id ? 2.5 : 1;
 
-  const region = (id, title) => ({
+  // Propiedades de cada región clickeable
+  const R = (id) => ({
     fill: levelColor(id),
-    stroke: strokeColor(id),
-    strokeWidth: strokeW(id),
+    stroke: selectedParte === id ? "#f59e0b" : "#4b5563",
+    strokeWidth: selectedParte === id ? 1.8 : 0.8,
     onClick: () => onSelectParte(selectedParte === id ? null : id),
     className: "cursor-pointer",
     style: { transition: "fill 0.25s, stroke 0.25s" },
-    ...(title ? { role: "button", "aria-label": title } : {}),
   });
 
-  // Badge de conteo sobre la zona
-  const Badge = ({ id, cx, cy }) => {
+  // Badge numérico sobre la zona
+  const N = ({ id, x, y }) => {
     const n = partesCounts[id] || 0;
     if (!n) return null;
     return (
       <g style={{ pointerEvents: "none" }}>
-        <circle cx={cx} cy={cy} r={9} fill="#111827" stroke={selectedParte === id ? "#f59e0b" : "#6b7280"} strokeWidth={1.5} />
-        <text x={cx} y={cy + 4} textAnchor="middle" fill="white" fontSize={8} fontWeight="bold">{n}</text>
+        <circle cx={x} cy={y} r={8.5} fill="#0f172a" stroke={selectedParte === id ? "#f59e0b" : "#6b7280"} strokeWidth={1.5} />
+        <text x={x} y={y + 3.5} textAnchor="middle" fill="white" fontSize={7.5} fontWeight="bold">{n}</text>
       </g>
     );
   };
 
+  /* ─────────────────────────────────────────────────────────────
+     VISTA FRONTAL  —  paths con curvas bezier anatómicas
+     viewBox 0 0 200 370
+  ───────────────────────────────────────────────────────────── */
   const FrontBody = () => (
-    <>
-      {/* ── Cráneo ── */}
-      <ellipse cx="100" cy="28" rx="26" ry="28" {...region("craneo","Cráneo")} />
-      <Badge id="craneo" cx={100} cy={28} />
+    <g>
+      {/* SILUETA base (contorno decorativo, sin interacción) */}
+      <path
+        d="M100,3
+          C83,3 67,10 60,22 C52,34 53,50 61,59
+          C65,64 70,68 75,70
+          L89,74 L89,84
+          C74,85 58,91 48,101 C38,111 36,124 36,136
+          L36,170 C36,180 40,185 50,188
+          L50,193 C44,198 38,210 36,225
+          L36,235 Q36,247 44,250 L44,298 Q42,310 40,322
+          L58,322 Q57,310 57,298 L57,260 L60,250
+          L70,250 L75,260 L75,298 Q74,310 72,322
+          L90,322 Q90,310 90,298 L90,250 Q92,246 100,246
+          Q108,246 110,250 L110,298 Q110,310 110,322
+          L128,322 Q126,310 125,298 L125,260 L130,250
+          L140,250 L143,260 L143,298 Q143,310 142,322
+          L160,322 Q158,310 156,298 L156,250 Q164,247 164,235
+          L164,225 C162,210 156,198 150,193
+          L150,188 C160,185 164,180 164,170
+          L164,136 C164,124 162,111 152,101 C142,91 126,85 111,84
+          L111,74 L125,70
+          C130,68 135,64 139,59
+          C147,50 148,34 140,22
+          C133,10 117,3 100,3 Z"
+        fill="none" stroke="#374151" strokeWidth={0.5} style={{ pointerEvents: "none" }}
+      />
 
-      {/* ── Cara (orejas + rasgos) ── */}
-      <ellipse cx="75"  cy="28" rx="7" ry="10" {...region("cara","Cara")} />
-      <ellipse cx="125" cy="28" rx="7" ry="10" {...region("cara","Cara")} />
+      {/* ══ CRÁNEO ══ */}
+      <path d="M100,3 C83,3 67,10 60,22 C52,34 53,50 61,59 C67,66 78,72 92,73 L108,73 C122,72 133,66 139,59 C147,50 148,34 140,22 C133,10 117,3 100,3 Z"
+        {...R("craneo")} />
+      <N id="craneo" x={100} y={35} />
 
-      {/* ── Ojos ── */}
-      <ellipse cx="89"  cy="23" rx="7" ry="5"  {...region("ojo","Ojo")} />
-      <ellipse cx="111" cy="23" rx="7" ry="5"  {...region("ojo","Ojo")} />
+      {/* ══ OJOS ══ */}
+      <path d="M81,32 C83,28 88,26 93,28 C98,30 99,35 96,38 C92,41 85,40 82,37 C80,35 80,33 81,32 Z" {...R("ojo")} />
+      <path d="M119,32 C117,28 112,26 107,28 C102,30 101,35 104,38 C108,41 115,40 118,37 C120,35 120,33 119,32 Z" {...R("ojo")} />
 
-      {/* ── Cuello ── */}
-      <path d="M90,55 L93,70 L107,70 L110,55 Z" {...region("cuello","Cuello")} />
-      <Badge id="cuello" cx={100} cy={63} />
+      {/* ══ CARA (mentón-mejillas) ══ */}
+      <path d="M61,59 C67,68 78,74 92,75 L108,75 C122,74 133,68 139,59 L108,73 L92,73 Z"
+        {...R("cara")} />
 
-      {/* ── Tórax ── */}
-      <path d="M58,70 Q50,72 46,95 L48,135 Q50,142 62,143 L138,143 Q150,142 152,135 L154,95 Q150,72 142,70 Z"
-        {...region("torax","Tórax")} />
-      <Badge id="torax" cx={100} cy={107} />
+      {/* ══ CUELLO ══ */}
+      <path d="M89,74 C89,78 88,82 88,86 Q100,90 112,86 C112,82 111,78 111,74 L108,73 L92,73 Z"
+        {...R("cuello")} />
+      <N id="cuello" x={100} y={81} />
 
-      {/* ── Abdomen ── */}
-      <path d="M62,143 L138,143 Q142,158 140,172 Q130,180 100,180 Q70,180 60,172 Q58,158 62,143 Z"
-        {...region("abdomen","Abdomen")} />
-      <Badge id="abdomen" cx={100} cy={161} />
+      {/* ══ TÓRAX ══ */}
+      <path d="M88,86 Q72,86 58,94 C46,102 42,116 42,128 L42,170 C42,178 46,184 56,186 L144,186 C154,184 158,178 158,170 L158,128 C158,116 154,102 142,94 Q128,86 112,86 Q100,90 88,86 Z"
+        {...R("torax")} />
+      <N id="torax" x={100} y={132} />
 
-      {/* ── Brazo izq ── */}
-      <path d="M24,72 Q14,76 10,105 L12,135 Q14,145 26,148 L46,145 L48,95 L38,72 Z"
-        {...region("brazo","Brazo")} />
-      {/* ── Brazo der ── */}
-      <path d="M176,72 Q186,76 190,105 L188,135 Q186,145 174,148 L154,145 L152,95 L162,72 Z"
-        {...region("brazo","Brazo")} />
-      <Badge id="brazo" cx={18} cy={110} />
+      {/* ══ ABDOMEN ══ */}
+      <path d="M42,186 L158,186 Q162,202 158,216 Q150,222 100,222 Q50,222 42,216 Q38,202 42,186 Z"
+        {...R("abdomen")} />
+      <N id="abdomen" x={100} y={203} />
 
-      {/* ── Mano izq ── */}
-      <ellipse cx="18"  cy="160" rx="14" ry="12" {...region("mano","Mano")} />
-      {/* ── Mano der ── */}
-      <ellipse cx="182" cy="160" rx="14" ry="12" {...region("mano","Mano")} />
-      <Badge id="mano" cx={18} cy={160} />
+      {/* ══ CADERA ══ */}
+      <path d="M42,216 Q36,226 36,236 Q42,248 57,250 L57,250 L143,250 Q158,248 164,236 Q164,226 158,216 Z"
+        {...R("cadera")} />
+      <N id="cadera" x={100} y={234} />
 
-      {/* ── Cadera ── */}
-      <path d="M58,180 Q52,192 55,202 L145,202 Q148,192 142,180 Z"
-        {...region("cadera","Cadera")} />
-      <Badge id="cadera" cx={100} cy={192} />
+      {/* ══ BRAZO izq ══ */}
+      <path d="M42,98 C32,105 22,120 18,144 C14,164 16,184 18,196 C20,205 26,210 34,211 L50,211 C56,208 58,200 58,190 C58,170 58,150 56,134 C54,118 50,106 42,98 Z"
+        {...R("brazo")} />
+      <N id="brazo" x={34} y={152} />
+      {/* ══ BRAZO der ══ */}
+      <path d="M158,98 C168,105 178,120 182,144 C186,164 184,184 182,196 C180,205 174,210 166,211 L150,211 C144,208 142,200 142,190 C142,170 142,150 144,134 C146,118 150,106 158,98 Z"
+        {...R("brazo")} />
 
-      {/* ── Pierna izq ── */}
-      <path d="M55,202 L76,202 L80,298 L52,298 Z" {...region("pierna","Pierna")} />
-      {/* ── Pierna der ── */}
-      <path d="M124,202 L145,202 L148,298 L120,298 Z" {...region("pierna","Pierna")} />
-      <Badge id="pierna" cx={66} cy={250} />
+      {/* ══ MANO izq ══ */}
+      <path d="M18,196 C12,202 8,212 8,222 C8,232 12,238 18,240 L50,240 C56,237 58,230 58,222 L58,196 Z"
+        {...R("mano")} />
+      <N id="mano" x={33} y={218} />
+      {/* ══ MANO der ══ */}
+      <path d="M182,196 C188,202 192,212 192,222 C192,232 188,238 182,240 L150,240 C144,237 142,230 142,222 L142,196 Z"
+        {...R("mano")} />
 
-      {/* ── Pie izq ── */}
-      <ellipse cx="66"  cy="307" rx="20" ry="10" {...region("pie","Pie")} />
-      {/* ── Pie der ── */}
-      <ellipse cx="134" cy="307" rx="20" ry="10" {...region("pie","Pie")} />
-      <Badge id="pie" cx={66} cy={307} />
-    </>
+      {/* ══ PIERNA izq (muslo) ══ */}
+      <path d="M44,250 Q40,272 40,296 L72,296 Q74,272 72,250 Z" {...R("pierna")} />
+      <N id="pierna" x={56} y={273} />
+      {/* ══ PIERNA izq (pantorrilla) ══ */}
+      <path d="M40,296 Q38,318 38,338 L72,338 Q72,318 72,296 Z" {...R("pierna")} />
+      {/* ══ PIERNA der (muslo) ══ */}
+      <path d="M156,250 Q160,272 160,296 L128,296 Q126,272 128,250 Z" {...R("pierna")} />
+      {/* ══ PIERNA der (pantorrilla) ══ */}
+      <path d="M160,296 Q162,318 162,338 L128,338 Q128,318 128,296 Z" {...R("pierna")} />
+
+      {/* ══ PIE izq ══ */}
+      <path d="M34,338 C28,343 22,350 20,356 C18,360 20,363 26,364 L72,364 C76,362 77,357 74,349 Q72,338 72,338 Z"
+        {...R("pie")} />
+      <N id="pie" x={47} y={352} />
+      {/* ══ PIE der ══ */}
+      <path d="M166,338 C172,343 178,350 180,356 C182,360 180,363 174,364 L128,364 C124,362 123,357 126,349 Q128,338 128,338 Z"
+        {...R("pie")} />
+    </g>
   );
 
+  /* ─────────────────────────────────────────────────────────────
+     VISTA POSTERIOR  —  misma silueta, diferente regiones
+  ───────────────────────────────────────────────────────────── */
   const BackBody = () => (
-    <>
-      {/* ── Occipucio ── */}
-      <ellipse cx="100" cy="28" rx="26" ry="28" {...region("craneo","Cráneo posterior")} />
-      <Badge id="craneo" cx={100} cy={28} />
+    <g>
+      {/* Silueta base */}
+      <path
+        d="M100,3 C83,3 67,10 60,22 C52,34 53,50 61,59 C65,64 70,68 75,70
+          L89,74 L89,84
+          C74,85 58,91 48,101 C38,111 36,124 36,136 L36,236
+          Q42,248 57,250 L57,298 Q57,310 55,322 L73,322 Q73,310 73,298 L73,250
+          L127,250 L127,298 Q127,310 127,322 L145,322 Q143,310 143,298 L143,250
+          Q158,248 164,236 L164,136 C164,124 162,111 152,101 C142,91 126,85 111,84
+          L111,74 L125,70 C130,68 135,64 139,59 C147,50 148,34 140,22 C133,10 117,3 100,3 Z"
+        fill="none" stroke="#374151" strokeWidth={0.5} style={{ pointerEvents: "none" }}
+      />
 
-      {/* ── Nuca ── */}
-      <path d="M90,55 L93,70 L107,70 L110,55 Z" {...region("cuello","Cuello posterior")} />
+      {/* CRÁNEO posterior */}
+      <path d="M100,3 C83,3 67,10 60,22 C52,34 53,50 61,59 C67,66 78,72 92,73 L108,73 C122,72 133,66 139,59 C147,50 148,34 140,22 C133,10 117,3 100,3 Z"
+        {...R("craneo")} />
+      <N id="craneo" x={100} y={35} />
 
-      {/* ── Espalda alta + zona lumbar ── */}
-      <path d="M58,70 Q50,72 46,95 L48,180 Q55,186 100,186 Q145,186 152,180 L154,95 Q150,72 142,70 Z"
-        {...region("espalda","Espalda")} />
-      <Badge id="espalda" cx={100} cy={125} />
+      {/* CUELLO posterior */}
+      <path d="M89,74 C89,78 88,82 88,86 Q100,90 112,86 C112,82 111,78 111,74 L108,73 L92,73 Z"
+        {...R("cuello")} />
 
-      {/* ── Brazo posterior izq ── */}
-      <path d="M24,72 Q14,76 10,105 L12,135 Q14,145 26,148 L46,145 L48,95 L38,72 Z"
-        {...region("brazo","Brazo")} />
-      {/* ── Brazo posterior der ── */}
-      <path d="M176,72 Q186,76 190,105 L188,135 Q186,145 174,148 L154,145 L152,95 L162,72 Z"
-        {...region("brazo","Brazo")} />
-      <Badge id="brazo" cx={18} cy={110} />
+      {/* ESPALDA — cubre toda la zona dorsal + lumbar */}
+      <path d="M88,86 Q72,86 58,94 C46,102 42,116 42,128 L42,236 Q48,248 57,250 L143,250 Q152,248 158,236 L158,128 C158,116 154,102 142,94 Q128,86 112,86 Q100,90 88,86 Z"
+        {...R("espalda")} />
+      <N id="espalda" x={100} y={168} />
 
-      {/* ── Mano posterior ── */}
-      <ellipse cx="18"  cy="160" rx="14" ry="12" {...region("mano","Mano")} />
-      <ellipse cx="182" cy="160" rx="14" ry="12" {...region("mano","Mano")} />
+      {/* BRAZOS (igual que frontal) */}
+      <path d="M42,98 C32,105 22,120 18,144 C14,164 16,184 18,196 C20,205 26,210 34,211 L50,211 C56,208 58,200 58,190 C58,170 58,150 56,134 C54,118 50,106 42,98 Z" {...R("brazo")} />
+      <path d="M158,98 C168,105 178,120 182,144 C186,164 184,184 182,196 C180,205 174,210 166,211 L150,211 C144,208 142,200 142,190 C142,170 142,150 144,134 C146,118 150,106 158,98 Z" {...R("brazo")} />
+      <N id="brazo" x={34} y={152} />
 
-      {/* ── Glúteos / cadera posterior ── */}
-      <path d="M55,186 Q52,200 56,208 L144,208 Q148,200 145,186 Z"
-        {...region("cadera","Cadera")} />
+      {/* MANOS */}
+      <path d="M18,196 C12,202 8,212 8,222 C8,232 12,238 18,240 L50,240 C56,237 58,230 58,222 L58,196 Z" {...R("mano")} />
+      <path d="M182,196 C188,202 192,212 192,222 C192,232 188,238 182,240 L150,240 C144,237 142,230 142,222 L142,196 Z" {...R("mano")} />
 
-      {/* ── Pierna posterior ── */}
-      <path d="M56,208 L76,208 L80,298 L52,298 Z" {...region("pierna","Pierna")} />
-      <path d="M124,208 L144,208 L148,298 L120,298 Z" {...region("pierna","Pierna")} />
-      <Badge id="pierna" cx={66} cy={253} />
+      {/* GLÚTEOS / CADERA posterior */}
+      <path d="M57,250 Q52,265 54,278 L146,278 Q148,265 143,250 Z" {...R("cadera")} />
+      <N id="cadera" x={100} y={264} />
 
-      {/* ── Pie posterior ── */}
-      <ellipse cx="66"  cy="307" rx="20" ry="10" {...region("pie","Pie")} />
-      <ellipse cx="134" cy="307" rx="20" ry="10" {...region("pie","Pie")} />
-      <Badge id="pie" cx={66} cy={307} />
-    </>
+      {/* PIERNAS posterior */}
+      <path d="M54,278 Q50,302 50,325 L80,325 Q80,302 80,278 Z" {...R("pierna")} />
+      <path d="M146,278 Q150,302 150,325 L120,325 Q120,302 120,278 Z" {...R("pierna")} />
+      <N id="pierna" x={65} y={302} />
+
+      {/* PIES posterior */}
+      <path d="M46,325 Q42,332 42,340 Q44,348 50,350 L82,350 Q86,345 84,334 Q80,325 80,325 Z" {...R("pie")} />
+      <path d="M154,325 Q158,332 158,340 Q156,348 150,350 L118,350 Q114,345 116,334 Q120,325 120,325 Z" {...R("pie")} />
+      <N id="pie" x={64} y={338} />
+    </g>
   );
 
   // Ranking de zonas más afectadas
@@ -197,56 +252,49 @@ function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
     .sort((a, b) => (partesCounts[b.id] || 0) - (partesCounts[a.id] || 0));
 
   return (
-    <div className="flex gap-4">
+    <div className="flex gap-5">
       {/* ── Columna izquierda: diagrama ── */}
-      <div className="flex flex-col items-center shrink-0" style={{ width: 170 }}>
-        {/* Toggle front/back */}
+      <div className="flex flex-col items-center shrink-0" style={{ width: 185 }}>
+        {/* Toggle front / back */}
         <div className="flex bg-gray-800 rounded-lg p-0.5 mb-3 w-full">
           <button onClick={() => setBodyView("front")}
             className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${bodyView === "front" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-300"}`}>
-            ▶ Frontal
+            Vista frontal
           </button>
           <button onClick={() => setBodyView("back")}
             className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${bodyView === "back" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-300"}`}>
-            ◀ Posterior
+            Vista posterior
           </button>
         </div>
 
-        {/* SVG cuerpo */}
-        <svg viewBox="0 0 200 320" className="w-full" style={{ maxHeight: 280 }}>
+        {/* SVG */}
+        <svg viewBox="0 0 200 370" className="w-full" style={{ maxHeight: 300 }}>
           {bodyView === "front" ? <FrontBody /> : <BackBody />}
         </svg>
 
-        {/* Leyenda escala */}
+        {/* Escala de color */}
         <div className="mt-2 w-full">
-          <div className="flex items-center gap-1 justify-center">
-            {[
-              { bg: "#1f2937", label: "0" },
-              { bg: "rgba(254,202,202,0.75)", label: "" },
-              { bg: "rgba(252,165,165,0.8)",  label: "" },
-              { bg: "rgba(239,68,68,0.75)",   label: "" },
-              { bg: "rgba(220,38,38,0.85)",   label: "" },
-              { bg: "rgba(153,27,27,0.95)",   label: "+" },
-            ].map((l, i) => (
-              <div key={i} className="w-5 h-3 rounded-sm border border-gray-700" style={{ background: l.bg }} />
+          <div className="flex gap-0.5 justify-center">
+            {["#1f2937","rgba(254,226,226,0.9)","rgba(252,165,165,0.85)","rgba(239,68,68,0.80)","rgba(220,38,38,0.88)","rgba(153,27,27,0.95)"].map((bg,i) => (
+              <div key={i} className="flex-1 h-2.5 rounded-sm" style={{ background: bg, border: "1px solid #374151" }} />
             ))}
           </div>
-          <div className="flex justify-between text-[9px] text-gray-600 mt-0.5 px-0.5">
-            <span>Sin casos</span><span>Crítico</span>
+          <div className="flex justify-between text-[9px] text-gray-600 mt-1 px-0.5">
+            <span>0 casos</span><span>Crítico</span>
           </div>
         </div>
       </div>
 
       {/* ── Columna derecha: ranking ── */}
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-gray-600 font-semibold uppercase tracking-wide mb-2">
-          Zonas afectadas · {total} casos totales
+        <p className="text-[10px] text-gray-600 font-semibold uppercase tracking-wide mb-3">
+          Zonas afectadas · {total} caso{total !== 1 ? "s" : ""} total{total !== 1 ? "es" : ""}
         </p>
 
         {ranking.length === 0 ? (
-          <div className="text-xs text-gray-600 py-4 text-center">
+          <div className="text-xs text-gray-600 py-6 text-center">
             Sin datos de zona afectada.<br />
-            <span className="text-[10px]">Agrega columna "PARTE DEL CUERPO" al Excel.</span>
+            <span className="text-[10px] text-gray-700 mt-1 block">Agrega la columna <span className="font-mono bg-gray-800 px-1 rounded">PARTE DEL CUERPO</span> al Excel.</span>
           </div>
         ) : (
           <div className="space-y-1.5">
@@ -257,41 +305,30 @@ function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
               return (
                 <button key={parte.id}
                   onClick={() => onSelectParte(isSelected ? null : parte.id)}
-                  className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs transition-all text-left ${
-                    isSelected
-                      ? "bg-amber-900/30 border border-amber-700"
-                      : "hover:bg-gray-800 border border-transparent"
+                  className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-all text-left ${
+                    isSelected ? "bg-amber-900/30 border border-amber-700" : "hover:bg-gray-800 border border-transparent"
                   }`}>
-                  {/* Ranking # */}
-                  <span className="text-gray-600 font-mono w-4 shrink-0">{i + 1}</span>
-                  {/* Nombre zona */}
-                  <span className={`w-24 truncate shrink-0 ${isSelected ? "text-amber-300" : "text-gray-300"}`}>
+                  <span className="text-gray-600 font-mono w-4 shrink-0 text-center">{i+1}</span>
+                  <span className={`w-28 truncate shrink-0 font-medium ${isSelected ? "text-amber-300" : "text-gray-300"}`}>
                     {parte.label}
                   </span>
-                  {/* Barra */}
                   <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${pct}%`,
-                        background: isSelected ? "#f59e0b" : "rgba(220,38,38,0.8)"
-                      }} />
+                      style={{ width: `${pct}%`, background: isSelected ? "#f59e0b" : "rgba(220,38,38,0.8)" }} />
                   </div>
-                  {/* Conteo */}
-                  <span className="text-gray-400 font-mono w-5 text-right shrink-0">{count}</span>
-                  {/* % */}
-                  <span className="text-gray-600 w-8 text-right shrink-0">{pct}%</span>
+                  <span className="text-gray-300 font-mono font-bold w-5 text-right shrink-0">{count}</span>
+                  <span className="text-gray-600 w-9 text-right shrink-0">{pct}%</span>
                 </button>
               );
             })}
           </div>
         )}
 
-        {/* Hint */}
         {ranking.length > 0 && (
-          <p className="text-[10px] text-gray-700 mt-3">
+          <p className="text-[10px] text-gray-700 mt-4 leading-relaxed">
             {selectedParte
-              ? `Filtrando por "${PARTES_CUERPO.find(p => p.id === selectedParte)?.label}". Haz clic de nuevo para quitar el filtro.`
-              : "Haz clic en una zona del cuerpo o del ranking para filtrar los registros."}
+              ? <>Filtrando por <span className="text-amber-500">"{PARTES_CUERPO.find(p => p.id === selectedParte)?.label}"</span>. Clic de nuevo para quitar.</>
+              : "Haz clic en el cuerpo o en el ranking para filtrar los registros."}
           </p>
         )}
       </div>
