@@ -583,7 +583,7 @@ export default function TopicoModulo({ empresaId }) {
         <Modal title="Guía de importación — Tópico" onClose={() => setShowGuide(false)} wide>
           <div className="space-y-4 text-sm text-gray-300">
             <div className="bg-blue-900/20 border border-blue-900/40 rounded-xl p-4 text-xs text-blue-400">
-              El módulo detecta automáticamente las columnas del Excel buscando palabras clave en los encabezados. Compatible con la plantilla de Hydro Global Perú.
+              El módulo detecta automáticamente las columnas del Excel buscando palabras clave en los encabezados. Compatible con la mayoría de plantillas de registro de atenciones médicas.
             </div>
             <p className="font-semibold text-white">Columnas que detecta automáticamente:</p>
             <div className="grid grid-cols-2 gap-2 text-xs">
