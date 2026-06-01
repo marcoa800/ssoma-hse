@@ -112,39 +112,47 @@ function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
     return () => { if (el?.parentNode) el.parentNode.removeChild(el); };
   }, [partesCounts, selectedParte]);
 
-  // Click handler: convierte el label del paquete → nuestro ID
-  const handleBodyClick = (pkgLabel) => {
-    // El paquete devuelve el label en español, buscar el ID del paquete inverso
-    const pkgId = Object.entries({
-      "body-model-head":"Cabeza","body-model-eyes":"Ojos","body-model-ears":"Orejas",
-      "body-model-nose":"Nariz","body-model-oral_cavity":"Boca","body-model-neck_or_throat":"Cuello/Garganta",
-      "body-model-chest":"Pecho","body-model-upper_arm":"Brazos superiores","body-model-upper_abdomen":"Abdomen superior",
-      "body-model-forearm":"Antebrazos","body-model-mid_abdomen":"Abdomen medio","body-model-lower_abdomen":"Abdomen inferior",
-      "body-model-hand":"Manos","body-model-sexual_organs":"Órganos reproductivos","body-model-thigh":"Muslos",
-      "body-model-knee":"Rodillas","body-model-lower_leg":"Piernas inferiores","body-model-foot":"Pies",
-      "body-model-back":"Espalda","body-model-lower_back":"Zona lumbar","body-model-nape_of_neck":"Nuca",
-      "body-model-upper_arm-back":"Brazos superiores (esp.)","body-model-forearm-back":"Antebrazos (esp.)",
-      "body-model-hand-back":"Manos (esp.)","body-model-thigh-back":"Muslos (esp.)","body-model-lower_leg-back":"Piernas (esp.)",
-      "body-model-foot-back":"Pies (esp.)","body-model-buttocks":"Glúteos","body-model-head-back":"Cabeza (esp.)",
-      "body-model-ears-back":"Orejas (esp.)","body-model-elbow":"Codos"
-    }).find(([_, label]) => label === pkgLabel)?.[0];
-    const ourId = pkgId ? PKG_REVERSE[pkgId] : null;
-    if (ourId) onSelectParte(selectedParte === ourId ? null : ourId);
+  // Referencia al contenedor del SVG para añadir listeners directos
+  const containerRef = useRef(null);
+  // Ref para el handler actual (evita stale closures sin re-añadir listeners)
+  const clickHandlerRef = useRef(null);
+  clickHandlerRef.current = (ourId) => {
+    onSelectParte(selectedParte === ourId ? null : ourId);
   };
 
-  // Partes seleccionadas para el paquete (labels en español del paquete)
-  const pkgSelected = selectedParte ? (PKG_MAP[selectedParte] || []).map(id => {
-    const labels = {
-      "body-model-head":"Cabeza","body-model-chest":"Pecho","body-model-upper_abdomen":"Abdomen superior",
-      "body-model-mid_abdomen":"Abdomen medio","body-model-lower_abdomen":"Abdomen inferior",
-      "body-model-neck_or_throat":"Cuello/Garganta","body-model-upper_arm":"Brazos superiores",
-      "body-model-forearm":"Antebrazos","body-model-hand":"Manos","body-model-thigh":"Muslos",
-      "body-model-lower_leg":"Piernas inferiores","body-model-foot":"Pies","body-model-eyes":"Ojos",
-      "body-model-back":"Espalda","body-model-lower_back":"Zona lumbar","body-model-buttocks":"Glúteos",
-      "body-model-knee":"Rodillas","body-model-sexual_organs":"Órganos reproductivos",
+  // Añadir click listeners directamente a los paths del SVG del paquete
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onClick = (e) => {
+      e.stopPropagation();
+      const pathId = e.currentTarget.id || e.target.id;
+      const ourId = PKG_REVERSE[pathId];
+      if (ourId && clickHandlerRef.current) clickHandlerRef.current(ourId);
     };
-    return labels[id] || null;
-  }).filter(Boolean) : [];
+
+    // El SVG puede tardar un frame en renderizarse — intentamos varias veces
+    let attempts = 0;
+    const attach = () => {
+      const paths = container.querySelectorAll('.sc-body-model-svg__path');
+      if (paths.length === 0 && attempts < 10) {
+        attempts++;
+        setTimeout(attach, 150);
+        return;
+      }
+      paths.forEach(path => {
+        path.style.cursor = 'pointer';
+        path.addEventListener('click', onClick);
+      });
+    };
+    attach();
+
+    return () => {
+      const paths = container.querySelectorAll('.sc-body-model-svg__path');
+      paths.forEach(path => path.removeEventListener('click', onClick));
+    };
+  }, []); // Solo al montar
 
   const ranking = PARTES_CUERPO.filter(p => (partesCounts[p.id]||0)>0).sort((a,b)=>(partesCounts[b.id]||0)-(partesCounts[a.id]||0));
 
@@ -153,11 +161,8 @@ function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
       {/* ── Cuerpo humano — paquete react-body-medic ── */}
       <div className="shrink-0" style={{ width: 220 }}>
         <p className="text-[10px] text-gray-600 mb-2 text-center">Haz clic en una zona para filtrar</p>
-        <div style={{ maxWidth: 200, margin: "0 auto" }}>
-          <HumanBody
-            onSelect={handleBodyClick}
-            selectedParts={pkgSelected}
-          />
+        <div ref={containerRef} style={{ maxWidth: 200, margin: "0 auto" }}>
+          <HumanBody />
         </div>
         {/* Escala de color */}
         <div className="mt-3 px-2">
