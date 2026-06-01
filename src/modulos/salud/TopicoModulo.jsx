@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { supabase } from '../../lib/supabase.js';
@@ -46,108 +46,254 @@ const GRUPOS_COLORS = {
 
 // ─── Diagrama cuerpo humano ───────────────────────────────────────
 function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
+  const [bodyView, setBodyView] = useState("front"); // "front" | "back"
+  const total = Object.values(partesCounts).reduce((a, b) => a + b, 0);
   const maxCount = Math.max(...Object.values(partesCounts), 1);
 
-  const getColor = (id) => {
+  // 5-level color scale
+  const levelColor = (id) => {
+    if (selectedParte === id) return "rgba(245,158,11,0.9)";
     const count = partesCounts[id] || 0;
-    if (selectedParte === id) return "rgba(245,158,11,0.85)";
     if (count === 0) return "#1f2937";
-    const intensity = count / maxCount;
-    return `rgba(220,38,38,${0.25 + intensity * 0.75})`;
+    const r = count / maxCount;
+    if (r <= 0.20) return "rgba(254,202,202,0.75)";   // muy pocos
+    if (r <= 0.40) return "rgba(252,165,165,0.80)";   // pocos
+    if (r <= 0.65) return "rgba(239,68,68,0.75)";     // moderados
+    if (r <= 0.85) return "rgba(220,38,38,0.85)";     // muchos
+    return "rgba(153,27,27,0.95)";                     // crítico
   };
 
-  const getStroke = (id) => selectedParte === id ? "#f59e0b" : "#374151";
-  const sW = (id) => selectedParte === id ? 2.5 : 1;
+  const strokeColor = (id) => selectedParte === id ? "#f59e0b" : (partesCounts[id] ? "#4b5563" : "#374151");
+  const strokeW     = (id) => selectedParte === id ? 2.5 : 1;
 
-  const p = (id) => ({
-    fill: getColor(id), stroke: getStroke(id), strokeWidth: sW(id),
+  const region = (id, title) => ({
+    fill: levelColor(id),
+    stroke: strokeColor(id),
+    strokeWidth: strokeW(id),
     onClick: () => onSelectParte(selectedParte === id ? null : id),
-    className: "cursor-pointer transition-all",
-    style: { transition: "fill 0.2s" },
+    className: "cursor-pointer",
+    style: { transition: "fill 0.25s, stroke 0.25s" },
+    ...(title ? { role: "button", "aria-label": title } : {}),
   });
 
-  return (
-    <div className="flex flex-col items-center">
-      <svg viewBox="0 0 200 340" className="w-full max-w-[180px]">
-        {/* Cráneo */}
-        <ellipse cx="100" cy="30" rx="24" ry="26" {...p("craneo")} />
-        {/* Cara / orejas */}
-        <ellipse cx="77" cy="30" rx="6" ry="9" {...p("cara")} />
-        <ellipse cx="123" cy="30" rx="6" ry="9" {...p("cara")} />
-        {/* Ojos */}
-        <ellipse cx="91" cy="27" rx="5" ry="4" {...p("ojo")} />
-        <ellipse cx="109" cy="27" rx="5" ry="4" {...p("ojo")} />
-        {/* Cuello */}
-        <rect x="91" y="54" width="18" height="14" rx="3" {...p("cuello")} />
-        {/* Tórax */}
-        <rect x="62" y="67" width="76" height="64" rx="7" {...p("torax")} />
-        {/* Abdomen */}
-        <rect x="65" y="129" width="70" height="36" rx="5" {...p("abdomen")} />
-        {/* Brazo izquierdo */}
-        <rect x="22" y="68" width="36" height="66" rx="12" {...p("brazo")} />
-        {/* Brazo derecho */}
-        <rect x="142" y="68" width="36" height="66" rx="12" {...p("brazo")} />
-        {/* Mano izquierda */}
-        <ellipse cx="40" cy="146" rx="16" ry="11" {...p("mano")} />
-        {/* Mano derecha */}
-        <ellipse cx="160" cy="146" rx="16" ry="11" {...p("mano")} />
-        {/* Cadera */}
-        <rect x="60" y="163" width="80" height="24" rx="7" {...p("cadera")} />
-        {/* Pierna izquierda */}
-        <rect x="62" y="185" width="34" height="100" rx="10" {...p("pierna")} />
-        {/* Pierna derecha */}
-        <rect x="104" y="185" width="34" height="100" rx="10" {...p("pierna")} />
-        {/* Pie izquierdo */}
-        <ellipse cx="79" cy="291" rx="22" ry="10" {...p("pie")} />
-        {/* Pie derecho */}
-        <ellipse cx="121" cy="291" rx="22" ry="10" {...p("pie")} />
-        {/* Espalda label (superposición) */}
-        <rect x="62" y="67" width="76" height="64" rx="7" fill="transparent" stroke="transparent"
-          onClick={() => {}} />
-      </svg>
+  // Badge de conteo sobre la zona
+  const Badge = ({ id, cx, cy }) => {
+    const n = partesCounts[id] || 0;
+    if (!n) return null;
+    return (
+      <g style={{ pointerEvents: "none" }}>
+        <circle cx={cx} cy={cy} r={9} fill="#111827" stroke={selectedParte === id ? "#f59e0b" : "#6b7280"} strokeWidth={1.5} />
+        <text x={cx} y={cy + 4} textAnchor="middle" fill="white" fontSize={8} fontWeight="bold">{n}</text>
+      </g>
+    );
+  };
 
-      {/* Leyenda de color */}
-      <div className="flex items-center gap-2 mt-2 text-[10px] text-gray-500">
-        <div className="w-3 h-3 rounded bg-gray-800 border border-gray-700" />
-        <span>Sin casos</span>
-        <div className="w-3 h-3 rounded" style={{ background: "rgba(220,38,38,0.4)" }} />
-        <span>Pocos</span>
-        <div className="w-3 h-3 rounded" style={{ background: "rgba(220,38,38,0.9)" }} />
-        <span>Muchos</span>
-        <div className="w-3 h-3 rounded" style={{ background: "rgba(245,158,11,0.85)" }} />
-        <span>Filtrado</span>
+  const FrontBody = () => (
+    <>
+      {/* ── Cráneo ── */}
+      <ellipse cx="100" cy="28" rx="26" ry="28" {...region("craneo","Cráneo")} />
+      <Badge id="craneo" cx={100} cy={28} />
+
+      {/* ── Cara (orejas + rasgos) ── */}
+      <ellipse cx="75"  cy="28" rx="7" ry="10" {...region("cara","Cara")} />
+      <ellipse cx="125" cy="28" rx="7" ry="10" {...region("cara","Cara")} />
+
+      {/* ── Ojos ── */}
+      <ellipse cx="89"  cy="23" rx="7" ry="5"  {...region("ojo","Ojo")} />
+      <ellipse cx="111" cy="23" rx="7" ry="5"  {...region("ojo","Ojo")} />
+
+      {/* ── Cuello ── */}
+      <path d="M90,55 L93,70 L107,70 L110,55 Z" {...region("cuello","Cuello")} />
+      <Badge id="cuello" cx={100} cy={63} />
+
+      {/* ── Tórax ── */}
+      <path d="M58,70 Q50,72 46,95 L48,135 Q50,142 62,143 L138,143 Q150,142 152,135 L154,95 Q150,72 142,70 Z"
+        {...region("torax","Tórax")} />
+      <Badge id="torax" cx={100} cy={107} />
+
+      {/* ── Abdomen ── */}
+      <path d="M62,143 L138,143 Q142,158 140,172 Q130,180 100,180 Q70,180 60,172 Q58,158 62,143 Z"
+        {...region("abdomen","Abdomen")} />
+      <Badge id="abdomen" cx={100} cy={161} />
+
+      {/* ── Brazo izq ── */}
+      <path d="M24,72 Q14,76 10,105 L12,135 Q14,145 26,148 L46,145 L48,95 L38,72 Z"
+        {...region("brazo","Brazo")} />
+      {/* ── Brazo der ── */}
+      <path d="M176,72 Q186,76 190,105 L188,135 Q186,145 174,148 L154,145 L152,95 L162,72 Z"
+        {...region("brazo","Brazo")} />
+      <Badge id="brazo" cx={18} cy={110} />
+
+      {/* ── Mano izq ── */}
+      <ellipse cx="18"  cy="160" rx="14" ry="12" {...region("mano","Mano")} />
+      {/* ── Mano der ── */}
+      <ellipse cx="182" cy="160" rx="14" ry="12" {...region("mano","Mano")} />
+      <Badge id="mano" cx={18} cy={160} />
+
+      {/* ── Cadera ── */}
+      <path d="M58,180 Q52,192 55,202 L145,202 Q148,192 142,180 Z"
+        {...region("cadera","Cadera")} />
+      <Badge id="cadera" cx={100} cy={192} />
+
+      {/* ── Pierna izq ── */}
+      <path d="M55,202 L76,202 L80,298 L52,298 Z" {...region("pierna","Pierna")} />
+      {/* ── Pierna der ── */}
+      <path d="M124,202 L145,202 L148,298 L120,298 Z" {...region("pierna","Pierna")} />
+      <Badge id="pierna" cx={66} cy={250} />
+
+      {/* ── Pie izq ── */}
+      <ellipse cx="66"  cy="307" rx="20" ry="10" {...region("pie","Pie")} />
+      {/* ── Pie der ── */}
+      <ellipse cx="134" cy="307" rx="20" ry="10" {...region("pie","Pie")} />
+      <Badge id="pie" cx={66} cy={307} />
+    </>
+  );
+
+  const BackBody = () => (
+    <>
+      {/* ── Occipucio ── */}
+      <ellipse cx="100" cy="28" rx="26" ry="28" {...region("craneo","Cráneo posterior")} />
+      <Badge id="craneo" cx={100} cy={28} />
+
+      {/* ── Nuca ── */}
+      <path d="M90,55 L93,70 L107,70 L110,55 Z" {...region("cuello","Cuello posterior")} />
+
+      {/* ── Espalda alta + zona lumbar ── */}
+      <path d="M58,70 Q50,72 46,95 L48,180 Q55,186 100,186 Q145,186 152,180 L154,95 Q150,72 142,70 Z"
+        {...region("espalda","Espalda")} />
+      <Badge id="espalda" cx={100} cy={125} />
+
+      {/* ── Brazo posterior izq ── */}
+      <path d="M24,72 Q14,76 10,105 L12,135 Q14,145 26,148 L46,145 L48,95 L38,72 Z"
+        {...region("brazo","Brazo")} />
+      {/* ── Brazo posterior der ── */}
+      <path d="M176,72 Q186,76 190,105 L188,135 Q186,145 174,148 L154,145 L152,95 L162,72 Z"
+        {...region("brazo","Brazo")} />
+      <Badge id="brazo" cx={18} cy={110} />
+
+      {/* ── Mano posterior ── */}
+      <ellipse cx="18"  cy="160" rx="14" ry="12" {...region("mano","Mano")} />
+      <ellipse cx="182" cy="160" rx="14" ry="12" {...region("mano","Mano")} />
+
+      {/* ── Glúteos / cadera posterior ── */}
+      <path d="M55,186 Q52,200 56,208 L144,208 Q148,200 145,186 Z"
+        {...region("cadera","Cadera")} />
+
+      {/* ── Pierna posterior ── */}
+      <path d="M56,208 L76,208 L80,298 L52,298 Z" {...region("pierna","Pierna")} />
+      <path d="M124,208 L144,208 L148,298 L120,298 Z" {...region("pierna","Pierna")} />
+      <Badge id="pierna" cx={66} cy={253} />
+
+      {/* ── Pie posterior ── */}
+      <ellipse cx="66"  cy="307" rx="20" ry="10" {...region("pie","Pie")} />
+      <ellipse cx="134" cy="307" rx="20" ry="10" {...region("pie","Pie")} />
+      <Badge id="pie" cx={66} cy={307} />
+    </>
+  );
+
+  // Ranking de zonas más afectadas
+  const ranking = PARTES_CUERPO
+    .filter(p => (partesCounts[p.id] || 0) > 0)
+    .sort((a, b) => (partesCounts[b.id] || 0) - (partesCounts[a.id] || 0));
+
+  return (
+    <div className="flex gap-4">
+      {/* ── Columna izquierda: diagrama ── */}
+      <div className="flex flex-col items-center shrink-0" style={{ width: 170 }}>
+        {/* Toggle front/back */}
+        <div className="flex bg-gray-800 rounded-lg p-0.5 mb-3 w-full">
+          <button onClick={() => setBodyView("front")}
+            className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${bodyView === "front" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-300"}`}>
+            ▶ Frontal
+          </button>
+          <button onClick={() => setBodyView("back")}
+            className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${bodyView === "back" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-300"}`}>
+            ◀ Posterior
+          </button>
+        </div>
+
+        {/* SVG cuerpo */}
+        <svg viewBox="0 0 200 320" className="w-full" style={{ maxHeight: 280 }}>
+          {bodyView === "front" ? <FrontBody /> : <BackBody />}
+        </svg>
+
+        {/* Leyenda escala */}
+        <div className="mt-2 w-full">
+          <div className="flex items-center gap-1 justify-center">
+            {[
+              { bg: "#1f2937", label: "0" },
+              { bg: "rgba(254,202,202,0.75)", label: "" },
+              { bg: "rgba(252,165,165,0.8)",  label: "" },
+              { bg: "rgba(239,68,68,0.75)",   label: "" },
+              { bg: "rgba(220,38,38,0.85)",   label: "" },
+              { bg: "rgba(153,27,27,0.95)",   label: "+" },
+            ].map((l, i) => (
+              <div key={i} className="w-5 h-3 rounded-sm border border-gray-700" style={{ background: l.bg }} />
+            ))}
+          </div>
+          <div className="flex justify-between text-[9px] text-gray-600 mt-0.5 px-0.5">
+            <span>Sin casos</span><span>Crítico</span>
+          </div>
+        </div>
       </div>
 
-      {/* Lista de partes clicables */}
-      <div className="mt-3 w-full flex flex-wrap gap-1 justify-center">
-        {PARTES_CUERPO.map(parte => {
-          const count = partesCounts[parte.id] || 0;
-          return (
-            <button key={parte.id}
-              onClick={() => onSelectParte(selectedParte === parte.id ? null : parte.id)}
-              className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${
-                selectedParte === parte.id
-                  ? "bg-amber-900/50 border-amber-600 text-amber-300"
-                  : count > 0
-                  ? "bg-red-900/20 border-red-900/40 text-red-400"
-                  : "bg-gray-800 border-gray-700 text-gray-600"
-              }`}>
-              {parte.label} {count > 0 ? `(${count})` : ""}
-            </button>
-          );
-        })}
-        {/* Espalda (no en SVG front view) */}
-        <button
-          onClick={() => onSelectParte(selectedParte === "espalda" ? null : "espalda")}
-          className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${
-            selectedParte === "espalda"
-              ? "bg-amber-900/50 border-amber-600 text-amber-300"
-              : partesCounts["espalda"] > 0
-              ? "bg-red-900/20 border-red-900/40 text-red-400"
-              : "bg-gray-800 border-gray-700 text-gray-600"
-          }`}>
-          Espalda {partesCounts["espalda"] > 0 ? `(${partesCounts["espalda"]})` : ""}
-        </button>
+      {/* ── Columna derecha: ranking ── */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] text-gray-600 font-semibold uppercase tracking-wide mb-2">
+          Zonas afectadas · {total} casos totales
+        </p>
+
+        {ranking.length === 0 ? (
+          <div className="text-xs text-gray-600 py-4 text-center">
+            Sin datos de zona afectada.<br />
+            <span className="text-[10px]">Agrega columna "PARTE DEL CUERPO" al Excel.</span>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {ranking.map((parte, i) => {
+              const count = partesCounts[parte.id] || 0;
+              const pct   = total > 0 ? Math.round(count / total * 100) : 0;
+              const isSelected = selectedParte === parte.id;
+              return (
+                <button key={parte.id}
+                  onClick={() => onSelectParte(isSelected ? null : parte.id)}
+                  className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs transition-all text-left ${
+                    isSelected
+                      ? "bg-amber-900/30 border border-amber-700"
+                      : "hover:bg-gray-800 border border-transparent"
+                  }`}>
+                  {/* Ranking # */}
+                  <span className="text-gray-600 font-mono w-4 shrink-0">{i + 1}</span>
+                  {/* Nombre zona */}
+                  <span className={`w-24 truncate shrink-0 ${isSelected ? "text-amber-300" : "text-gray-300"}`}>
+                    {parte.label}
+                  </span>
+                  {/* Barra */}
+                  <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${pct}%`,
+                        background: isSelected ? "#f59e0b" : "rgba(220,38,38,0.8)"
+                      }} />
+                  </div>
+                  {/* Conteo */}
+                  <span className="text-gray-400 font-mono w-5 text-right shrink-0">{count}</span>
+                  {/* % */}
+                  <span className="text-gray-600 w-8 text-right shrink-0">{pct}%</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Hint */}
+        {ranking.length > 0 && (
+          <p className="text-[10px] text-gray-700 mt-3">
+            {selectedParte
+              ? `Filtrando por "${PARTES_CUERPO.find(p => p.id === selectedParte)?.label}". Haz clic de nuevo para quitar el filtro.`
+              : "Haz clic en una zona del cuerpo o del ranking para filtrar los registros."}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -623,23 +769,22 @@ export default function TopicoModulo({ empresaId }) {
                 <KpiCard label="Preventivos" value={preventivos} sub="atenciones prev." accentColor="gray" />
               </div>
 
+              {/* Cuerpo humano — ancho completo */}
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-5">
+                <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-4">
+                  Localización de zona afectada
+                  {selectedParte && <span className="ml-2 text-amber-400 normal-case">· filtrando por {PARTES_CUERPO.find(p => p.id === selectedParte)?.label}</span>}
+                </p>
+                <BodyDiagram
+                  partesCounts={partesCounts}
+                  onSelectParte={setSelectedParte}
+                  selectedParte={selectedParte}
+                />
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
-                {/* Cuerpo humano */}
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                  <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-3">Localización de zona afectada</p>
-                  {Object.keys(partesCounts).length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-xs text-gray-600">Sin datos de zona afectada.</p>
-                      <p className="text-[10px] text-gray-700 mt-1">Agrega columna "PARTE DEL CUERPO" al Excel.</p>
-                    </div>
-                  ) : (
-                    <BodyDiagram
-                      partesCounts={partesCounts}
-                      onSelectParte={setSelectedParte}
-                      selectedParte={selectedParte}
-                    />
-                  )}
-                </div>
+                {/* placeholder para mantener estructura grid */}
+                <div className="hidden" />
 
                 {/* Distribución por grupo */}
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 lg:col-span-2">
