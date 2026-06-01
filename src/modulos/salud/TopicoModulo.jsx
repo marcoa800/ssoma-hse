@@ -47,250 +47,218 @@ const GRUPOS_COLORS = {
 // ─── Diagrama cuerpo humano ───────────────────────────────────────
 function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
   const [bodyView, setBodyView] = useState("front");
+  const uid = "bd" + Math.random().toString(36).slice(2, 7); // unique id per instance
   const total = Object.values(partesCounts).reduce((a, b) => a + b, 0);
   const maxCount = Math.max(...Object.values(partesCounts), 1);
 
-  // 5-level color scale
+  // Color scale
   const levelColor = (id) => {
-    if (selectedParte === id) return "rgba(245,158,11,0.9)";
-    const count = partesCounts[id] || 0;
-    if (count === 0) return "#1f2937";
-    const r = count / maxCount;
-    if (r <= 0.20) return "rgba(254,202,202,0.75)";   // muy pocos
-    if (r <= 0.40) return "rgba(252,165,165,0.80)";   // pocos
-    if (r <= 0.65) return "rgba(239,68,68,0.75)";     // moderados
-    if (r <= 0.85) return "rgba(220,38,38,0.85)";     // muchos
-    return "rgba(153,27,27,0.95)";                     // crítico
+    if (selectedParte === id) return "rgba(245,158,11,0.88)";
+    const n = partesCounts[id] || 0;
+    if (!n) return "rgba(15,23,42,0.3)";
+    const r = n / maxCount;
+    if (r <= 0.20) return "rgba(254,202,202,0.72)";
+    if (r <= 0.40) return "rgba(252,165,165,0.80)";
+    if (r <= 0.65) return "rgba(239,68,68,0.76)";
+    if (r <= 0.85) return "rgba(220,38,38,0.84)";
+    return "rgba(153,27,27,0.94)";
   };
 
-  const strokeColor = (id) => selectedParte === id ? "#f59e0b" : (partesCounts[id] ? "#4b5563" : "#374151");
-  const strokeW     = (id) => selectedParte === id ? 2.5 : 1;
-
-  // Propiedades de cada región clickeable
   const R = (id) => ({
     fill: levelColor(id),
-    stroke: selectedParte === id ? "#f59e0b" : "#4b5563",
-    strokeWidth: selectedParte === id ? 1.8 : 0.8,
+    stroke: "none",
     onClick: () => onSelectParte(selectedParte === id ? null : id),
     className: "cursor-pointer",
-    style: { transition: "fill 0.25s, stroke 0.25s" },
+    style: { transition: "fill 0.2s" },
   });
 
-  // Badge numérico sobre la zona
   const N = ({ id, x, y }) => {
     const n = partesCounts[id] || 0;
     if (!n) return null;
     return (
       <g style={{ pointerEvents: "none" }}>
-        <circle cx={x} cy={y} r={8.5} fill="#0f172a" stroke={selectedParte === id ? "#f59e0b" : "#6b7280"} strokeWidth={1.5} />
-        <text x={x} y={y + 3.5} textAnchor="middle" fill="white" fontSize={7.5} fontWeight="bold">{n}</text>
+        <circle cx={x} cy={y} r={8.5} fill="#0f172a" stroke={selectedParte === id ? "#f59e0b" : "#64748b"} strokeWidth={1.5} />
+        <text x={x} y={y+3.5} textAnchor="middle" fill="white" fontSize={7.5} fontWeight="bold">{n}</text>
       </g>
     );
   };
 
-  /* ─────────────────────────────────────────────────────────────
-     VISTA FRONTAL  —  paths con curvas bezier anatómicas
-     viewBox 0 0 200 370
-  ───────────────────────────────────────────────────────────── */
-  const FrontBody = () => (
+  // Each view has its own clipPath id
+  const clipId = `bc-${uid}-${bodyView}`;
+
+  /* ── CLIP PATHS: definen la silueta del cuerpo ── */
+  const FrontClip = () => (
+    <clipPath id={clipId}>
+      <ellipse cx="100" cy="30" rx="28" ry="32" />
+      <path d="M88,58 C88,72 90,80 90,87 Q100,92 110,87 C110,80 112,72 112,58Z" />
+      <path d="M88,87 Q70,87 54,97 C42,107 38,122 38,137 L38,206 C38,216 44,222 56,224 L144,224 C156,222 162,216 162,206 L162,137 C162,122 158,107 146,97 Q130,87 112,87Z" />
+      <path d="M38,224 L162,224 C165,240 164,255 160,263 L40,263 C36,255 35,240 38,224Z" />
+      <path d="M38,103 C26,111 16,129 14,156 C12,178 14,200 16,216 C18,227 26,233 35,234 L53,234 C61,231 63,222 61,210 C59,188 59,165 61,147 C63,129 59,113 50,107Z" />
+      <path d="M162,103 C174,111 184,129 186,156 C188,178 186,200 184,216 C182,227 174,233 165,234 L147,234 C139,231 137,222 139,210 C141,188 141,165 139,147 C137,129 141,113 150,107Z" />
+      <path d="M14,216 C8,223 4,234 4,245 C4,257 10,264 18,265 L54,265 C62,262 64,253 64,243 L64,216Z" />
+      <path d="M186,216 C192,223 196,234 196,245 C196,257 190,264 182,265 L146,265 C138,262 136,253 136,243 L136,216Z" />
+      <path d="M40,263 L80,263 Q82,318 82,360 L36,360 Q34,318 36,263Z" />
+      <path d="M120,263 L160,263 Q164,318 164,360 L118,360 Q118,318 120,263Z" />
+      <path d="M30,360 C22,368 14,378 13,385 C12,390 18,392 26,392 L84,392 C90,390 91,382 88,371 Q82,360 82,360Z" />
+      <path d="M170,360 C178,368 186,378 187,385 C188,390 182,392 174,392 L116,392 C110,390 109,382 112,371 Q118,360 118,360Z" />
+    </clipPath>
+  );
+
+  const BackClip = () => (
+    <clipPath id={clipId}>
+      <ellipse cx="100" cy="30" rx="28" ry="32" />
+      <path d="M88,58 C88,72 90,80 90,87 Q100,92 110,87 C110,80 112,72 112,58Z" />
+      <path d="M88,87 Q70,87 54,97 C42,107 38,122 38,137 L38,263 C42,272 54,276 68,276 L132,276 C146,276 158,272 162,263 L162,137 C162,122 158,107 146,97 Q130,87 112,87Z" />
+      <path d="M38,103 C26,111 16,129 14,156 C12,178 14,200 16,216 C18,227 26,233 35,234 L53,234 C61,231 63,222 61,210 C59,188 59,165 61,147 C63,129 59,113 50,107Z" />
+      <path d="M162,103 C174,111 184,129 186,156 C188,178 186,200 184,216 C182,227 174,233 165,234 L147,234 C139,231 137,222 139,210 C141,188 141,165 139,147 C137,129 141,113 150,107Z" />
+      <path d="M14,216 C8,223 4,234 4,245 C4,257 10,264 18,265 L54,265 C62,262 64,253 64,243 L64,216Z" />
+      <path d="M186,216 C192,223 196,234 196,245 C196,257 190,264 182,265 L146,265 C138,262 136,253 136,243 L136,216Z" />
+      <path d="M40,276 L80,276 Q82,330 82,368 L36,368 Q34,330 36,276Z" />
+      <path d="M120,276 L160,276 Q164,330 164,368 L118,368 Q118,330 120,276Z" />
+      <path d="M30,368 C22,376 14,384 13,390 C12,394 18,396 26,396 L84,396 C90,394 91,387 88,377 Q82,368 82,368Z" />
+      <path d="M170,368 C178,376 186,384 187,390 C188,394 182,396 174,396 L116,396 C110,394 109,387 112,377 Q118,368 118,368Z" />
+    </clipPath>
+  );
+
+  /* ── OUTLINES: dibujados encima (sin interacción) ── */
+  const so = { fill: "none", stroke: "#4b5563", strokeWidth: 1.1, style: { pointerEvents: "none" } };
+  const sd = { fill: "none", stroke: "#374151", strokeWidth: 0.7, strokeDasharray: "3,3", style: { pointerEvents: "none" } };
+
+  const FrontOutline = () => (
     <g>
-      {/* SILUETA base (contorno decorativo, sin interacción) */}
-      <path
-        d="M100,3
-          C83,3 67,10 60,22 C52,34 53,50 61,59
-          C65,64 70,68 75,70
-          L89,74 L89,84
-          C74,85 58,91 48,101 C38,111 36,124 36,136
-          L36,170 C36,180 40,185 50,188
-          L50,193 C44,198 38,210 36,225
-          L36,235 Q36,247 44,250 L44,298 Q42,310 40,322
-          L58,322 Q57,310 57,298 L57,260 L60,250
-          L70,250 L75,260 L75,298 Q74,310 72,322
-          L90,322 Q90,310 90,298 L90,250 Q92,246 100,246
-          Q108,246 110,250 L110,298 Q110,310 110,322
-          L128,322 Q126,310 125,298 L125,260 L130,250
-          L140,250 L143,260 L143,298 Q143,310 142,322
-          L160,322 Q158,310 156,298 L156,250 Q164,247 164,235
-          L164,225 C162,210 156,198 150,193
-          L150,188 C160,185 164,180 164,170
-          L164,136 C164,124 162,111 152,101 C142,91 126,85 111,84
-          L111,74 L125,70
-          C130,68 135,64 139,59
-          C147,50 148,34 140,22
-          C133,10 117,3 100,3 Z"
-        fill="none" stroke="#374151" strokeWidth={0.5} style={{ pointerEvents: "none" }}
-      />
-
-      {/* ══ CRÁNEO ══ */}
-      <path d="M100,3 C83,3 67,10 60,22 C52,34 53,50 61,59 C67,66 78,72 92,73 L108,73 C122,72 133,66 139,59 C147,50 148,34 140,22 C133,10 117,3 100,3 Z"
-        {...R("craneo")} />
-      <N id="craneo" x={100} y={35} />
-
-      {/* ══ OJOS ══ */}
-      <path d="M81,32 C83,28 88,26 93,28 C98,30 99,35 96,38 C92,41 85,40 82,37 C80,35 80,33 81,32 Z" {...R("ojo")} />
-      <path d="M119,32 C117,28 112,26 107,28 C102,30 101,35 104,38 C108,41 115,40 118,37 C120,35 120,33 119,32 Z" {...R("ojo")} />
-
-      {/* ══ CARA (mentón-mejillas) ══ */}
-      <path d="M61,59 C67,68 78,74 92,75 L108,75 C122,74 133,68 139,59 L108,73 L92,73 Z"
-        {...R("cara")} />
-
-      {/* ══ CUELLO ══ */}
-      <path d="M89,74 C89,78 88,82 88,86 Q100,90 112,86 C112,82 111,78 111,74 L108,73 L92,73 Z"
-        {...R("cuello")} />
-      <N id="cuello" x={100} y={81} />
-
-      {/* ══ TÓRAX ══ */}
-      <path d="M88,86 Q72,86 58,94 C46,102 42,116 42,128 L42,170 C42,178 46,184 56,186 L144,186 C154,184 158,178 158,170 L158,128 C158,116 154,102 142,94 Q128,86 112,86 Q100,90 88,86 Z"
-        {...R("torax")} />
-      <N id="torax" x={100} y={132} />
-
-      {/* ══ ABDOMEN ══ */}
-      <path d="M42,186 L158,186 Q162,202 158,216 Q150,222 100,222 Q50,222 42,216 Q38,202 42,186 Z"
-        {...R("abdomen")} />
-      <N id="abdomen" x={100} y={203} />
-
-      {/* ══ CADERA ══ */}
-      <path d="M42,216 Q36,226 36,236 Q42,248 57,250 L57,250 L143,250 Q158,248 164,236 Q164,226 158,216 Z"
-        {...R("cadera")} />
-      <N id="cadera" x={100} y={234} />
-
-      {/* ══ BRAZO izq ══ */}
-      <path d="M42,98 C32,105 22,120 18,144 C14,164 16,184 18,196 C20,205 26,210 34,211 L50,211 C56,208 58,200 58,190 C58,170 58,150 56,134 C54,118 50,106 42,98 Z"
-        {...R("brazo")} />
-      <N id="brazo" x={34} y={152} />
-      {/* ══ BRAZO der ══ */}
-      <path d="M158,98 C168,105 178,120 182,144 C186,164 184,184 182,196 C180,205 174,210 166,211 L150,211 C144,208 142,200 142,190 C142,170 142,150 144,134 C146,118 150,106 158,98 Z"
-        {...R("brazo")} />
-
-      {/* ══ MANO izq ══ */}
-      <path d="M18,196 C12,202 8,212 8,222 C8,232 12,238 18,240 L50,240 C56,237 58,230 58,222 L58,196 Z"
-        {...R("mano")} />
-      <N id="mano" x={33} y={218} />
-      {/* ══ MANO der ══ */}
-      <path d="M182,196 C188,202 192,212 192,222 C192,232 188,238 182,240 L150,240 C144,237 142,230 142,222 L142,196 Z"
-        {...R("mano")} />
-
-      {/* ══ PIERNA izq (muslo) ══ */}
-      <path d="M44,250 Q40,272 40,296 L72,296 Q74,272 72,250 Z" {...R("pierna")} />
-      <N id="pierna" x={56} y={273} />
-      {/* ══ PIERNA izq (pantorrilla) ══ */}
-      <path d="M40,296 Q38,318 38,338 L72,338 Q72,318 72,296 Z" {...R("pierna")} />
-      {/* ══ PIERNA der (muslo) ══ */}
-      <path d="M156,250 Q160,272 160,296 L128,296 Q126,272 128,250 Z" {...R("pierna")} />
-      {/* ══ PIERNA der (pantorrilla) ══ */}
-      <path d="M160,296 Q162,318 162,338 L128,338 Q128,318 128,296 Z" {...R("pierna")} />
-
-      {/* ══ PIE izq ══ */}
-      <path d="M34,338 C28,343 22,350 20,356 C18,360 20,363 26,364 L72,364 C76,362 77,357 74,349 Q72,338 72,338 Z"
-        {...R("pie")} />
-      <N id="pie" x={47} y={352} />
-      {/* ══ PIE der ══ */}
-      <path d="M166,338 C172,343 178,350 180,356 C182,360 180,363 174,364 L128,364 C124,362 123,357 126,349 Q128,338 128,338 Z"
-        {...R("pie")} />
+      <ellipse cx="100" cy="30" rx="28" ry="32" {...so} />
+      <path d="M88,58 C88,72 90,80 90,87 Q100,92 110,87 C110,80 112,72 112,58" {...so} />
+      <path d="M88,87 Q70,87 54,97 C42,107 38,122 38,137 L38,206 C38,216 44,222 56,224 L144,224 C156,222 162,216 162,206 L162,137 C162,122 158,107 146,97 Q130,87 112,87" {...so} />
+      <path d="M38,224 L162,224 C165,240 164,255 160,263 L40,263 C36,255 35,240 38,224" {...so} />
+      <path d="M38,103 C26,111 16,129 14,156 C12,178 14,200 16,216 C18,227 26,233 35,234 L53,234 C61,231 63,222 61,210 C59,188 59,165 61,147 C63,129 59,113 50,107" {...so} />
+      <path d="M162,103 C174,111 184,129 186,156 C188,178 186,200 184,216 C182,227 174,233 165,234 L147,234 C139,231 137,222 139,210 C141,188 141,165 139,147 C137,129 141,113 150,107" {...so} />
+      <path d="M14,216 C8,223 4,234 4,245 C4,257 10,264 18,265 L54,265 C62,262 64,253 64,243 L64,216" {...so} />
+      <path d="M186,216 C192,223 196,234 196,245 C196,257 190,264 182,265 L146,265 C138,262 136,253 136,243 L136,216" {...so} />
+      <path d="M40,263 L80,263 Q82,318 82,360 L36,360 Q34,318 36,263" {...so} />
+      <path d="M120,263 L160,263 Q164,318 164,360 L118,360 Q118,318 120,263" {...so} />
+      <path d="M30,360 C22,368 14,378 13,385 C12,390 18,392 26,392 L84,392 C90,390 91,382 88,371 Q82,360 82,360" {...so} />
+      <path d="M170,360 C178,368 186,378 187,385 C188,390 182,392 174,392 L116,392 C110,390 109,382 112,371 Q118,360 118,360" {...so} />
+      {/* region dividers */}
+      <line x1="38" y1="166" x2="162" y2="166" {...sd} />
     </g>
   );
 
-  /* ─────────────────────────────────────────────────────────────
-     VISTA POSTERIOR  —  misma silueta, diferente regiones
-  ───────────────────────────────────────────────────────────── */
-  const BackBody = () => (
+  const BackOutline = () => (
     <g>
-      {/* Silueta base */}
-      <path
-        d="M100,3 C83,3 67,10 60,22 C52,34 53,50 61,59 C65,64 70,68 75,70
-          L89,74 L89,84
-          C74,85 58,91 48,101 C38,111 36,124 36,136 L36,236
-          Q42,248 57,250 L57,298 Q57,310 55,322 L73,322 Q73,310 73,298 L73,250
-          L127,250 L127,298 Q127,310 127,322 L145,322 Q143,310 143,298 L143,250
-          Q158,248 164,236 L164,136 C164,124 162,111 152,101 C142,91 126,85 111,84
-          L111,74 L125,70 C130,68 135,64 139,59 C147,50 148,34 140,22 C133,10 117,3 100,3 Z"
-        fill="none" stroke="#374151" strokeWidth={0.5} style={{ pointerEvents: "none" }}
-      />
-
-      {/* CRÁNEO posterior */}
-      <path d="M100,3 C83,3 67,10 60,22 C52,34 53,50 61,59 C67,66 78,72 92,73 L108,73 C122,72 133,66 139,59 C147,50 148,34 140,22 C133,10 117,3 100,3 Z"
-        {...R("craneo")} />
-      <N id="craneo" x={100} y={35} />
-
-      {/* CUELLO posterior */}
-      <path d="M89,74 C89,78 88,82 88,86 Q100,90 112,86 C112,82 111,78 111,74 L108,73 L92,73 Z"
-        {...R("cuello")} />
-
-      {/* ESPALDA — cubre toda la zona dorsal + lumbar */}
-      <path d="M88,86 Q72,86 58,94 C46,102 42,116 42,128 L42,236 Q48,248 57,250 L143,250 Q152,248 158,236 L158,128 C158,116 154,102 142,94 Q128,86 112,86 Q100,90 88,86 Z"
-        {...R("espalda")} />
-      <N id="espalda" x={100} y={168} />
-
-      {/* BRAZOS (igual que frontal) */}
-      <path d="M42,98 C32,105 22,120 18,144 C14,164 16,184 18,196 C20,205 26,210 34,211 L50,211 C56,208 58,200 58,190 C58,170 58,150 56,134 C54,118 50,106 42,98 Z" {...R("brazo")} />
-      <path d="M158,98 C168,105 178,120 182,144 C186,164 184,184 182,196 C180,205 174,210 166,211 L150,211 C144,208 142,200 142,190 C142,170 142,150 144,134 C146,118 150,106 158,98 Z" {...R("brazo")} />
-      <N id="brazo" x={34} y={152} />
-
-      {/* MANOS */}
-      <path d="M18,196 C12,202 8,212 8,222 C8,232 12,238 18,240 L50,240 C56,237 58,230 58,222 L58,196 Z" {...R("mano")} />
-      <path d="M182,196 C188,202 192,212 192,222 C192,232 188,238 182,240 L150,240 C144,237 142,230 142,222 L142,196 Z" {...R("mano")} />
-
-      {/* GLÚTEOS / CADERA posterior */}
-      <path d="M57,250 Q52,265 54,278 L146,278 Q148,265 143,250 Z" {...R("cadera")} />
-      <N id="cadera" x={100} y={264} />
-
-      {/* PIERNAS posterior */}
-      <path d="M54,278 Q50,302 50,325 L80,325 Q80,302 80,278 Z" {...R("pierna")} />
-      <path d="M146,278 Q150,302 150,325 L120,325 Q120,302 120,278 Z" {...R("pierna")} />
-      <N id="pierna" x={65} y={302} />
-
-      {/* PIES posterior */}
-      <path d="M46,325 Q42,332 42,340 Q44,348 50,350 L82,350 Q86,345 84,334 Q80,325 80,325 Z" {...R("pie")} />
-      <path d="M154,325 Q158,332 158,340 Q156,348 150,350 L118,350 Q114,345 116,334 Q120,325 120,325 Z" {...R("pie")} />
-      <N id="pie" x={64} y={338} />
+      <ellipse cx="100" cy="30" rx="28" ry="32" {...so} />
+      <path d="M88,58 C88,72 90,80 90,87 Q100,92 110,87 C110,80 112,72 112,58" {...so} />
+      <path d="M88,87 Q70,87 54,97 C42,107 38,122 38,137 L38,263 C42,272 54,276 68,276 L132,276 C146,276 158,272 162,263 L162,137 C162,122 158,107 146,97 Q130,87 112,87" {...so} />
+      <line x1="100" y1="87" x2="100" y2="263" {...sd} />  {/* spine */}
+      <path d="M38,103 C26,111 16,129 14,156 C12,178 14,200 16,216 C18,227 26,233 35,234 L53,234 C61,231 63,222 61,210 C59,188 59,165 61,147 C63,129 59,113 50,107" {...so} />
+      <path d="M162,103 C174,111 184,129 186,156 C188,178 186,200 184,216 C182,227 174,233 165,234 L147,234 C139,231 137,222 139,210 C141,188 141,165 139,147 C137,129 141,113 150,107" {...so} />
+      <path d="M14,216 C8,223 4,234 4,245 C4,257 10,264 18,265 L54,265 C62,262 64,253 64,243 L64,216" {...so} />
+      <path d="M186,216 C192,223 196,234 196,245 C196,257 190,264 182,265 L146,265 C138,262 136,253 136,243 L136,216" {...so} />
+      <path d="M40,276 L80,276 Q82,330 82,368 L36,368 Q34,330 36,276" {...so} />
+      <path d="M120,276 L160,276 Q164,330 164,368 L118,368 Q118,330 120,276" {...so} />
+      <path d="M30,368 C22,376 14,384 13,390 C12,394 18,396 26,396 L84,396 C90,394 91,387 88,377 Q82,368 82,368" {...so} />
+      <path d="M170,368 C178,376 186,384 187,390 C188,394 182,396 174,396 L116,396 C110,394 109,387 112,377 Q118,368 118,368" {...so} />
     </g>
   );
 
-  // Ranking de zonas más afectadas
-  const ranking = PARTES_CUERPO
-    .filter(p => (partesCounts[p.id] || 0) > 0)
-    .sort((a, b) => (partesCounts[b.id] || 0) - (partesCounts[a.id] || 0));
+  const ranking = PARTES_CUERPO.filter(p => (partesCounts[p.id]||0)>0).sort((a,b)=>(partesCounts[b.id]||0)-(partesCounts[a.id]||0));
 
   return (
     <div className="flex gap-5">
-      {/* ── Columna izquierda: diagrama ── */}
-      <div className="flex flex-col items-center shrink-0" style={{ width: 185 }}>
-        {/* Toggle front / back */}
+      <div className="flex flex-col items-center shrink-0" style={{ width: 195 }}>
+        {/* Toggle */}
         <div className="flex bg-gray-800 rounded-lg p-0.5 mb-3 w-full">
-          <button onClick={() => setBodyView("front")}
-            className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${bodyView === "front" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-300"}`}>
-            Vista frontal
-          </button>
-          <button onClick={() => setBodyView("back")}
-            className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${bodyView === "back" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-300"}`}>
-            Vista posterior
-          </button>
+          <button onClick={() => setBodyView("front")} className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${bodyView==="front"?"bg-blue-600 text-white":"text-gray-500 hover:text-gray-300"}`}>Vista frontal</button>
+          <button onClick={() => setBodyView("back")}  className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${bodyView==="back" ?"bg-blue-600 text-white":"text-gray-500 hover:text-gray-300"}`}>Vista posterior</button>
         </div>
 
-        {/* SVG */}
-        <svg viewBox="0 0 200 370" className="w-full" style={{ maxHeight: 300 }}>
-          {bodyView === "front" ? <FrontBody /> : <BackBody />}
+        <svg viewBox="0 0 200 400" className="w-full" style={{ maxHeight: 320 }}>
+          <defs>
+            {bodyView === "front" ? <FrontClip /> : <BackClip />}
+          </defs>
+
+          {/* Base oscura con forma corporal */}
+          <g clipPath={`url(#${clipId})`}>
+            <rect x="0" y="0" width="200" height="400" fill="#0f172a" />
+          </g>
+
+          {/* Regiones coloreadas — clipeadas a la silueta */}
+          <g clipPath={`url(#${clipId})`}>
+            {bodyView === "front" ? <>
+              <rect x="58"  y="0"   width="84" height="62" {...R("craneo")} />
+              <ellipse cx="86" cy="27" rx="11" ry="8"  {...R("ojo")} />
+              <ellipse cx="114" cy="27" rx="11" ry="8" {...R("ojo")} />
+              <rect x="58"  y="54"  width="84" height="8"  {...R("cara")} />
+              <rect x="86"  y="58"  width="28" height="31" {...R("cuello")} />
+              <rect x="34"  y="87"  width="132" height="80" {...R("torax")} />
+              <rect x="34"  y="165" width="132" height="62" {...R("abdomen")} />
+              <rect x="32"  y="225" width="136" height="42" {...R("cadera")} />
+              <rect x="2"   y="87"  width="64"  height="150" {...R("brazo")} />
+              <rect x="134" y="87"  width="64"  height="150" {...R("brazo")} />
+              <rect x="2"   y="214" width="66"  height="55" {...R("mano")} />
+              <rect x="132" y="214" width="66"  height="55" {...R("mano")} />
+              <rect x="32"  y="263" width="52"  height="132" {...R("pierna")} />
+              <rect x="116" y="263" width="52"  height="132" {...R("pierna")} />
+              <rect x="10"  y="358" width="78"  height="40" {...R("pie")} />
+              <rect x="112" y="358" width="78"  height="40" {...R("pie")} />
+            </> : <>
+              <rect x="58"  y="0"   width="84" height="62" {...R("craneo")} />
+              <rect x="86"  y="58"  width="28" height="31" {...R("cuello")} />
+              <rect x="34"  y="87"  width="132" height="180" {...R("espalda")} />
+              <rect x="34"  y="258" width="132" height="22" {...R("cadera")} />
+              <rect x="2"   y="87"  width="64"  height="150" {...R("brazo")} />
+              <rect x="134" y="87"  width="64"  height="150" {...R("brazo")} />
+              <rect x="2"   y="214" width="66"  height="55" {...R("mano")} />
+              <rect x="132" y="214" width="66"  height="55" {...R("mano")} />
+              <rect x="32"  y="276" width="52"  height="128" {...R("pierna")} />
+              <rect x="116" y="276" width="52"  height="128" {...R("pierna")} />
+              <rect x="10"  y="366" width="78"  height="36" {...R("pie")} />
+              <rect x="112" y="366" width="78"  height="36" {...R("pie")} />
+            </>}
+          </g>
+
+          {/* Outline on top */}
+          {bodyView === "front" ? <FrontOutline /> : <BackOutline />}
+
+          {/* Badges */}
+          {bodyView === "front" ? <>
+            <N id="craneo"  x={100} y={30}  />
+            <N id="ojo"     x={86}  y={27}  />
+            <N id="cuello"  x={100} y={75}  />
+            <N id="torax"   x={100} y={127} />
+            <N id="abdomen" x={100} y={196} />
+            <N id="cadera"  x={100} y={244} />
+            <N id="brazo"   x={28}  y={162} />
+            <N id="mano"    x={28}  y={241} />
+            <N id="pierna"  x={56}  y={310} />
+            <N id="pie"     x={50}  y={378} />
+          </> : <>
+            <N id="craneo"  x={100} y={30}  />
+            <N id="espalda" x={100} y={177} />
+            <N id="cadera"  x={100} y={269} />
+            <N id="brazo"   x={28}  y={162} />
+            <N id="pierna"  x={56}  y={320} />
+            <N id="pie"     x={50}  y={382} />
+          </>}
         </svg>
 
-        {/* Escala de color */}
+        {/* Color scale */}
         <div className="mt-2 w-full">
-          <div className="flex gap-0.5 justify-center">
-            {["#1f2937","rgba(254,226,226,0.9)","rgba(252,165,165,0.85)","rgba(239,68,68,0.80)","rgba(220,38,38,0.88)","rgba(153,27,27,0.95)"].map((bg,i) => (
-              <div key={i} className="flex-1 h-2.5 rounded-sm" style={{ background: bg, border: "1px solid #374151" }} />
+          <div className="flex gap-0.5">
+            {["rgba(15,23,42,0.3)","rgba(254,202,202,0.72)","rgba(252,165,165,0.80)","rgba(239,68,68,0.76)","rgba(220,38,38,0.84)","rgba(153,27,27,0.94)"].map((bg,i)=>(
+              <div key={i} className="flex-1 h-2 rounded-sm border border-gray-800" style={{background:bg}} />
             ))}
           </div>
-          <div className="flex justify-between text-[9px] text-gray-600 mt-1 px-0.5">
+          <div className="flex justify-between text-[9px] text-gray-600 mt-1">
             <span>0 casos</span><span>Crítico</span>
           </div>
         </div>
       </div>
 
-      {/* ── Columna derecha: ranking ── */}
+      {/* Ranking panel */}
       <div className="flex-1 min-w-0">
         <p className="text-[10px] text-gray-600 font-semibold uppercase tracking-wide mb-3">
-          Zonas afectadas · {total} caso{total !== 1 ? "s" : ""} total{total !== 1 ? "es" : ""}
+          Zonas afectadas · {total} caso{total!==1?"s":""} totales
         </p>
-
         {ranking.length === 0 ? (
           <div className="text-xs text-gray-600 py-6 text-center">
             Sin datos de zona afectada.<br />
@@ -299,22 +267,16 @@ function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
         ) : (
           <div className="space-y-1.5">
             {ranking.map((parte, i) => {
-              const count = partesCounts[parte.id] || 0;
-              const pct   = total > 0 ? Math.round(count / total * 100) : 0;
-              const isSelected = selectedParte === parte.id;
+              const count = partesCounts[parte.id]||0;
+              const pct = total>0 ? Math.round(count/total*100) : 0;
+              const isSel = selectedParte === parte.id;
               return (
-                <button key={parte.id}
-                  onClick={() => onSelectParte(isSelected ? null : parte.id)}
-                  className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-all text-left ${
-                    isSelected ? "bg-amber-900/30 border border-amber-700" : "hover:bg-gray-800 border border-transparent"
-                  }`}>
-                  <span className="text-gray-600 font-mono w-4 shrink-0 text-center">{i+1}</span>
-                  <span className={`w-28 truncate shrink-0 font-medium ${isSelected ? "text-amber-300" : "text-gray-300"}`}>
-                    {parte.label}
-                  </span>
+                <button key={parte.id} onClick={() => onSelectParte(isSel?null:parte.id)}
+                  className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-all text-left ${isSel?"bg-amber-900/30 border border-amber-700":"hover:bg-gray-800 border border-transparent"}`}>
+                  <span className="text-gray-600 font-mono w-4 text-center shrink-0">{i+1}</span>
+                  <span className={`w-28 truncate shrink-0 font-medium ${isSel?"text-amber-300":"text-gray-300"}`}>{parte.label}</span>
                   <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all"
-                      style={{ width: `${pct}%`, background: isSelected ? "#f59e0b" : "rgba(220,38,38,0.8)" }} />
+                    <div className="h-full rounded-full transition-all" style={{width:`${pct}%`,background:isSel?"#f59e0b":"rgba(220,38,38,0.8)"}} />
                   </div>
                   <span className="text-gray-300 font-mono font-bold w-5 text-right shrink-0">{count}</span>
                   <span className="text-gray-600 w-9 text-right shrink-0">{pct}%</span>
@@ -323,11 +285,10 @@ function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
             })}
           </div>
         )}
-
         {ranking.length > 0 && (
           <p className="text-[10px] text-gray-700 mt-4 leading-relaxed">
             {selectedParte
-              ? <>Filtrando por <span className="text-amber-500">"{PARTES_CUERPO.find(p => p.id === selectedParte)?.label}"</span>. Clic de nuevo para quitar.</>
+              ? <>Filtrando por <span className="text-amber-500">"{PARTES_CUERPO.find(p=>p.id===selectedParte)?.label}"</span>. Clic de nuevo para quitar.</>
               : "Haz clic en el cuerpo o en el ranking para filtrar los registros."}
           </p>
         )}
