@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { HumanBody } from 'react-body-medic';
 import * as XLSX from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { supabase } from '../../lib/supabase.js';
@@ -45,206 +46,123 @@ const GRUPOS_COLORS = {
 };
 
 // ─── Diagrama cuerpo humano ───────────────────────────────────────
+// Mapeo: nuestros IDs → IDs del paquete react-body-medic
+const PKG_MAP = {
+  craneo:  ["body-model-head", "body-model-head-back"],
+  ojo:     ["body-model-eyes"],
+  cara:    ["body-model-nose", "body-model-oral_cavity", "body-model-ears", "body-model-ears-back"],
+  cuello:  ["body-model-neck_or_throat", "body-model-nape_of_neck"],
+  torax:   ["body-model-chest"],
+  abdomen: ["body-model-upper_abdomen", "body-model-mid_abdomen", "body-model-lower_abdomen"],
+  espalda: ["body-model-back", "body-model-lower_back"],
+  brazo:   ["body-model-upper_arm", "body-model-forearm", "body-model-upper_arm-back", "body-model-forearm-back", "body-model-elbow"],
+  mano:    ["body-model-hand", "body-model-hand-back"],
+  cadera:  ["body-model-sexual_organs", "body-model-buttocks"],
+  pierna:  ["body-model-thigh", "body-model-knee", "body-model-lower_leg", "body-model-thigh-back", "body-model-lower_leg-back"],
+  pie:     ["body-model-foot", "body-model-foot-back"],
+};
+
+// Mapa inverso: ID del paquete → nuestro ID
+const PKG_REVERSE = Object.fromEntries(
+  Object.entries(PKG_MAP).flatMap(([ourId, pkgIds]) => pkgIds.map(pid => [pid, ourId]))
+);
+
 function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
-  const [bodyView, setBodyView] = useState("front");
-  const uid = "bd" + Math.random().toString(36).slice(2, 7); // unique id per instance
   const total = Object.values(partesCounts).reduce((a, b) => a + b, 0);
   const maxCount = Math.max(...Object.values(partesCounts), 1);
 
-  // Color scale
-  const levelColor = (id) => {
-    if (selectedParte === id) return "rgba(245,158,11,0.88)";
-    const n = partesCounts[id] || 0;
-    if (!n) return "rgba(15,23,42,0.3)";
+  // Color por zona según conteo
+  const heatColor = (ourId) => {
+    if (selectedParte === ourId) return "rgba(245,158,11,0.88)";
+    const n = partesCounts[ourId] || 0;
+    if (!n) return "transparent";
     const r = n / maxCount;
-    if (r <= 0.20) return "rgba(254,202,202,0.72)";
-    if (r <= 0.40) return "rgba(252,165,165,0.80)";
-    if (r <= 0.65) return "rgba(239,68,68,0.76)";
-    if (r <= 0.85) return "rgba(220,38,38,0.84)";
-    return "rgba(153,27,27,0.94)";
+    if (r <= 0.20) return "rgba(254,202,202,0.80)";
+    if (r <= 0.40) return "rgba(252,165,165,0.88)";
+    if (r <= 0.65) return "rgba(239,68,68,0.80)";
+    if (r <= 0.85) return "rgba(220,38,38,0.88)";
+    return "rgba(185,28,28,0.96)";
   };
 
-  const R = (id) => ({
-    fill: levelColor(id),
-    stroke: "none",
-    onClick: () => onSelectParte(selectedParte === id ? null : id),
-    className: "cursor-pointer",
-    style: { transition: "fill 0.2s" },
-  });
+  // Inyectar CSS de heatmap en los paths del SVG del paquete
+  useEffect(() => {
+    const styleId = "topico-body-heatmap";
+    let el = document.getElementById(styleId);
+    if (!el) { el = document.createElement("style"); el.id = styleId; document.head.appendChild(el); }
 
-  const N = ({ id, x, y }) => {
-    const n = partesCounts[id] || 0;
-    if (!n) return null;
-    return (
-      <g style={{ pointerEvents: "none" }}>
-        <circle cx={x} cy={y} r={8.5} fill="#0f172a" stroke={selectedParte === id ? "#f59e0b" : "#64748b"} strokeWidth={1.5} />
-        <text x={x} y={y+3.5} textAnchor="middle" fill="white" fontSize={7.5} fontWeight="bold">{n}</text>
-      </g>
-    );
+    // CSS variables para colores base del paquete (tema oscuro)
+    const base = `
+      .sc-body-model-svg { filter: drop-shadow(0 0 8px rgba(59,130,246,0.15)); }
+      .sc-body-model-svg__stroke { fill: #374151 !important; }
+      .sc-body-model-svg__path { fill: rgba(30,41,59,0.7) !important; cursor: pointer; }
+      .sc-body-model-svg__path:hover { fill: rgba(100,116,139,0.5) !important; }
+    `;
+
+    // CSS por zona según intensidad
+    const zoneRules = Object.entries(PKG_MAP).map(([ourId, pkgIds]) => {
+      const color = heatColor(ourId);
+      if (color === "transparent") return "";
+      const selectors = pkgIds.map(id => `#${id}.sc-body-model-svg__path`).join(", ");
+      const hoverSelectors = pkgIds.map(id => `#${id}.sc-body-model-svg__path:hover`).join(", ");
+      return `${selectors} { fill: ${color} !important; }
+              ${hoverSelectors} { opacity: 0.85; }`;
+    }).join("\n");
+
+    el.textContent = base + zoneRules;
+    return () => { if (el?.parentNode) el.parentNode.removeChild(el); };
+  }, [partesCounts, selectedParte]);
+
+  // Click handler: convierte el label del paquete → nuestro ID
+  const handleBodyClick = (pkgLabel) => {
+    // El paquete devuelve el label en español, buscar el ID del paquete inverso
+    const pkgId = Object.entries({
+      "body-model-head":"Cabeza","body-model-eyes":"Ojos","body-model-ears":"Orejas",
+      "body-model-nose":"Nariz","body-model-oral_cavity":"Boca","body-model-neck_or_throat":"Cuello/Garganta",
+      "body-model-chest":"Pecho","body-model-upper_arm":"Brazos superiores","body-model-upper_abdomen":"Abdomen superior",
+      "body-model-forearm":"Antebrazos","body-model-mid_abdomen":"Abdomen medio","body-model-lower_abdomen":"Abdomen inferior",
+      "body-model-hand":"Manos","body-model-sexual_organs":"Órganos reproductivos","body-model-thigh":"Muslos",
+      "body-model-knee":"Rodillas","body-model-lower_leg":"Piernas inferiores","body-model-foot":"Pies",
+      "body-model-back":"Espalda","body-model-lower_back":"Zona lumbar","body-model-nape_of_neck":"Nuca",
+      "body-model-upper_arm-back":"Brazos superiores (esp.)","body-model-forearm-back":"Antebrazos (esp.)",
+      "body-model-hand-back":"Manos (esp.)","body-model-thigh-back":"Muslos (esp.)","body-model-lower_leg-back":"Piernas (esp.)",
+      "body-model-foot-back":"Pies (esp.)","body-model-buttocks":"Glúteos","body-model-head-back":"Cabeza (esp.)",
+      "body-model-ears-back":"Orejas (esp.)","body-model-elbow":"Codos"
+    }).find(([_, label]) => label === pkgLabel)?.[0];
+    const ourId = pkgId ? PKG_REVERSE[pkgId] : null;
+    if (ourId) onSelectParte(selectedParte === ourId ? null : ourId);
   };
 
-  // Each view has its own clipPath id
-  const clipId = `bc-${uid}-${bodyView}`;
-
-  /* ── CLIP PATHS: definen la silueta del cuerpo ── */
-  const FrontClip = () => (
-    <clipPath id={clipId}>
-      <ellipse cx="100" cy="30" rx="28" ry="32" />
-      <path d="M88,58 C88,72 90,80 90,87 Q100,92 110,87 C110,80 112,72 112,58Z" />
-      <path d="M88,87 Q70,87 54,97 C42,107 38,122 38,137 L38,206 C38,216 44,222 56,224 L144,224 C156,222 162,216 162,206 L162,137 C162,122 158,107 146,97 Q130,87 112,87Z" />
-      <path d="M38,224 L162,224 C165,240 164,255 160,263 L40,263 C36,255 35,240 38,224Z" />
-      <path d="M38,103 C26,111 16,129 14,156 C12,178 14,200 16,216 C18,227 26,233 35,234 L53,234 C61,231 63,222 61,210 C59,188 59,165 61,147 C63,129 59,113 50,107Z" />
-      <path d="M162,103 C174,111 184,129 186,156 C188,178 186,200 184,216 C182,227 174,233 165,234 L147,234 C139,231 137,222 139,210 C141,188 141,165 139,147 C137,129 141,113 150,107Z" />
-      <path d="M14,216 C8,223 4,234 4,245 C4,257 10,264 18,265 L54,265 C62,262 64,253 64,243 L64,216Z" />
-      <path d="M186,216 C192,223 196,234 196,245 C196,257 190,264 182,265 L146,265 C138,262 136,253 136,243 L136,216Z" />
-      <path d="M40,263 L80,263 Q82,318 82,360 L36,360 Q34,318 36,263Z" />
-      <path d="M120,263 L160,263 Q164,318 164,360 L118,360 Q118,318 120,263Z" />
-      <path d="M30,360 C22,368 14,378 13,385 C12,390 18,392 26,392 L84,392 C90,390 91,382 88,371 Q82,360 82,360Z" />
-      <path d="M170,360 C178,368 186,378 187,385 C188,390 182,392 174,392 L116,392 C110,390 109,382 112,371 Q118,360 118,360Z" />
-    </clipPath>
-  );
-
-  const BackClip = () => (
-    <clipPath id={clipId}>
-      <ellipse cx="100" cy="30" rx="28" ry="32" />
-      <path d="M88,58 C88,72 90,80 90,87 Q100,92 110,87 C110,80 112,72 112,58Z" />
-      <path d="M88,87 Q70,87 54,97 C42,107 38,122 38,137 L38,263 C42,272 54,276 68,276 L132,276 C146,276 158,272 162,263 L162,137 C162,122 158,107 146,97 Q130,87 112,87Z" />
-      <path d="M38,103 C26,111 16,129 14,156 C12,178 14,200 16,216 C18,227 26,233 35,234 L53,234 C61,231 63,222 61,210 C59,188 59,165 61,147 C63,129 59,113 50,107Z" />
-      <path d="M162,103 C174,111 184,129 186,156 C188,178 186,200 184,216 C182,227 174,233 165,234 L147,234 C139,231 137,222 139,210 C141,188 141,165 139,147 C137,129 141,113 150,107Z" />
-      <path d="M14,216 C8,223 4,234 4,245 C4,257 10,264 18,265 L54,265 C62,262 64,253 64,243 L64,216Z" />
-      <path d="M186,216 C192,223 196,234 196,245 C196,257 190,264 182,265 L146,265 C138,262 136,253 136,243 L136,216Z" />
-      <path d="M40,276 L80,276 Q82,330 82,368 L36,368 Q34,330 36,276Z" />
-      <path d="M120,276 L160,276 Q164,330 164,368 L118,368 Q118,330 120,276Z" />
-      <path d="M30,368 C22,376 14,384 13,390 C12,394 18,396 26,396 L84,396 C90,394 91,387 88,377 Q82,368 82,368Z" />
-      <path d="M170,368 C178,376 186,384 187,390 C188,394 182,396 174,396 L116,396 C110,394 109,387 112,377 Q118,368 118,368Z" />
-    </clipPath>
-  );
-
-  /* ── OUTLINES: dibujados encima (sin interacción) ── */
-  const so = { fill: "none", stroke: "#4b5563", strokeWidth: 1.1, style: { pointerEvents: "none" } };
-  const sd = { fill: "none", stroke: "#374151", strokeWidth: 0.7, strokeDasharray: "3,3", style: { pointerEvents: "none" } };
-
-  const FrontOutline = () => (
-    <g>
-      <ellipse cx="100" cy="30" rx="28" ry="32" {...so} />
-      <path d="M88,58 C88,72 90,80 90,87 Q100,92 110,87 C110,80 112,72 112,58" {...so} />
-      <path d="M88,87 Q70,87 54,97 C42,107 38,122 38,137 L38,206 C38,216 44,222 56,224 L144,224 C156,222 162,216 162,206 L162,137 C162,122 158,107 146,97 Q130,87 112,87" {...so} />
-      <path d="M38,224 L162,224 C165,240 164,255 160,263 L40,263 C36,255 35,240 38,224" {...so} />
-      <path d="M38,103 C26,111 16,129 14,156 C12,178 14,200 16,216 C18,227 26,233 35,234 L53,234 C61,231 63,222 61,210 C59,188 59,165 61,147 C63,129 59,113 50,107" {...so} />
-      <path d="M162,103 C174,111 184,129 186,156 C188,178 186,200 184,216 C182,227 174,233 165,234 L147,234 C139,231 137,222 139,210 C141,188 141,165 139,147 C137,129 141,113 150,107" {...so} />
-      <path d="M14,216 C8,223 4,234 4,245 C4,257 10,264 18,265 L54,265 C62,262 64,253 64,243 L64,216" {...so} />
-      <path d="M186,216 C192,223 196,234 196,245 C196,257 190,264 182,265 L146,265 C138,262 136,253 136,243 L136,216" {...so} />
-      <path d="M40,263 L80,263 Q82,318 82,360 L36,360 Q34,318 36,263" {...so} />
-      <path d="M120,263 L160,263 Q164,318 164,360 L118,360 Q118,318 120,263" {...so} />
-      <path d="M30,360 C22,368 14,378 13,385 C12,390 18,392 26,392 L84,392 C90,390 91,382 88,371 Q82,360 82,360" {...so} />
-      <path d="M170,360 C178,368 186,378 187,385 C188,390 182,392 174,392 L116,392 C110,390 109,382 112,371 Q118,360 118,360" {...so} />
-      {/* region dividers */}
-      <line x1="38" y1="166" x2="162" y2="166" {...sd} />
-    </g>
-  );
-
-  const BackOutline = () => (
-    <g>
-      <ellipse cx="100" cy="30" rx="28" ry="32" {...so} />
-      <path d="M88,58 C88,72 90,80 90,87 Q100,92 110,87 C110,80 112,72 112,58" {...so} />
-      <path d="M88,87 Q70,87 54,97 C42,107 38,122 38,137 L38,263 C42,272 54,276 68,276 L132,276 C146,276 158,272 162,263 L162,137 C162,122 158,107 146,97 Q130,87 112,87" {...so} />
-      <line x1="100" y1="87" x2="100" y2="263" {...sd} />  {/* spine */}
-      <path d="M38,103 C26,111 16,129 14,156 C12,178 14,200 16,216 C18,227 26,233 35,234 L53,234 C61,231 63,222 61,210 C59,188 59,165 61,147 C63,129 59,113 50,107" {...so} />
-      <path d="M162,103 C174,111 184,129 186,156 C188,178 186,200 184,216 C182,227 174,233 165,234 L147,234 C139,231 137,222 139,210 C141,188 141,165 139,147 C137,129 141,113 150,107" {...so} />
-      <path d="M14,216 C8,223 4,234 4,245 C4,257 10,264 18,265 L54,265 C62,262 64,253 64,243 L64,216" {...so} />
-      <path d="M186,216 C192,223 196,234 196,245 C196,257 190,264 182,265 L146,265 C138,262 136,253 136,243 L136,216" {...so} />
-      <path d="M40,276 L80,276 Q82,330 82,368 L36,368 Q34,330 36,276" {...so} />
-      <path d="M120,276 L160,276 Q164,330 164,368 L118,368 Q118,330 120,276" {...so} />
-      <path d="M30,368 C22,376 14,384 13,390 C12,394 18,396 26,396 L84,396 C90,394 91,387 88,377 Q82,368 82,368" {...so} />
-      <path d="M170,368 C178,376 186,384 187,390 C188,394 182,396 174,396 L116,396 C110,394 109,387 112,377 Q118,368 118,368" {...so} />
-    </g>
-  );
+  // Partes seleccionadas para el paquete (labels en español del paquete)
+  const pkgSelected = selectedParte ? (PKG_MAP[selectedParte] || []).map(id => {
+    const labels = {
+      "body-model-head":"Cabeza","body-model-chest":"Pecho","body-model-upper_abdomen":"Abdomen superior",
+      "body-model-mid_abdomen":"Abdomen medio","body-model-lower_abdomen":"Abdomen inferior",
+      "body-model-neck_or_throat":"Cuello/Garganta","body-model-upper_arm":"Brazos superiores",
+      "body-model-forearm":"Antebrazos","body-model-hand":"Manos","body-model-thigh":"Muslos",
+      "body-model-lower_leg":"Piernas inferiores","body-model-foot":"Pies","body-model-eyes":"Ojos",
+      "body-model-back":"Espalda","body-model-lower_back":"Zona lumbar","body-model-buttocks":"Glúteos",
+      "body-model-knee":"Rodillas","body-model-sexual_organs":"Órganos reproductivos",
+    };
+    return labels[id] || null;
+  }).filter(Boolean) : [];
 
   const ranking = PARTES_CUERPO.filter(p => (partesCounts[p.id]||0)>0).sort((a,b)=>(partesCounts[b.id]||0)-(partesCounts[a.id]||0));
 
   return (
     <div className="flex gap-5">
-      <div className="flex flex-col items-center shrink-0" style={{ width: 195 }}>
-        {/* Toggle */}
-        <div className="flex bg-gray-800 rounded-lg p-0.5 mb-3 w-full">
-          <button onClick={() => setBodyView("front")} className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${bodyView==="front"?"bg-blue-600 text-white":"text-gray-500 hover:text-gray-300"}`}>Vista frontal</button>
-          <button onClick={() => setBodyView("back")}  className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${bodyView==="back" ?"bg-blue-600 text-white":"text-gray-500 hover:text-gray-300"}`}>Vista posterior</button>
+      {/* ── Cuerpo humano — paquete react-body-medic ── */}
+      <div className="shrink-0" style={{ width: 220 }}>
+        <p className="text-[10px] text-gray-600 mb-2 text-center">Haz clic en una zona para filtrar</p>
+        <div style={{ maxWidth: 200, margin: "0 auto" }}>
+          <HumanBody
+            onSelect={handleBodyClick}
+            selectedParts={pkgSelected}
+          />
         </div>
-
-        <svg viewBox="0 0 200 400" className="w-full" style={{ maxHeight: 320 }}>
-          <defs>
-            {bodyView === "front" ? <FrontClip /> : <BackClip />}
-          </defs>
-
-          {/* Base oscura con forma corporal */}
-          <g clipPath={`url(#${clipId})`}>
-            <rect x="0" y="0" width="200" height="400" fill="#0f172a" />
-          </g>
-
-          {/* Regiones coloreadas — clipeadas a la silueta */}
-          <g clipPath={`url(#${clipId})`}>
-            {bodyView === "front" ? <>
-              <rect x="58"  y="0"   width="84" height="62" {...R("craneo")} />
-              <ellipse cx="86" cy="27" rx="11" ry="8"  {...R("ojo")} />
-              <ellipse cx="114" cy="27" rx="11" ry="8" {...R("ojo")} />
-              <rect x="58"  y="54"  width="84" height="8"  {...R("cara")} />
-              <rect x="86"  y="58"  width="28" height="31" {...R("cuello")} />
-              <rect x="34"  y="87"  width="132" height="80" {...R("torax")} />
-              <rect x="34"  y="165" width="132" height="62" {...R("abdomen")} />
-              <rect x="32"  y="225" width="136" height="42" {...R("cadera")} />
-              <rect x="2"   y="87"  width="64"  height="150" {...R("brazo")} />
-              <rect x="134" y="87"  width="64"  height="150" {...R("brazo")} />
-              <rect x="2"   y="214" width="66"  height="55" {...R("mano")} />
-              <rect x="132" y="214" width="66"  height="55" {...R("mano")} />
-              <rect x="32"  y="263" width="52"  height="132" {...R("pierna")} />
-              <rect x="116" y="263" width="52"  height="132" {...R("pierna")} />
-              <rect x="10"  y="358" width="78"  height="40" {...R("pie")} />
-              <rect x="112" y="358" width="78"  height="40" {...R("pie")} />
-            </> : <>
-              <rect x="58"  y="0"   width="84" height="62" {...R("craneo")} />
-              <rect x="86"  y="58"  width="28" height="31" {...R("cuello")} />
-              <rect x="34"  y="87"  width="132" height="180" {...R("espalda")} />
-              <rect x="34"  y="258" width="132" height="22" {...R("cadera")} />
-              <rect x="2"   y="87"  width="64"  height="150" {...R("brazo")} />
-              <rect x="134" y="87"  width="64"  height="150" {...R("brazo")} />
-              <rect x="2"   y="214" width="66"  height="55" {...R("mano")} />
-              <rect x="132" y="214" width="66"  height="55" {...R("mano")} />
-              <rect x="32"  y="276" width="52"  height="128" {...R("pierna")} />
-              <rect x="116" y="276" width="52"  height="128" {...R("pierna")} />
-              <rect x="10"  y="366" width="78"  height="36" {...R("pie")} />
-              <rect x="112" y="366" width="78"  height="36" {...R("pie")} />
-            </>}
-          </g>
-
-          {/* Outline on top */}
-          {bodyView === "front" ? <FrontOutline /> : <BackOutline />}
-
-          {/* Badges */}
-          {bodyView === "front" ? <>
-            <N id="craneo"  x={100} y={30}  />
-            <N id="ojo"     x={86}  y={27}  />
-            <N id="cuello"  x={100} y={75}  />
-            <N id="torax"   x={100} y={127} />
-            <N id="abdomen" x={100} y={196} />
-            <N id="cadera"  x={100} y={244} />
-            <N id="brazo"   x={28}  y={162} />
-            <N id="mano"    x={28}  y={241} />
-            <N id="pierna"  x={56}  y={310} />
-            <N id="pie"     x={50}  y={378} />
-          </> : <>
-            <N id="craneo"  x={100} y={30}  />
-            <N id="espalda" x={100} y={177} />
-            <N id="cadera"  x={100} y={269} />
-            <N id="brazo"   x={28}  y={162} />
-            <N id="pierna"  x={56}  y={320} />
-            <N id="pie"     x={50}  y={382} />
-          </>}
-        </svg>
-
-        {/* Color scale */}
-        <div className="mt-2 w-full">
+        {/* Escala de color */}
+        <div className="mt-3 px-2">
           <div className="flex gap-0.5">
-            {["rgba(15,23,42,0.3)","rgba(254,202,202,0.72)","rgba(252,165,165,0.80)","rgba(239,68,68,0.76)","rgba(220,38,38,0.84)","rgba(153,27,27,0.94)"].map((bg,i)=>(
+            {["rgba(30,41,59,0.7)","rgba(254,202,202,0.80)","rgba(252,165,165,0.88)","rgba(239,68,68,0.80)","rgba(220,38,38,0.88)","rgba(185,28,28,0.96)"].map((bg,i)=>(
               <div key={i} className="flex-1 h-2 rounded-sm border border-gray-800" style={{background:bg}} />
             ))}
           </div>
@@ -254,7 +172,7 @@ function BodyDiagram({ partesCounts = {}, onSelectParte, selectedParte }) {
         </div>
       </div>
 
-      {/* Ranking panel */}
+      {/* ── Ranking lateral ── */}
       <div className="flex-1 min-w-0">
         <p className="text-[10px] text-gray-600 font-semibold uppercase tracking-wide mb-3">
           Zonas afectadas · {total} caso{total!==1?"s":""} totales

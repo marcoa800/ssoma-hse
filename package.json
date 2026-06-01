@@ -16,6 +16,7 @@
     "lucide-react": "^1.12.0",
     "papaparse": "^5.5.3",
     "react": "^19.2.5",
+    "react-body-medic": "^1.0.6",
     "react-dom": "^19.2.5",
     "recharts": "^3.8.1",
     "xlsx": "^0.18.5"
