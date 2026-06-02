@@ -16,6 +16,7 @@ import {
 import {
   EMPRESA_HGP, CALIF, CALIF_OPCIONES, CALIF_SECCIONES, CALIF_SEC_INFO,
   ESTATUS_SECCIONES, ESTATUS_INFO, PLANTILLAS_HGP, CATALOGO_HGP,
+  SECCIONES_CALIF_DEFAULT, SECCIONES_COLUMNAS_DEFAULT,
   getPlantilla, filaVacia, itemsVaciosSecciones, itemsVaciosMatriz, equiposIniciales
 } from '../../constants/inspecciones-hgp.js';
 
@@ -238,8 +239,8 @@ function contarNC(r) {
   let n = 0;
   if (r.cabecera?.nivel) return r.cabecera.nivel === "alto" ? 1 : 0;          // evento (RACS)
   filas.forEach(f => {
-    if (f.vals !== undefined) { Object.values(f.vals).forEach(v => { if (v === "M") n++; }); } // matriz
-    else if (f.calificacion !== undefined) { if (f.calificacion === "M") n++; } // secciones
+    if (f.vals !== undefined) { Object.values(f.vals).forEach(v => { if (v === "M" || v === "NO") n++; }); } // matriz
+    else if (f.calificacion !== undefined) { if (f.calificacion === "M" || f.calificacion === "NO") n++; } // secciones
     else Object.values(f).forEach(v => { if (v === "NC") n++; });             // activos
   });
   return n;
@@ -407,10 +408,13 @@ const califClass = (v) =>
 //  FORMULARIO — Patrón "secciones"
 // ════════════════════════════════════════════════════════════════════
 const secCalifClass = (v) =>
-  v === "B" ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+  (v === "B" || v === "SI") ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
   : v === "R" ? "bg-amber-900/30 border-amber-700 text-amber-300"
-  : v === "M" ? "bg-red-900/40 border-red-700 text-red-300"
+  : (v === "M" || v === "NO") ? "bg-red-900/40 border-red-700 text-red-300"
   : "bg-gray-800 border-gray-700 text-gray-400";
+// Color de badge para una calificación de secciones (vista detalle)
+const secCalColor = (v) =>
+  (v === "B" || v === "SI") ? "green" : v === "R" ? "amber" : (v === "M" || v === "NO") ? "red" : "gray";
 
 function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved }) {
   const hoy = new Date().toISOString().split("T")[0];
@@ -423,6 +427,11 @@ function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved
   const [items, setItems] = useState(registro?.filas?.length ? registro.filas : itemsVaciosSecciones(plantilla));
   const [observaciones, setObservaciones] = useState(registro?.observaciones || "");
   const [saving, setSaving] = useState(false);
+
+  // Configuración (con defaults para Vehículos FR-029)
+  const cals = plantilla.calificaciones || CALIF_SECCIONES;
+  const cols = plantilla.columnas || SECCIONES_COLUMNAS_DEFAULT;
+  const calLabel = plantilla.calLabel || "Clasif.";
 
   const setItem = (idx, key, val) => setItems(its => its.map((it, i) => i === idx ? { ...it, [key]: val } : it));
 
@@ -489,11 +498,10 @@ function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved
                 <thead><tr className="border-b border-gray-800">
                   <th className="px-2 py-2 text-gray-600 font-medium text-left w-12">Cód.</th>
                   <th className="px-2 py-2 text-gray-600 font-medium text-left">Elemento inspeccionado</th>
-                  <th className="px-2 py-2 text-gray-600 font-medium text-center w-20">Clasif.</th>
-                  <th className="px-2 py-2 text-gray-600 font-medium text-left">Medida correctiva / Observación</th>
-                  <th className="px-2 py-2 text-gray-600 font-medium text-left w-32">Responsable</th>
-                  <th className="px-2 py-2 text-gray-600 font-medium text-left w-28">Plazo</th>
-                  <th className="px-2 py-2 text-gray-600 font-medium text-center w-16">Estatus</th>
+                  <th className="px-2 py-2 text-gray-600 font-medium text-center w-20">{calLabel}</th>
+                  {cols.map(c => (
+                    <th key={c.key} className="px-2 py-2 text-gray-600 font-medium text-left" style={c.width ? { width: c.width } : undefined}>{c.label}</th>
+                  ))}
                 </tr></thead>
                 <tbody>
                   {sec.items.map(it => {
@@ -506,27 +514,22 @@ function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved
                           <select value={row.calificacion || ""} onChange={e => setItem(i, "calificacion", e.target.value)}
                             className={`w-full rounded px-1 py-1 text-[11px] text-center font-bold focus:outline-none border ${secCalifClass(row.calificacion)}`}>
                             <option value=""></option>
-                            {CALIF_SECCIONES.map(o => <option key={o} value={o}>{o}</option>)}
+                            {cals.map(o => <option key={o} value={o}>{o}</option>)}
                           </select>
                         </td>
-                        <td className="px-1 py-1">
-                          <input value={row.observacion || ""} onChange={e => setItem(i, "observacion", e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500" style={{ minWidth: 160 }} />
-                        </td>
-                        <td className="px-1 py-1">
-                          <input value={row.responsable || ""} onChange={e => setItem(i, "responsable", e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500" />
-                        </td>
-                        <td className="px-1 py-1">
-                          <input type="date" value={row.plazo || ""} onChange={e => setItem(i, "plazo", e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500" />
-                        </td>
-                        <td className="px-1 py-1">
-                          <select value={row.estatus || ""} onChange={e => setItem(i, "estatus", e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 rounded px-1 py-1 text-[11px] text-center text-gray-200 focus:outline-none focus:border-blue-500">
-                            {ESTATUS_SECCIONES.map(o => <option key={o} value={o}>{o}</option>)}
-                          </select>
-                        </td>
+                        {cols.map(c => (
+                          <td key={c.key} className="px-1 py-1">
+                            {c.type === "select" ? (
+                              <select value={row[c.key] || ""} onChange={e => setItem(i, c.key, e.target.value)}
+                                className="w-full bg-gray-800 border border-gray-700 rounded px-1 py-1 text-[11px] text-center text-gray-200 focus:outline-none focus:border-blue-500">
+                                {c.opciones.map(o => <option key={o} value={o}>{o}</option>)}
+                              </select>
+                            ) : (
+                              <input type={c.type === "date" ? "date" : "text"} value={row[c.key] || ""} onChange={e => setItem(i, c.key, e.target.value)}
+                                className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200 focus:outline-none focus:border-blue-500" style={{ minWidth: c.width || 120 }} />
+                            )}
+                          </td>
+                        ))}
                       </tr>
                     );
                   })}
@@ -553,10 +556,12 @@ function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved
 //  FORMULARIO — Patrón "matriz" (equipos en columnas, ítems en filas)
 // ════════════════════════════════════════════════════════════════════
 const matCalifClass = (v) =>
-  v === "B" ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
-  : v === "M" ? "bg-red-900/40 border-red-700 text-red-300"
+  (v === "B" || v === "SI") ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+  : (v === "M" || v === "NO") ? "bg-red-900/40 border-red-700 text-red-300"
   : v === "NA" ? "bg-gray-800 border-gray-700 text-gray-400"
   : "bg-gray-800 border-gray-700 text-gray-400";
+const matCalColor = (v) =>
+  (v === "B" || v === "SI") ? "green" : (v === "M" || v === "NO") ? "red" : "gray";
 
 function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved }) {
   const hoy = new Date().toISOString().split("T")[0];
@@ -565,14 +570,22 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
     plantilla.cabecera.forEach(f => { c[f.key] = f.default ?? (f.key === "fecha" ? hoy : ""); });
     return c;
   };
-  const ek = plantilla.equipoCampo.key;
+  // Columnas fijas (ej. meses) vs equipos editables (ej. arneses)
+  const fijas = plantilla.columnasFijas || null;
+  const extra = plantilla.itemExtra || null;          // columna descriptiva extra (ej. cantidad)
+  const ek = plantilla.equipoCampo?.key || "codigo";
+  const grupos = plantilla.grupos || [{ titulo: null, items: plantilla.items || [] }];
+
   const [cabecera, setCabecera] = useState(registro?.cabecera || initCab());
   const [equipos, setEquipos] = useState(
-    registro?.cabecera?.equipos?.length ? registro.cabecera.equipos : equiposIniciales(plantilla)
+    fijas ? [] : (registro?.cabecera?.equipos?.length ? registro.cabecera.equipos : equiposIniciales(plantilla))
   );
   const [items, setItems] = useState(registro?.filas?.length ? registro.filas : itemsVaciosMatriz(plantilla));
   const [observaciones, setObservaciones] = useState(registro?.observaciones || "");
   const [saving, setSaving] = useState(false);
+
+  const nCols = fijas ? fijas.length : equipos.length;
+  const baseCols = 2 + (extra ? 1 : 0);
 
   const setVal = (idx, eq, val) =>
     setItems(its => its.map((it, i) => i === idx ? { ...it, vals: { ...it.vals, [eq]: val } } : it));
@@ -605,7 +618,7 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
       fecha: cabecera.fecha || hoy,
       area: cabecera.area || cabecera.unidad || null,
       inspector: cabecera.inspector || null,
-      cabecera: { ...cabecera, equipos },
+      cabecera: fijas ? cabecera : { ...cabecera, equipos },
       filas: items,
       observaciones: observaciones || null,
       estado: "Completado",
@@ -619,7 +632,7 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
     onSaved();
   };
 
-  const totalCols = 2 + equipos.length;
+  const totalCols = baseCols + nCols;
   let idx = -1;
   return (
     <div>
@@ -629,7 +642,7 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
       <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
         <div>
           <h3 className="text-white font-semibold text-sm">{plantilla.titulo}</h3>
-          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{plantilla.codigo}</p>
+          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{plantilla.codigoPdf || plantilla.codigo}</p>
         </div>
         <div className="flex gap-2">
           <Btn size="sm" variant="ghost" onClick={onCancel}>Cancelar</Btn>
@@ -649,43 +662,55 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
       </div>
 
       {/* Matriz */}
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-[11px] text-gray-500">{equipos.length} {plantilla.equipoLabel.toLowerCase()}(s). Edita el código de cada uno en el encabezado.</p>
-        <Btn size="sm" variant="ghost" onClick={addEquipo}><Plus size={12} /> Agregar {plantilla.equipoLabel.toLowerCase()}</Btn>
-      </div>
+      {!fijas && (
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[11px] text-gray-500">{equipos.length} {plantilla.equipoLabel.toLowerCase()}(s). Edita el código de cada uno en el encabezado.</p>
+          <Btn size="sm" variant="ghost" onClick={addEquipo}><Plus size={12} /> Agregar {plantilla.equipoLabel.toLowerCase()}</Btn>
+        </div>
+      )}
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto mb-4">
         <table className="text-xs border-collapse">
           <thead>
             <tr className="border-b border-gray-800">
               <th className="px-2 py-2 text-gray-600 font-medium text-left sticky left-0 bg-gray-900 z-10 w-10">Cód.</th>
-              <th className="px-2 py-2 text-gray-600 font-medium text-left sticky left-10 bg-gray-900 z-10" style={{ minWidth: 220 }}>Ítem de verificación</th>
-              {equipos.map((eq, i) => (
-                <th key={i} className="px-1.5 py-1.5 text-gray-600 font-medium text-center border-l border-gray-800" style={{ minWidth: 84 }}>
-                  <div className="text-[10px] text-blue-300 mb-1">{plantilla.equipoLabel} N°{i + 1}</div>
-                  <div className="flex items-center gap-1">
-                    <input value={eq[ek] || ""} onChange={e => setEquipo(i, e.target.value)} placeholder="Código"
-                      className="w-full bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[10px] text-gray-200 text-center focus:outline-none focus:border-blue-500" />
-                    {equipos.length > 1 && (
-                      <button onClick={() => delEquipo(i)} className="text-red-500/40 hover:text-red-400 shrink-0" title="Quitar"><Trash2 size={11} /></button>
-                    )}
-                  </div>
-                </th>
-              ))}
+              <th className="px-2 py-2 text-gray-600 font-medium text-left sticky left-10 bg-gray-900 z-10" style={{ minWidth: extra ? 180 : 220 }}>Ítem</th>
+              {extra && <th className="px-2 py-2 text-gray-600 font-medium text-center" style={{ minWidth: 50 }}>{extra.label}</th>}
+              {fijas
+                ? fijas.map((lbl, i) => (
+                  <th key={i} className="px-1 py-2 text-gray-600 font-medium text-center border-l border-gray-800" style={{ minWidth: 42 }}>
+                    <span className="text-[10px] text-blue-300">{lbl}</span>
+                  </th>
+                ))
+                : equipos.map((eq, i) => (
+                  <th key={i} className="px-1.5 py-1.5 text-gray-600 font-medium text-center border-l border-gray-800" style={{ minWidth: 84 }}>
+                    <div className="text-[10px] text-blue-300 mb-1">{plantilla.equipoLabel} N°{i + 1}</div>
+                    <div className="flex items-center gap-1">
+                      <input value={eq[ek] || ""} onChange={e => setEquipo(i, e.target.value)} placeholder="Código"
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[10px] text-gray-200 text-center focus:outline-none focus:border-blue-500" />
+                      {equipos.length > 1 && (
+                        <button onClick={() => delEquipo(i)} className="text-red-500/40 hover:text-red-400 shrink-0" title="Quitar"><Trash2 size={11} /></button>
+                      )}
+                    </div>
+                  </th>
+                ))}
             </tr>
           </thead>
           <tbody>
-            {plantilla.grupos.map(g => (
-              <Fragment key={g.titulo}>
-                <tr>
-                  <td colSpan={totalCols} className="bg-gray-800/60 px-3 py-1.5 text-[11px] font-semibold text-blue-300 uppercase tracking-wide sticky left-0">{g.titulo}</td>
-                </tr>
+            {grupos.map((g, gi) => (
+              <Fragment key={g.titulo || `g${gi}`}>
+                {g.titulo && (
+                  <tr>
+                    <td colSpan={totalCols} className="bg-gray-800/60 px-3 py-1.5 text-[11px] font-semibold text-blue-300 uppercase tracking-wide sticky left-0">{g.titulo}</td>
+                  </tr>
+                )}
                 {g.items.map(it => {
                   idx++; const i = idx; const row = items[i] || { vals: {} };
                   return (
                     <tr key={it.c} className="border-b border-gray-800/40 hover:bg-gray-800/20">
                       <td className="px-2 py-1.5 text-gray-500 sticky left-0 bg-gray-900">{it.c}</td>
                       <td className="px-2 py-1.5 text-gray-300 sticky left-10 bg-gray-900">{it.n}</td>
-                      {equipos.map((_, eq) => (
+                      {extra && <td className="px-2 py-1.5 text-gray-500 text-center">{row.cantidad ?? it.cantidad ?? ""}</td>}
+                      {Array.from({ length: nCols }).map((_, eq) => (
                         <td key={eq} className="px-1 py-1 border-l border-gray-800/40">
                           <select value={row.vals?.[eq] || ""} onChange={e => setVal(i, eq, e.target.value)}
                             className={`w-full rounded px-0.5 py-1 text-[11px] text-center font-bold focus:outline-none border ${matCalifClass(row.vals?.[eq])}`}>
@@ -905,35 +930,44 @@ function DetalleModal({ registro, plantilla, onClose }) {
           </div>
         ) : plantilla.patron === "matriz" ? (
           (() => {
+            const fijas = plantilla.columnasFijas || null;
+            const extra = plantilla.itemExtra || null;
             const equipos = registro.cabecera?.equipos || [];
-            const ek = plantilla.equipoCampo.key;
+            const ek = plantilla.equipoCampo?.key || "codigo";
+            const grupos = plantilla.grupos || [{ titulo: null, items: plantilla.items || [] }];
+            const nCols = fijas ? fijas.length : equipos.length;
+            const totalCols = 2 + (extra ? 1 : 0) + nCols;
             let mi = -1;
             return (
               <div className="overflow-x-auto border border-gray-800 rounded-lg">
                 <table className="text-xs border-collapse">
                   <thead><tr className="border-b border-gray-800 bg-gray-900/50">
                     <th className="px-2 py-2 text-gray-600 text-left">Cód.</th>
-                    <th className="px-2 py-2 text-gray-600 text-left" style={{ minWidth: 200 }}>Ítem</th>
-                    {equipos.map((eq, i) => (
-                      <th key={i} className="px-2 py-2 text-gray-600 text-center border-l border-gray-800">
-                        {plantilla.equipoLabel} {i + 1}<br /><span className="text-gray-500 font-mono">{eq[ek] || "—"}</span>
-                      </th>
-                    ))}
+                    <th className="px-2 py-2 text-gray-600 text-left" style={{ minWidth: extra ? 160 : 200 }}>Ítem</th>
+                    {extra && <th className="px-2 py-2 text-gray-600 text-center">{extra.label}</th>}
+                    {fijas
+                      ? fijas.map((lbl, i) => <th key={i} className="px-1.5 py-2 text-gray-600 text-center border-l border-gray-800">{lbl}</th>)
+                      : equipos.map((eq, i) => (
+                        <th key={i} className="px-2 py-2 text-gray-600 text-center border-l border-gray-800">
+                          {plantilla.equipoLabel} {i + 1}<br /><span className="text-gray-500 font-mono">{eq[ek] || "—"}</span>
+                        </th>
+                      ))}
                   </tr></thead>
                   <tbody>
-                    {plantilla.grupos.map(g => (
-                      <Fragment key={g.titulo}>
-                        <tr><td colSpan={2 + equipos.length} className="bg-gray-800/40 px-2 py-1 text-[11px] font-semibold text-blue-300">{g.titulo}</td></tr>
+                    {grupos.map((g, gi) => (
+                      <Fragment key={g.titulo || `g${gi}`}>
+                        {g.titulo && <tr><td colSpan={totalCols} className="bg-gray-800/40 px-2 py-1 text-[11px] font-semibold text-blue-300">{g.titulo}</td></tr>}
                         {g.items.map(it => {
                           mi++; const row = (registro.filas || [])[mi] || { vals: {} };
                           return (
                             <tr key={it.c} className="border-b border-gray-800/40">
                               <td className="px-2 py-1.5 text-gray-500">{it.c}</td>
                               <td className="px-2 py-1.5 text-gray-300">{it.n}</td>
-                              {equipos.map((_, eq) => (
+                              {extra && <td className="px-2 py-1.5 text-gray-500 text-center">{row.cantidad ?? it.cantidad ?? ""}</td>}
+                              {Array.from({ length: nCols }).map((_, eq) => (
                                 <td key={eq} className="px-2 py-1.5 text-center border-l border-gray-800/40">
                                   {row.vals?.[eq]
-                                    ? <Badge color={row.vals[eq] === "B" ? "green" : row.vals[eq] === "M" ? "red" : "gray"}>{row.vals[eq]}</Badge>
+                                    ? <Badge color={matCalColor(row.vals[eq])}>{row.vals[eq]}</Badge>
                                     : <span className="text-gray-700">—</span>}
                                 </td>
                               ))}
@@ -948,31 +982,37 @@ function DetalleModal({ registro, plantilla, onClose }) {
             );
           })()
         ) : plantilla.patron === "secciones" ? (
-          <div className="overflow-x-auto border border-gray-800 rounded-lg">
-            <table className="w-full text-xs">
-              <thead><tr className="border-b border-gray-800 bg-gray-900/50">
-                {["Cód.", "Elemento", "Clasif.", "Medida / Obs.", "Responsable", "Plazo", "Estatus"].map(h =>
-                  <th key={h} className="px-2 py-2 text-gray-600 text-left">{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {filas.map((it, i) => (
-                  <tr key={i} className="border-b border-gray-800/40">
-                    <td className="px-2 py-1.5 text-gray-500">{it.codigo}</td>
-                    <td className="px-2 py-1.5 text-gray-300">{it.nombre}</td>
-                    <td className="px-2 py-1.5 text-center">
-                      {it.calificacion ? <Badge color={CALIF_SEC_INFO[it.calificacion]?.color || "gray"}>{it.calificacion}</Badge> : <span className="text-gray-700">—</span>}
-                    </td>
-                    <td className="px-2 py-1.5 text-gray-400">{it.observacion || "—"}</td>
-                    <td className="px-2 py-1.5 text-gray-400">{it.responsable || "—"}</td>
-                    <td className="px-2 py-1.5 text-gray-500 font-mono">{it.plazo || "—"}</td>
-                    <td className="px-2 py-1.5 text-center">
-                      {it.estatus ? <Badge color={ESTATUS_INFO[it.estatus]?.color || "gray"}>{it.estatus}</Badge> : <span className="text-gray-700">—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          (() => {
+            const cols = plantilla.columnas || SECCIONES_COLUMNAS_DEFAULT;
+            return (
+              <div className="overflow-x-auto border border-gray-800 rounded-lg">
+                <table className="w-full text-xs">
+                  <thead><tr className="border-b border-gray-800 bg-gray-900/50">
+                    {["Cód.", "Elemento", plantilla.calLabel || "Clasif.", ...cols.map(c => c.label)].map((h, hi) =>
+                      <th key={hi} className="px-2 py-2 text-gray-600 text-left">{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {filas.map((it, i) => (
+                      <tr key={i} className="border-b border-gray-800/40">
+                        <td className="px-2 py-1.5 text-gray-500">{it.codigo}</td>
+                        <td className="px-2 py-1.5 text-gray-300">{it.nombre}</td>
+                        <td className="px-2 py-1.5 text-center">
+                          {it.calificacion ? <Badge color={secCalColor(it.calificacion)}>{it.calificacion}</Badge> : <span className="text-gray-700">—</span>}
+                        </td>
+                        {cols.map(c => (
+                          <td key={c.key} className="px-2 py-1.5 text-gray-400">
+                            {c.key === "estatus" && it[c.key]
+                              ? <Badge color={ESTATUS_INFO[it[c.key]]?.color || "gray"}>{it[c.key]}</Badge>
+                              : (it[c.key] || "—")}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()
         ) : (
           <div className="overflow-x-auto border border-gray-800 rounded-lg">
             <table className="w-full text-xs">
@@ -1271,37 +1311,48 @@ function pdfActivos(doc, plantilla, registro, W, M, y) {
 // ── PDF para patrón "matriz" (equipos en columnas, ítems en filas) — Anti-Caídas ──
 function pdfMatriz(doc, plantilla, registro, W, M, y) {
   const items = Array.isArray(registro.filas) ? registro.filas : [];
+  const fijas = plantilla.columnasFijas || null;
+  const extra = plantilla.itemExtra || null;
   const equipos = registro.cabecera?.equipos || [];
-  const ek = plantilla.equipoCampo.key;
+  const ek = plantilla.equipoCampo?.key || "codigo";
+  const grupos = plantilla.grupos || [{ titulo: null, items: plantilla.items || [] }];
   const byCodigo = Object.fromEntries(items.map(it => [it.codigo, it]));
+  const nCols = fijas ? fijas.length : equipos.length;
+  const dataCol0 = 2 + (extra ? 1 : 0);   // índice de la primera columna de datos
 
   const head = [[
-    "Cód.", "Ítem de verificación",
-    ...equipos.map((eq, i) => `${plantilla.equipoLabel} ${i + 1}\n${eq[ek] || ""}`),
+    "Cód.", "Ítem",
+    ...(extra ? [extra.label] : []),
+    ...(fijas ? fijas : equipos.map((eq, i) => `${plantilla.equipoLabel} ${i + 1}\n${eq[ek] || ""}`)),
   ]];
   const body = [];
-  const ncol = 2 + equipos.length;
-  plantilla.grupos.forEach(g => {
-    body.push([{ content: g.titulo, colSpan: ncol, styles: { fillColor: [226, 232, 240], textColor: [15, 23, 42], fontStyle: "bold", halign: "left" } }]);
+  const ncol = dataCol0 + nCols;
+  grupos.forEach(g => {
+    if (g.titulo) body.push([{ content: g.titulo, colSpan: ncol, styles: { fillColor: [226, 232, 240], textColor: [15, 23, 42], fontStyle: "bold", halign: "left" } }]);
     g.items.forEach(it => {
       const r = byCodigo[it.c] || { vals: {} };
-      body.push([it.c, it.n, ...equipos.map((_, eq) => (r.vals?.[eq] || ""))]);
+      body.push([
+        it.c, it.n,
+        ...(extra ? [r.cantidad ?? it.cantidad ?? ""] : []),
+        ...Array.from({ length: nCols }, (_, eq) => (r.vals?.[eq] || "")),
+      ]);
     });
   });
 
-  const eqColStyles = {};
-  equipos.forEach((_, i) => { eqColStyles[2 + i] = { cellWidth: Math.min(22, (W - 2 * M - 90) / Math.max(equipos.length, 1)), halign: "center", fontStyle: "bold" }; });
+  const dataColStyles = {};
+  const cellW = Math.min(fijas ? 12 : 22, (W - 2 * M - 90 - (extra ? 14 : 0)) / Math.max(nCols, 1));
+  for (let i = 0; i < nCols; i++) dataColStyles[dataCol0 + i] = { cellWidth: cellW, halign: "center", fontStyle: "bold" };
 
   autoTable(doc, {
     startY: y, head, body, theme: "grid",
     styles: { fontSize: 5.5, cellPadding: 0.8, valign: "middle", lineWidth: 0.1, lineColor: [0, 0, 0] },
     headStyles: { fillColor: [0, 51, 102], textColor: 255, fontSize: 5.5, fontStyle: "bold", halign: "center" },
-    columnStyles: { 0: { cellWidth: 12, halign: "center" }, 1: { cellWidth: 78, halign: "left" }, ...eqColStyles },
+    columnStyles: { 0: { cellWidth: 10, halign: "center" }, 1: { cellWidth: extra ? 62 : 78, halign: "left" }, ...(extra ? { 2: { cellWidth: 14, halign: "center" } } : {}), ...dataColStyles },
     didParseCell: (data) => {
-      if (data.section === "body" && data.column.index >= 2) {
+      if (data.section === "body" && data.column.index >= dataCol0) {
         const v = data.cell.raw;
-        if (v === "M") { data.cell.styles.fillColor = [254, 226, 226]; data.cell.styles.textColor = [185, 28, 28]; }
-        else if (v === "B") { data.cell.styles.fillColor = [220, 252, 231]; data.cell.styles.textColor = [22, 101, 52]; }
+        if (v === "M" || v === "NO") { data.cell.styles.fillColor = [254, 226, 226]; data.cell.styles.textColor = [185, 28, 28]; }
+        else if (v === "B" || v === "SI") { data.cell.styles.fillColor = [220, 252, 231]; data.cell.styles.textColor = [22, 101, 52]; }
         else if (v === "NA") { data.cell.styles.fillColor = [241, 245, 249]; data.cell.styles.textColor = [100, 116, 139]; }
       }
     },
@@ -1320,14 +1371,17 @@ function pdfMatriz(doc, plantilla, registro, W, M, y) {
 function pdfSecciones(doc, plantilla, registro, W, M, y) {
   const items = Array.isArray(registro.filas) ? registro.filas : [];
   const byCodigo = Object.fromEntries(items.map(it => [it.codigo, it]));
+  const cols = plantilla.columnas || SECCIONES_COLUMNAS_DEFAULT;
+  const calLabel = plantilla.calLabel || "Clasif.";
+  const ncol = 3 + cols.length;
 
-  const head = [["Cód.", "Elemento inspeccionado", "Clasif.", "Medida correctiva / Observación", "Responsable", "Plazo", "Est."]];
+  const head = [["Cód.", "Elemento inspeccionado", calLabel, ...cols.map(c => c.label)]];
   const body = [];
   plantilla.secciones.forEach(sec => {
-    body.push([{ content: sec.titulo, colSpan: 7, styles: { fillColor: [226, 232, 240], textColor: [15, 23, 42], fontStyle: "bold", halign: "left" } }]);
+    body.push([{ content: sec.titulo, colSpan: ncol, styles: { fillColor: [226, 232, 240], textColor: [15, 23, 42], fontStyle: "bold", halign: "left" } }]);
     sec.items.forEach(it => {
       const r = byCodigo[it.c] || {};
-      body.push([it.c, it.n, r.calificacion || "", r.observacion || "", r.responsable || "", r.plazo || "", r.estatus || ""]);
+      body.push([it.c, it.n, r.calificacion || "", ...cols.map(c => r[c.key] || "")]);
     });
   });
 
@@ -1337,18 +1391,15 @@ function pdfSecciones(doc, plantilla, registro, W, M, y) {
     headStyles: { fillColor: [0, 51, 102], textColor: 255, fontSize: 6, fontStyle: "bold" },
     columnStyles: {
       0: { cellWidth: 12, halign: "center" },
-      1: { cellWidth: 70 },
-      2: { cellWidth: 16, halign: "center", fontStyle: "bold" },
-      4: { cellWidth: 38 },
-      5: { cellWidth: 24, halign: "center" },
-      6: { cellWidth: 12, halign: "center" },
+      1: { cellWidth: 64 },
+      2: { cellWidth: 14, halign: "center", fontStyle: "bold" },
     },
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index === 2) {
         const v = data.cell.raw;
-        if (v === "M") { data.cell.styles.fillColor = [254, 226, 226]; data.cell.styles.textColor = [185, 28, 28]; }
+        if (v === "M" || v === "NO") { data.cell.styles.fillColor = [254, 226, 226]; data.cell.styles.textColor = [185, 28, 28]; }
         else if (v === "R") { data.cell.styles.fillColor = [254, 243, 199]; data.cell.styles.textColor = [146, 64, 14]; }
-        else if (v === "B") { data.cell.styles.fillColor = [220, 252, 231]; data.cell.styles.textColor = [22, 101, 52]; }
+        else if (v === "B" || v === "SI") { data.cell.styles.fillColor = [220, 252, 231]; data.cell.styles.textColor = [22, 101, 52]; }
       }
     },
     margin: { left: M, right: M },

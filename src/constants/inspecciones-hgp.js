@@ -14,6 +14,8 @@
 //   - "evento"   → un formulario por evento (RACS, Incidentes)
 // ════════════════════════════════════════════════════════════════════
 
+import { PLANTILLAS_LOTE2, CATALOGO_LOTE2 } from './inspecciones-lote2-hgp.js';
+
 export const EMPRESA_HGP = {
   nombre: "HYDRO GLOBAL PERÚ SAC",
   proyecto: "CENTRAL HIDROELÉCTRICA SAN GABÁN III",
@@ -396,6 +398,7 @@ export const PLANTILLAS_HGP = {
   [HERRAMIENTAS.codigo]: HERRAMIENTAS,
   [ANTICAIDAS.codigo]: ANTICAIDAS,
   [RACS.codigo]: RACS,
+  ...PLANTILLAS_LOTE2,
 };
 
 // Lista para el catálogo (orden de aparición)
@@ -406,8 +409,8 @@ export const CATALOGO_HGP = [
   { codigo: "HGP-SGIII-SIG-FR-013", nombre: "Inspección de Luces de Emergencia", patron: "activos", grupo: "Emergencias", disponible: true },
   { codigo: "HGP-SGIII-SST-FR-029", nombre: "Inspección de Vehículos Livianos", patron: "secciones", grupo: "Vehículos", disponible: true },
   { codigo: "HGP-SGIII-SST-FR-015", nombre: "Inspección de Equipos Anti-Caídas", patron: "matriz", grupo: "Equipos", disponible: true },
-  { codigo: "HGP-SGIII-SST-FR-020", nombre: "Verificación de Escaleras Portátiles", patron: "secciones", grupo: "Equipos", disponible: false },
   { codigo: "HGP-SGIII-SST-FR-012", nombre: "Inspección de Herramientas Manuales y de Poder", patron: "activos", grupo: "Equipos", disponible: true },
+  ...CATALOGO_LOTE2,
   { codigo: "HGP-SGIII-SST-FR-018", nombre: "Reporte de Actos y Condiciones Subestándares (RACS)", patron: "evento", grupo: "Reportes", disponible: true, enlaceExterno: "https://reporte-racs-hydroglobal.web.app/" },
 ];
 
@@ -424,26 +427,42 @@ export function filaVacia(plantilla, item) {
   return fila;
 }
 
+// Calificación y columnas por defecto del patrón "secciones" (Vehículos FR-029)
+export const SECCIONES_CALIF_DEFAULT = ["B", "R", "M"];
+export const SECCIONES_COLUMNAS_DEFAULT = [
+  { key: "observacion", label: "Medida correctiva / Observación" },
+  { key: "responsable", label: "Responsable", width: 130 },
+  { key: "plazo", label: "Plazo", type: "date", width: 110 },
+  { key: "estatus", label: "Estatus", type: "select", opciones: ["", "P", "S"], width: 70 },
+];
+
 // Genera la lista plana de ítems (con calificación vacía) para el patrón "secciones"
+// Soporta columnas correctivas configurables (plantilla.columnas).
 export function itemsVaciosSecciones(plantilla) {
+  const cols = plantilla.columnas || SECCIONES_COLUMNAS_DEFAULT;
   const items = [];
   (plantilla.secciones || []).forEach((sec) => {
     sec.items.forEach((it) => {
-      items.push({ seccion: sec.titulo, codigo: it.c, nombre: it.n, calificacion: "", observacion: "", responsable: "", plazo: "", estatus: "" });
+      const row = { seccion: sec.titulo, codigo: it.c, nombre: it.n, calificacion: "" };
+      cols.forEach((c) => { row[c.key] = ""; });
+      items.push(row);
     });
   });
   return items;
 }
 
-// ── Helpers patrón "matriz" (equipos en columnas, ítems en filas) ──
-// Genera la lista plana de ítems; cada uno con un objeto `vals` indexado por equipo.
+// ── Helpers patrón "matriz" (equipos/columnas × ítems en filas) ──
+// Genera la lista plana de ítems; cada uno con un objeto `vals` indexado por columna.
+// Soporta grupos (plantilla.grupos) o lista plana (plantilla.items), y columna extra (it.cantidad).
 export function itemsVaciosMatriz(plantilla) {
   const items = [];
-  (plantilla.grupos || []).forEach((g) => {
-    g.items.forEach((it) => {
-      items.push({ grupo: g.titulo, codigo: it.c, nombre: it.n, vals: {} });
-    });
-  });
+  const push = (grupo, it) => {
+    const row = { grupo, codigo: it.c, nombre: it.n, vals: {} };
+    if (it.cantidad !== undefined) row.cantidad = it.cantidad;
+    items.push(row);
+  };
+  if (plantilla.grupos) plantilla.grupos.forEach((g) => g.items.forEach((it) => push(g.titulo, it)));
+  else if (plantilla.items) plantilla.items.forEach((it) => push("", it));
   return items;
 }
 
