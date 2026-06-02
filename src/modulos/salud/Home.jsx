@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BookOpen, FileText, BarChart2, Stethoscope,
   AlertTriangle, CheckCircle, Plus, Download, ChevronRight, Lock, FileDown,
   ClipboardList, ShieldAlert, Shield, Activity, Home, HeartPulse,
-  Microscope, Settings, Building2
+  Microscope, Settings, Building2, DollarSign
 } from 'lucide-react';
 
 export default function HomeModulo({ profile, role, platform, setPlatform, navigate, setPage, empresa }) {
@@ -46,6 +46,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     { id: "epps",             label: "Control de EPPs",     desc: "Equipos de protección personal",      Icon: Shield,          color: "teal" },
     { id: "monitoreo",        label: "Monitoreo",           desc: "Monitoreo de agentes físicos",        Icon: Activity,        color: "cyan" },
     { id: "contratistas",     label: "Contratistas",        desc: "Gestión de empresas contratistas",    Icon: Building2,       color: "amber" },
+    { id: "inversion",        label: "Inversión SST",       desc: "Costos de seguridad y plan vs real",  Icon: DollarSign,      color: "emerald" },
     { id: "reportes_ssoma",   label: "Reportes PDF",        desc: "Generación de informes SSOMA",        Icon: FileDown,        color: "gray" },
     ...(esHydroGlobal ? [{ id: "hallazgos_hgp", label: "Reporte de Hallazgos", desc: "Seguimiento de hallazgos FR-039", Icon: AlertTriangle, color: "orange" }] : []),
   ];
