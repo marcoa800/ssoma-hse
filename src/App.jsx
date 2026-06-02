@@ -27,6 +27,7 @@ import RacsModulo from "./modulos/ssoma/RacsModulo.jsx";
 import PublicRacForm from "./modulos/ssoma/PublicRacForm.jsx";
 import IpercModulo from "./modulos/ssoma/IpercModulo.jsx";
 import InspeccionesModulo from "./modulos/ssoma/InspeccionesModulo.jsx";
+import InversionSST from "./modulos/ssoma/InversionSST.jsx";
 import ATSPetarModulo from "./modulos/ssoma/AtsPetarModulo.jsx";
 import ReportesSSOMAModulo from "./modulos/ssoma/ReportesSSOMA.jsx";
 import ContratistasModulo from "./modulos/ssoma/ContratistasModulo.jsx";
@@ -173,7 +174,7 @@ export default function App() {
     ssoma_dashboard: "Dashboard SSOMA", racs: "RACs — Reportes de Actos y Condiciones", triaje: "Triaje SSOMA",
     iperc: "IPERC / Matriz de Riesgos", inspecciones: "Inspecciones de Seguridad",
     ats: "ATS / PETAR", reportes_ssoma: "Reportes PDF — SSOMA",
-    contratistas: "Gestión de Contratistas",
+    contratistas: "Gestión de Contratistas", inversion: "Inversión en Costos de Seguridad",
     hallazgos_hgp: "Reporte de Hallazgos — HGP",
   };
   const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800" };
@@ -454,6 +455,7 @@ export default function App() {
           {page === "reportes_ssoma" && <ReportesSSOMAModulo empresaId={empresaId} empresa={empresa} workers={workers} />}
           {page === "plan_so" && esMultisel && <PlanSOModulo empresaId={empresaId} />}
           {page === "contratistas" && <ContratistasModulo empresaId={empresaId} />}
+          {page === "inversion" && <InversionSST empresaId={empresaId} />}
           {page === "hallazgos_hgp" && esHydroGlobal && <HallazgosHGP empresaId={empresaId} />}
         </main>
       </div>

@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, BookOpen, FileText,
   BarChart2, FileDown, AlertTriangle, Stethoscope,
-  Shield, Activity, ClipboardList, ShieldAlert, Building2, CheckCircle, HeartPulse
+  Shield, Activity, ClipboardList, ShieldAlert, Building2, CheckCircle, HeartPulse, DollarSign
 } from "lucide-react";
 
 export const THEMES = [
@@ -35,5 +35,6 @@ export const SSOMA_NAV = [
   { id: "epps",             label: "Control de EPPs", icon: Shield },
   { id: "monitoreo",        label: "Monitoreo",       icon: Activity },
   { id: "contratistas",     label: "Contratistas",    icon: Building2 },
+  { id: "inversion",        label: "Inversión SST",   icon: DollarSign },
   { id: "reportes_ssoma",   label: "Reportes PDF",    icon: FileDown },
 ];
