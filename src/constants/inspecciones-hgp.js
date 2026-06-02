@@ -16,6 +16,7 @@
 
 import { PLANTILLAS_LOTE2, CATALOGO_LOTE2 } from './inspecciones-lote2-hgp.js';
 import { PLANTILLAS_LOTE3, CATALOGO_LOTE3 } from './inspecciones-lote3-hgp.js';
+import { PLANTILLAS_LOTE4, CATALOGO_LOTE4 } from './inspecciones-lote4-hgp.js';
 
 export const EMPRESA_HGP = {
   nombre: "HYDRO GLOBAL PERÚ SAC",
@@ -401,6 +402,7 @@ export const PLANTILLAS_HGP = {
   [RACS.codigo]: RACS,
   ...PLANTILLAS_LOTE2,
   ...PLANTILLAS_LOTE3,
+  ...PLANTILLAS_LOTE4,
 };
 
 // Lista para el catálogo (orden de aparición)
@@ -414,6 +416,7 @@ export const CATALOGO_HGP = [
   { codigo: "HGP-SGIII-SST-FR-012", nombre: "Inspección de Herramientas Manuales y de Poder", patron: "activos", grupo: "Equipos", disponible: true },
   ...CATALOGO_LOTE2,
   ...CATALOGO_LOTE3,
+  ...CATALOGO_LOTE4,
   { codigo: "HGP-SGIII-SST-FR-018", nombre: "Reporte de Actos y Condiciones Subestándares (RACS)", patron: "evento", grupo: "Reportes", disponible: true, enlaceExterno: "https://reporte-racs-hydroglobal.web.app/" },
 ];
 
