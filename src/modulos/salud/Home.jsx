@@ -13,6 +13,9 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
   const today = new Date().toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   const esMultisel = empresa?.nombre?.toLowerCase().includes("multisel") || false;
+  const esHydroGlobal = empresa?.nombre?.toLowerCase().includes("hydro") || false;
+  const HYDRO_SALUD_PERMITIDOS = new Set(["dashboard", "directorio", "capacitaciones", "documentos", "accidentes", "epps", "monitoreo", "reportes"]);
+  const hydroBloqueado = (id) => esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
 
   const SALUD_CARDS = [
     { id: "dashboard",       label: "Dashboard General",         desc: "Métricas y KPIs en tiempo real",          Icon: LayoutDashboard, color: "blue" },
@@ -44,6 +47,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     { id: "monitoreo",        label: "Monitoreo",           desc: "Monitoreo de agentes físicos",        Icon: Activity,        color: "cyan" },
     { id: "contratistas",     label: "Contratistas",        desc: "Gestión de empresas contratistas",    Icon: Building2,       color: "amber" },
     { id: "reportes_ssoma",   label: "Reportes PDF",        desc: "Generación de informes SSOMA",        Icon: FileDown,        color: "gray" },
+    ...(esHydroGlobal ? [{ id: "hallazgos_hgp", label: "Reporte de Hallazgos", desc: "Seguimiento de hallazgos FR-039", Icon: AlertTriangle, color: "orange" }] : []),
   ];
 
   const CM = {
@@ -64,6 +68,10 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
   const cards = platform === "salud" ? SALUD_CARDS : SSOMA_CARDS;
 
   const handleCard = (card) => {
+    if (hydroBloqueado(card.id)) {
+      showToast("Módulo no disponible para tu empresa", "error");
+      return;
+    }
     if (card.locked) {
       showToast(`Acceso denegado — requiere rol ${card.requiredRole || "ADMIN"} o superior`, "error");
       return;
@@ -125,22 +133,33 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {cards.map(card => {
             const cc = CM[card.color] || CM.gray;
+            const isHydroLocked = hydroBloqueado(card.id);
+            const isLocked = card.locked || isHydroLocked;
             return (
               <div key={`${platform}-${card.id}`} onClick={() => handleCard(card)}
                 className={`relative group bg-gray-900 border border-l-4 rounded-xl p-5 cursor-pointer transition-all duration-200 overflow-hidden select-none
                   ${cc.border} border-gray-800
-                  ${card.locked ? "opacity-60" : `${cc.glow} hover:shadow-lg hover:-translate-y-0.5`}`}>
+                  ${isLocked ? "opacity-60" : `${cc.glow} hover:shadow-lg hover:-translate-y-0.5`}`}>
                 <div className={`mb-3 ${cc.bg} w-11 h-11 rounded-lg flex items-center justify-center`}>
-                  <card.Icon size={22} className={card.locked ? "text-gray-600" : cc.text} />
+                  <card.Icon size={22} className={isLocked ? "text-gray-600" : cc.text} />
                 </div>
                 <div className="text-base font-semibold text-white leading-tight mb-1.5">{card.label}</div>
                 <div className="text-sm text-gray-500 leading-relaxed">{card.desc}</div>
-                {!card.locked && (
+                {!isLocked && (
                   <div className={`absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity ${cc.text}`}>
                     <ChevronRight size={16} />
                   </div>
                 )}
-                {card.locked && (
+                {isHydroLocked && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl gap-1"
+                    style={{ backdropFilter: "blur(4px)", backgroundColor: "rgba(3,7,18,0.68)" }}>
+                    <div className="w-9 h-9 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center">
+                      <Lock size={17} className="text-gray-500" />
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">No disponible</div>
+                  </div>
+                )}
+                {card.locked && !isHydroLocked && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl gap-1"
                     style={{ backdropFilter: "blur(4px)", backgroundColor: "rgba(3,7,18,0.68)" }}>
                     <div className="w-9 h-9 rounded-full bg-red-900/60 border border-red-700/80 flex items-center justify-center">

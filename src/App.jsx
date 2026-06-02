@@ -30,6 +30,7 @@ import InspeccionesModulo from "./modulos/ssoma/InspeccionesModulo.jsx";
 import ATSPetarModulo from "./modulos/ssoma/AtsPetarModulo.jsx";
 import ReportesSSOMAModulo from "./modulos/ssoma/ReportesSSOMA.jsx";
 import ContratistasModulo from "./modulos/ssoma/ContratistasModulo.jsx";
+import HallazgosHGP from "./modulos/ssoma/HallazgosHGP.jsx";
 import {
   LayoutDashboard, Users, BookOpen, FileText,
   BarChart2, Stethoscope, AlertTriangle,
@@ -100,6 +101,10 @@ export default function App() {
     if (prof) {
       setProfile(prof);
       setEmpresa(prof.empresas);
+      // Hydro Global arranca en SSOMA si el usuario no tiene preferencia guardada
+      if (prof.empresas?.nombre?.toLowerCase().includes("hydro") && !localStorage.getItem("ssoma-platform")) {
+        setPlatform("ssoma");
+      }
       if (prof.empresa_id) {
         loadData(prof.empresa_id);
       }
@@ -151,7 +156,12 @@ export default function App() {
   const role = profile?.rol || "SEGURIDAD";
   const empresaId = profile?.empresa_id;
   const isSuperAdmin = role === "SUPERADMIN";
+
+  // Módulos de Salud permitidos para Hydro Global (el resto queda bloqueado)
+  const HYDRO_SALUD_PERMITIDOS = new Set(["dashboard", "directorio", "capacitaciones", "documentos", "accidentes", "epps", "monitoreo", "reportes"]);
+  const saludBloqueado = (id) => esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
   const esMultisel = empresa?.nombre?.toLowerCase().includes("multisel") || false;
+  const esHydroGlobal = empresa?.nombre?.toLowerCase().includes("hydro") || false;
 
   const pageTitles = {
     home: "Inicio",
@@ -164,6 +174,7 @@ export default function App() {
     iperc: "IPERC / Matriz de Riesgos", inspecciones: "Inspecciones de Seguridad",
     ats: "ATS / PETAR", reportes_ssoma: "Reportes PDF — SSOMA",
     contratistas: "Gestión de Contratistas",
+    hallazgos_hgp: "Reporte de Hallazgos — HGP",
   };
   const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800" };
 
@@ -201,14 +212,29 @@ export default function App() {
 
         {/* Plataforma toggle */}
         <div className="flex bg-gray-800/60 rounded-lg p-0.5 mb-3 border border-gray-700/50">
-          <button onClick={() => switchPlatform("salud")}
-            className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "salud" ? "bg-blue-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
-            <Stethoscope size={11} /> Salud
-          </button>
-          <button onClick={() => switchPlatform("ssoma")}
-            className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "ssoma" ? "bg-amber-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
-            <ShieldAlert size={11} /> SSOMA
-          </button>
+          {esHydroGlobal ? (
+            <>
+              <button onClick={() => switchPlatform("ssoma")}
+                className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "ssoma" ? "bg-amber-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+                <ShieldAlert size={11} /> SSOMA
+              </button>
+              <button onClick={() => switchPlatform("salud")}
+                className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "salud" ? "bg-blue-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+                <Stethoscope size={11} /> Salud
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => switchPlatform("salud")}
+                className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "salud" ? "bg-blue-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+                <Stethoscope size={11} /> Salud
+              </button>
+              <button onClick={() => switchPlatform("ssoma")}
+                className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "ssoma" ? "bg-amber-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+                <ShieldAlert size={11} /> SSOMA
+              </button>
+            </>
+          )}
         </div>
 
         {/* Admin */}
@@ -224,29 +250,53 @@ export default function App() {
         {platform === "salud" ? (
           <>
             <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">Módulos</div>
-            {NAV.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => navigate(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
-                <Icon size={16} />{label}
-              </button>
-            ))}
+            {NAV.map(({ id, label, icon: Icon }) => {
+              const bloqueado = saludBloqueado(id);
+              return (
+                <button key={id} onClick={() => !bloqueado && navigate(id)} disabled={bloqueado}
+                  className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${bloqueado ? "opacity-40 cursor-not-allowed text-gray-600" : page === id ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                  <Icon size={16} />{label}
+                  {bloqueado && <Lock size={10} className="ml-auto text-gray-600" />}
+                </button>
+              );
+            })}
             <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Salud Ocupacional</div>
             {esMultisel && (
               <button onClick={() => go("plan_so")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "plan_so" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
                 <ClipboardList size={16} />Plan SO Anual
               </button>
             )}
-            <button onClick={() => navigate("vigilancia")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "vigilancia" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
-              <Stethoscope size={16} />Vigilancia Médica
-              <span className="ml-auto flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-500 border border-purple-900"><Lock size={9} />MED</span>
-            </button>
-            <button onClick={() => navigate("caracterizacion")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "caracterizacion" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
-              <FileText size={16} />Caracterización Riesgo
-            </button>
+            {[
+              { id: "vigilancia", label: "Vigilancia Médica", icon: Stethoscope, medico: true },
+              { id: "caracterizacion", label: "Caracterización Riesgo", icon: FileText },
+            ].map(({ id, label, icon: Icon, medico }) => {
+              const bloqueado = saludBloqueado(id);
+              return (
+                <button key={id} onClick={() => !bloqueado && navigate(id)} disabled={bloqueado}
+                  className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${bloqueado ? "opacity-40 cursor-not-allowed text-gray-600" : page === id ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                  <Icon size={16} />{label}
+                  {bloqueado
+                    ? <Lock size={10} className="ml-auto text-gray-600" />
+                    : medico && <span className="ml-auto flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-500 border border-purple-900"><Lock size={9} />MED</span>}
+                </button>
+              );
+            })}
             <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Seguridad</div>
-            <button onClick={() => go("accidentes")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "accidentes" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ShieldAlert size={16} />Accidentes</button>
-            <button onClick={() => go("seguimiento")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "seguimiento" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><ClipboardList size={16} />Seguimiento</button>
-            <button onClick={() => go("epps")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "epps" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Shield size={16} />Control de EPPs</button>
-            <button onClick={() => go("monitoreo")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "monitoreo" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}><Activity size={16} />Monitoreo</button>
+            {[
+              { id: "accidentes", label: "Accidentes", icon: ShieldAlert },
+              { id: "seguimiento", label: "Seguimiento", icon: ClipboardList },
+              { id: "epps", label: "Control de EPPs", icon: Shield },
+              { id: "monitoreo", label: "Monitoreo", icon: Activity },
+            ].map(({ id, label, icon: Icon }) => {
+              const bloqueado = saludBloqueado(id);
+              return (
+                <button key={id} onClick={() => !bloqueado && go(id)} disabled={bloqueado}
+                  className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${bloqueado ? "opacity-40 cursor-not-allowed text-gray-600" : page === id ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                  <Icon size={16} />{label}
+                  {bloqueado && <Lock size={10} className="ml-auto text-gray-600" />}
+                </button>
+              );
+            })}
           </>
         ) : (
           <>
@@ -256,6 +306,14 @@ export default function App() {
                 <Icon size={16} />{label}
               </button>
             ))}
+            {esHydroGlobal && (
+              <>
+                <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Hydro Global</div>
+                <button onClick={() => go("hallazgos_hgp")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "hallazgos_hgp" ? "bg-amber-900/40 text-amber-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                  <AlertTriangle size={16} />Reporte de Hallazgos
+                </button>
+              </>
+            )}
           </>
         )}
       </nav>
@@ -368,26 +426,35 @@ export default function App() {
           {page === "superadmin" && isSuperAdmin && <SuperAdmin />}
           {page === "dashboard" && <Dashboard workers={workers} trainings={trainings} />}
           {page === "directorio" && <Directorio workers={workers} setWorkers={setWorkers} role={role} empresaId={empresaId} />}
-          {page === "capacitaciones" && <Capacitaciones workers={workers} trainings={trainings} setTrainings={setTrainings} empresaId={empresaId} />}
-          {page === "documentos" && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
-          {page === "kpis" && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}
-          {page === "reportes" && <ReportesModulo workers={workers} trainings={trainings} empresaId={empresaId} empresa={empresa} />}
-          {page === "accidentes" && <AccidentesModulo workers={workers} empresaId={empresaId} />}
-          {page === "seguimiento" && <SeguimientoModulo workers={workers} empresaId={empresaId} />}
-          {page === "epps" && <EppModulo workers={workers} empresaId={empresaId} />}
-          {page === "monitoreo" && <MonitoreoModulo empresaId={empresaId} />}
-          {page === "vigilancia" && <Vigilancia workers={workers} empresaId={empresaId} />}
-          {page === "caracterizacion" && <CaracterizacionRiesgoModulo empresaId={empresaId} />}
+          {page === "capacitaciones" && !saludBloqueado("capacitaciones") && <Capacitaciones workers={workers} trainings={trainings} setTrainings={setTrainings} empresaId={empresaId} />}
+          {page === "documentos"    && !saludBloqueado("documentos")    && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
+          {page === "kpis"          && !saludBloqueado("kpis")          && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}
+          {page === "reportes"      && !saludBloqueado("reportes")      && <ReportesModulo workers={workers} trainings={trainings} empresaId={empresaId} empresa={empresa} />}
+          {page === "accidentes"    && !saludBloqueado("accidentes")    && <AccidentesModulo workers={workers} empresaId={empresaId} />}
+          {page === "seguimiento"   && !saludBloqueado("seguimiento")   && <SeguimientoModulo workers={workers} empresaId={empresaId} />}
+          {page === "epps"          && !saludBloqueado("epps")          && <EppModulo workers={workers} empresaId={empresaId} />}
+          {page === "monitoreo"     && !saludBloqueado("monitoreo")     && <MonitoreoModulo empresaId={empresaId} />}
+          {page === "vigilancia"    && !saludBloqueado("vigilancia")    && <Vigilancia workers={workers} empresaId={empresaId} />}
+          {page === "caracterizacion" && !saludBloqueado("caracterizacion") && <CaracterizacionRiesgoModulo empresaId={empresaId} />}
+          {page === "topico"        && !saludBloqueado("topico")        && <TopicoModulo empresaId={empresaId} />}
+          {/* Pantalla bloqueada para Hydro Global */}
+          {esHydroGlobal && saludBloqueado(page) && (
+            <div className="flex flex-col items-center justify-center h-full text-center py-24">
+              <Lock size={40} className="text-gray-700 mb-4" />
+              <p className="text-gray-500 font-semibold text-sm">Módulo no disponible</p>
+              <p className="text-gray-700 text-xs mt-1">Este módulo no está habilitado para tu empresa.</p>
+            </div>
+          )}
           {page === "ssoma_dashboard" && <SSOMADashboard empresaId={empresaId} workers={workers} />}
           {page === "racs"           && <RacsModulo empresaId={empresaId} empresa={empresa} />}
           {page === "triaje"         && <TriajeModulo empresaId={empresaId} empresa={empresa} />}
           {page === "iperc"          && <IpercModulo empresaId={empresaId} />}
-          {page === "inspecciones"   && <InspeccionesModulo empresaId={empresaId} />}
+          {page === "inspecciones"   && <InspeccionesModulo empresaId={empresaId} empresa={empresa} />}
           {page === "ats"            && <ATSPetarModulo empresaId={empresaId} workers={workers} />}
           {page === "reportes_ssoma" && <ReportesSSOMAModulo empresaId={empresaId} empresa={empresa} workers={workers} />}
           {page === "plan_so" && esMultisel && <PlanSOModulo empresaId={empresaId} />}
-          {page === "topico" && <TopicoModulo empresaId={empresaId} />}
           {page === "contratistas" && <ContratistasModulo empresaId={empresaId} />}
+          {page === "hallazgos_hgp" && esHydroGlobal && <HallazgosHGP empresaId={empresaId} />}
         </main>
       </div>
       <ToastContainer />
