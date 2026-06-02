@@ -17,16 +17,19 @@ import { Select } from '../../components/ui/Select.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
+import RegistrosLegalesHGP from './RegistrosLegalesHGP.jsx';
 import {
   Plus, Upload, Download, ChevronRight, ChevronLeft, Lock,
   Trash2, Filter, HelpCircle, Pencil, FileDown, AlertTriangle,
   CheckCircle, Home, HeartPulse, Microscope, Search, Shield,
   ClipboardList, ShieldAlert, Activity, BarChart2, BookOpen,
   FileText, Users, LayoutDashboard, Stethoscope, Settings,
-  Building2, Phone
+  Building2, Phone, Scale
 } from 'lucide-react';
 
-export default function AccidentesModulo({ workers, empresaId }) {
+export default function AccidentesModulo({ workers, empresaId, empresa }) {
+  const esHydroGlobal = empresa?.nombre?.toLowerCase().includes("hydro") || false;
+  const [vistaLegal, setVistaLegal] = useState(false);
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -112,6 +115,11 @@ export default function AccidentesModulo({ workers, empresaId }) {
   const gravColor = g => ({ Fatal: "red", Grave: "red", Moderado: "amber", Leve: "blue", "Sin lesión": "gray" }[g] || "gray");
   const investColor = e => ({ Completada: "green", "En proceso": "amber", Pendiente: "red" }[e] || "gray");
 
+  // Vista de Registros Legales MINTRA (solo Hydro Global)
+  if (vistaLegal && esHydroGlobal) {
+    return <RegistrosLegalesHGP empresaId={empresaId} onBack={() => setVistaLegal(false)} />;
+  }
+
   return (
     <div>
       <div className="flex items-start justify-between mb-5">
@@ -120,6 +128,9 @@ export default function AccidentesModulo({ workers, empresaId }) {
           <p className="text-gray-500 text-xs max-w-xl">Registro y seguimiento de accidentes laborales, incidentes peligrosos y casi-accidentes. Cumplimiento Ley 29783 y R.M. 050-2013-TR.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-4">
+          {esHydroGlobal && (
+            <Btn size="sm" variant="ghost" onClick={() => setVistaLegal(true)}><Scale size={13} /> Registros Legales MINTRA</Btn>
+          )}
           <ExportBtn data={records.map(r => ({ Tipo: r.tipo, Trabajador: r.trabajadores?.nombre || "—", Fecha: r.fecha_evento, Hora: r.hora_evento || "", Lugar: r.lugar || "", Área: r.area_puesto || "", Descripción: r.descripcion, "Parte cuerpo": r.parte_cuerpo || "", "Agente causante": r.agente_causante || "", "Tipo lesión": r.tipo_lesion || "", Gravedad: r.gravedad, "Días perdidos": r.dias_perdidos || 0, Hospitalización: r.requirio_hospitalizacion ? "Sí" : "No", "Estado investigación": r.estado_investigacion, "Medidas correctivas": r.medidas_correctivas || "", Médico: r.medico_responsable || "", Supervisor: r.supervisor || "" }))} filename="accidentes_incidentes" />
           <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nuevo Registro</Btn>
         </div>

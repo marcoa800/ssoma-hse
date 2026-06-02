@@ -430,7 +430,7 @@ export default function App() {
           {page === "documentos"    && !saludBloqueado("documentos")    && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
           {page === "kpis"          && !saludBloqueado("kpis")          && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}
           {page === "reportes"      && !saludBloqueado("reportes")      && <ReportesModulo workers={workers} trainings={trainings} empresaId={empresaId} empresa={empresa} />}
-          {page === "accidentes"    && !saludBloqueado("accidentes")    && <AccidentesModulo workers={workers} empresaId={empresaId} />}
+          {page === "accidentes"    && !saludBloqueado("accidentes")    && <AccidentesModulo workers={workers} empresaId={empresaId} empresa={empresa} />}
           {page === "seguimiento"   && !saludBloqueado("seguimiento")   && <SeguimientoModulo workers={workers} empresaId={empresaId} />}
           {page === "epps"          && !saludBloqueado("epps")          && <EppModulo workers={workers} empresaId={empresaId} />}
           {page === "monitoreo"     && !saludBloqueado("monitoreo")     && <MonitoreoModulo empresaId={empresaId} />}

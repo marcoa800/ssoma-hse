@@ -235,6 +235,124 @@ const VEHICULOS = {
   ],
 };
 
+// ── PLANTILLA: Inspección de Herramientas Manuales y de Poder (Patrón A — activos) ──
+const HERRAMIENTAS = {
+  codigo: "HGP-SGIII-SST-FR-012",
+  codigoPdf: "HGP-SGIII-SST-FR-012",
+  nombre: "Inspección de Herramientas Manuales y de Poder",
+  titulo: "INSPECCIÓN DE HERRAMIENTAS MANUALES Y DE PODER",
+  patron: "activos",
+  rev: "00",
+  cabecera: [
+    { key: "fecha", label: "Fecha de inspección", type: "date", required: true },
+    { key: "mes", label: "Mes", type: "text" },
+    { key: "color_cinta", label: "Color de cinta", type: "text" },
+    { key: "area", label: "Área responsable", type: "text" },
+    { key: "inspector", label: "Responsable de la inspección", type: "text", required: true, full: true },
+    { key: "supervisor", label: "Supervisor Responsable", type: "text", full: true },
+  ],
+  columnasActivo: [
+    { key: "herramienta", label: "Herramienta Manual y de Poder", width: 160 },
+    { key: "cantidad", label: "Cantidad", width: 50 },
+    { key: "marca", label: "Marca", width: 80 },
+    { key: "codigo", label: "Código / N° Serie", width: 90 },
+  ],
+  puntos: [
+    { key: "condicion", short: "Condición", label: "Condición de la herramienta" },
+  ],
+  observacionPorFila: { key: "obs", label: "Observaciones" },
+  leyendaCalif: "Condición — C: Conforme (Operativa) · NC: No Conforme · NA: No aplica · N.T.: No tiene",
+  recomendacion: "Indicar el motivo de retiro o baja de la herramienta que no cumpla.",
+  firmas: [
+    { rol: "Responsable de la inspección" },
+    { rol: "Supervisor Responsable" },
+  ],
+  filasIniciales: 30,
+};
+
+// ── PLANTILLA: Inspección de Equipos Anti-Caídas (Patrón D — matriz) ──
+//   Equipos (arneses) en COLUMNAS, ítems de verificación en FILAS, celdas B/M/NA.
+const ANTICAIDAS = {
+  codigo: "HGP-SGIII-SST-FR-015",
+  codigoPdf: "HGP-SGIII-SST-FR-015",
+  nombre: "Inspección de Equipos Anti-Caídas",
+  titulo: "INSPECCIÓN DE EQUIPOS ANTICAÍDAS",
+  patron: "matriz",
+  rev: "00",
+  cabecera: [
+    { key: "unidad", label: "Unidad operativa", type: "text" },
+    { key: "fecha", label: "Fecha", type: "date", required: true },
+    { key: "hora", label: "Hora", type: "time" },
+    { key: "area", label: "Lugar", type: "text" },
+    { key: "actividad", label: "Actividad", type: "text", full: true },
+    { key: "inspector", label: "Nombre de Inspector", type: "text", required: true, full: true },
+    { key: "supervisor", label: "Nombre de Supervisor O&M", type: "text", full: true },
+  ],
+  // Cada equipo es una columna; el inspector ingresa su código
+  equipoLabel: "Arnés",
+  equipoCampo: { key: "codigo", label: "Código" },
+  equiposIniciales: 4,
+  equiposMax: 7,
+  // Opciones de calificación por celda
+  calificaciones: ["B", "M", "NA"],
+  // Ítems agrupados por componente del sistema anticaídas
+  grupos: [
+    { titulo: "1. ARNÉS DE CUERPO ENTERO", items: [
+      { c: "1.1", n: "Reata (cortada, desgastada, decolorada)" },
+      { c: "1.2", n: "Costura de seguridad en buen estado (puntadas)" },
+      { c: "1.3", n: "Partes metálicas (anillos, hebillas) sin corrosión" },
+      { c: "1.4", n: "Partes plásticas (rotura, desgaste)" },
+      { c: "1.5", n: "Etiqueta legible" },
+    ]},
+    { titulo: "2. LÍNEA DE ANCLAJE", items: [
+      { c: "2.1", n: "Reata (cortada, desgastada, decolorada)" },
+      { c: "2.2", n: "Costura de seguridad en buen estado (puntadas)" },
+      { c: "2.3", n: "Absorbedor de energía sin impactar" },
+      { c: "2.4", n: "Partes metálicas (ganchos, hebillas) sin corrosión" },
+      { c: "2.5", n: "Etiqueta legible" },
+    ]},
+    { titulo: "3. LÍNEA DE POSICIONAMIENTO", items: [
+      { c: "3.1", n: "Reata (cortada, desgastada, decolorada)" },
+      { c: "3.2", n: "Costura de seguridad en buen estado (puntadas)" },
+      { c: "3.3", n: "Partes metálicas (ganchos, hebillas) sin corrosión" },
+      { c: "3.4", n: "Etiqueta legible" },
+    ]},
+    { titulo: "4. CONECTOR DE ANCLAJE", items: [
+      { c: "4.1", n: "Reata (cortada, desgastada, decolorada)" },
+      { c: "4.2", n: "Costura de seguridad en buen estado (puntadas)" },
+      { c: "4.3", n: "Partes metálicas (ganchos, hebillas) sin corrosión" },
+      { c: "4.4", n: "Etiqueta legible" },
+    ]},
+    { titulo: "5. MOSQUETONES DE SEGURIDAD", items: [
+      { c: "5.1", n: "Desgaste excesivo o deformación" },
+      { c: "5.2", n: "Picaduras, grietas" },
+      { c: "5.3", n: "Tambor de seguridad" },
+      { c: "5.4", n: "Corrosión" },
+      { c: "5.5", n: "Otros" },
+    ]},
+    { titulo: "6. ARRESTADOR DE CAÍDAS", items: [
+      { c: "6.1", n: "Desgaste excesivo o deformación" },
+      { c: "6.2", n: "Picaduras, grietas" },
+      { c: "6.3", n: "Seguros y partes móviles" },
+      { c: "6.4", n: "Corrosión" },
+      { c: "6.5", n: "Otros" },
+    ]},
+    { titulo: "7. SISTEMA RETRÁCTIL", items: [
+      { c: "7.1", n: "Desgaste excesivo o deformación" },
+      { c: "7.2", n: "Picaduras, grietas" },
+      { c: "7.3", n: "Seguros y partes móviles" },
+      { c: "7.4", n: "Corrosión" },
+      { c: "7.5", n: "Otros" },
+    ]},
+  ],
+  leyendaCalif: "Calificación — B: Bueno · M: Malo · NA: No aplica",
+  recomendacion: "Retirar de servicio todo equipo con calificación 'M' (Malo) hasta su reemplazo.",
+  firmas: [
+    { rol: "Firma del Inspector" },
+    { rol: "Firma del Supervisor O&M" },
+  ],
+};
+
 // ── PLANTILLA: RACS — Reporte de Actos y Condiciones Subestándares (Patrón C — evento) ──
 const RACS = {
   codigo: "HGP-SGIII-SST-FR-018",
@@ -275,6 +393,8 @@ export const PLANTILLAS_HGP = {
   [BOTIQUINES.codigo]: BOTIQUINES,
   [LUCES_EMERGENCIA.codigo]: LUCES_EMERGENCIA,
   [VEHICULOS.codigo]: VEHICULOS,
+  [HERRAMIENTAS.codigo]: HERRAMIENTAS,
+  [ANTICAIDAS.codigo]: ANTICAIDAS,
   [RACS.codigo]: RACS,
 };
 
@@ -285,8 +405,9 @@ export const CATALOGO_HGP = [
   { codigo: "HGP-SGIII-SIG-FR-022", nombre: "Check List de Botiquines", patron: "activos", grupo: "Emergencias", disponible: true },
   { codigo: "HGP-SGIII-SIG-FR-013", nombre: "Inspección de Luces de Emergencia", patron: "activos", grupo: "Emergencias", disponible: true },
   { codigo: "HGP-SGIII-SST-FR-029", nombre: "Inspección de Vehículos Livianos", patron: "secciones", grupo: "Vehículos", disponible: true },
+  { codigo: "HGP-SGIII-SST-FR-015", nombre: "Inspección de Equipos Anti-Caídas", patron: "matriz", grupo: "Equipos", disponible: true },
   { codigo: "HGP-SGIII-SST-FR-020", nombre: "Verificación de Escaleras Portátiles", patron: "secciones", grupo: "Equipos", disponible: false },
-  { codigo: "HGP-SGIII-SST-FR-012", nombre: "Inspección de Herramientas Manuales y de Poder", patron: "secciones", grupo: "Equipos", disponible: false },
+  { codigo: "HGP-SGIII-SST-FR-012", nombre: "Inspección de Herramientas Manuales y de Poder", patron: "activos", grupo: "Equipos", disponible: true },
   { codigo: "HGP-SGIII-SST-FR-018", nombre: "Reporte de Actos y Condiciones Subestándares (RACS)", patron: "evento", grupo: "Reportes", disponible: true, enlaceExterno: "https://reporte-racs-hydroglobal.web.app/" },
 ];
 
@@ -312,4 +433,22 @@ export function itemsVaciosSecciones(plantilla) {
     });
   });
   return items;
+}
+
+// ── Helpers patrón "matriz" (equipos en columnas, ítems en filas) ──
+// Genera la lista plana de ítems; cada uno con un objeto `vals` indexado por equipo.
+export function itemsVaciosMatriz(plantilla) {
+  const items = [];
+  (plantilla.grupos || []).forEach((g) => {
+    g.items.forEach((it) => {
+      items.push({ grupo: g.titulo, codigo: it.c, nombre: it.n, vals: {} });
+    });
+  });
+  return items;
+}
+
+// Lista inicial de equipos (columnas) vacíos
+export function equiposIniciales(plantilla) {
+  const n = plantilla.equiposIniciales || 3;
+  return Array.from({ length: n }, () => ({ [plantilla.equipoCampo.key]: "" }));
 }

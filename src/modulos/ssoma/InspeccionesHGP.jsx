@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabase.js';
@@ -16,7 +16,7 @@ import {
 import {
   EMPRESA_HGP, CALIF, CALIF_OPCIONES, CALIF_SECCIONES, CALIF_SEC_INFO,
   ESTATUS_SECCIONES, ESTATUS_INFO, PLANTILLAS_HGP, CATALOGO_HGP,
-  getPlantilla, filaVacia, itemsVaciosSecciones
+  getPlantilla, filaVacia, itemsVaciosSecciones, itemsVaciosMatriz, equiposIniciales
 } from '../../constants/inspecciones-hgp.js';
 
 const calColor = (v) => CALIF[v === "N.T." ? "NT" : v]?.color || "gray";
@@ -79,6 +79,7 @@ export default function InspeccionesHGP({ empresaId }) {
       onSaved: () => { cerrar(); load(); },
     };
     if (plantillaActiva.patron === "secciones") return <FormularioSecciones {...props} />;
+    if (plantillaActiva.patron === "matriz") return <FormularioMatriz {...props} />;
     if (plantillaActiva.patron === "evento") return <FormularioEvento {...props} />;
     return <FormularioActivos {...props} />;
   }
@@ -237,7 +238,8 @@ function contarNC(r) {
   let n = 0;
   if (r.cabecera?.nivel) return r.cabecera.nivel === "alto" ? 1 : 0;          // evento (RACS)
   filas.forEach(f => {
-    if (f.calificacion !== undefined) { if (f.calificacion === "M") n++; }    // secciones
+    if (f.vals !== undefined) { Object.values(f.vals).forEach(v => { if (v === "M") n++; }); } // matriz
+    else if (f.calificacion !== undefined) { if (f.calificacion === "M") n++; } // secciones
     else Object.values(f).forEach(v => { if (v === "NC") n++; });             // activos
   });
   return n;
@@ -548,6 +550,172 @@ function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved
 }
 
 // ════════════════════════════════════════════════════════════════════
+//  FORMULARIO — Patrón "matriz" (equipos en columnas, ítems en filas)
+// ════════════════════════════════════════════════════════════════════
+const matCalifClass = (v) =>
+  v === "B" ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+  : v === "M" ? "bg-red-900/40 border-red-700 text-red-300"
+  : v === "NA" ? "bg-gray-800 border-gray-700 text-gray-400"
+  : "bg-gray-800 border-gray-700 text-gray-400";
+
+function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved }) {
+  const hoy = new Date().toISOString().split("T")[0];
+  const initCab = () => {
+    const c = {};
+    plantilla.cabecera.forEach(f => { c[f.key] = f.default ?? (f.key === "fecha" ? hoy : ""); });
+    return c;
+  };
+  const ek = plantilla.equipoCampo.key;
+  const [cabecera, setCabecera] = useState(registro?.cabecera || initCab());
+  const [equipos, setEquipos] = useState(
+    registro?.cabecera?.equipos?.length ? registro.cabecera.equipos : equiposIniciales(plantilla)
+  );
+  const [items, setItems] = useState(registro?.filas?.length ? registro.filas : itemsVaciosMatriz(plantilla));
+  const [observaciones, setObservaciones] = useState(registro?.observaciones || "");
+  const [saving, setSaving] = useState(false);
+
+  const setVal = (idx, eq, val) =>
+    setItems(its => its.map((it, i) => i === idx ? { ...it, vals: { ...it.vals, [eq]: val } } : it));
+  const setEquipo = (eq, val) => setEquipos(es => es.map((e, i) => i === eq ? { ...e, [ek]: val } : e));
+  const addEquipo = () => {
+    if (equipos.length >= (plantilla.equiposMax || 12)) { showToast(`Máximo ${plantilla.equiposMax} equipos`, "info"); return; }
+    setEquipos(es => [...es, { [ek]: "" }]);
+  };
+  const delEquipo = (eq) => {
+    setEquipos(es => es.filter((_, i) => i !== eq));
+    // Recolocar las calificaciones de columnas posteriores
+    setItems(its => its.map(it => {
+      const vals = {};
+      Object.entries(it.vals || {}).forEach(([k, v]) => {
+        const ki = Number(k);
+        if (ki < eq) vals[ki] = v;
+        else if (ki > eq) vals[ki - 1] = v;
+      });
+      return { ...it, vals };
+    }));
+  };
+
+  const guardar = async () => {
+    if (!cabecera.inspector?.trim()) { showToast("Indica quién realizó la inspección", "error"); return; }
+    setSaving(true);
+    const payload = {
+      empresa_id: empresaId,
+      plantilla_codigo: plantilla.codigo,
+      plantilla_nombre: plantilla.nombre,
+      fecha: cabecera.fecha || hoy,
+      area: cabecera.area || cabecera.unidad || null,
+      inspector: cabecera.inspector || null,
+      cabecera: { ...cabecera, equipos },
+      filas: items,
+      observaciones: observaciones || null,
+      estado: "Completado",
+    };
+    const { error } = registro
+      ? await supabase.from("inspecciones_hgp").update(payload).eq("id", registro.id)
+      : await supabase.from("inspecciones_hgp").insert(payload);
+    setSaving(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast(registro ? "Inspección actualizada" : "Inspección registrada", "success");
+    onSaved();
+  };
+
+  const totalCols = 2 + equipos.length;
+  let idx = -1;
+  return (
+    <div>
+      <button onClick={onCancel} className="mb-4 flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300">
+        <ArrowLeft size={13} /> Cancelar y volver
+      </button>
+      <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
+        <div>
+          <h3 className="text-white font-semibold text-sm">{plantilla.titulo}</h3>
+          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{plantilla.codigo}</p>
+        </div>
+        <div className="flex gap-2">
+          <Btn size="sm" variant="ghost" onClick={onCancel}>Cancelar</Btn>
+          <Btn size="sm" variant="primary" onClick={guardar} disabled={saving}>{saving ? "Guardando..." : registro ? "Actualizar" : "Guardar inspección"}</Btn>
+        </div>
+      </div>
+
+      {/* Cabecera */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {plantilla.cabecera.map(f => (
+          <FormField key={f.key} label={f.label + (f.required ? " *" : "")} className={f.full ? "sm:col-span-2 lg:col-span-3" : ""}>
+            <Input type={f.type === "date" ? "date" : f.type === "time" ? "time" : "text"}
+              value={cabecera[f.key] || ""}
+              onChange={e => setCabecera(c => ({ ...c, [f.key]: e.target.value }))} />
+          </FormField>
+        ))}
+      </div>
+
+      {/* Matriz */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] text-gray-500">{equipos.length} {plantilla.equipoLabel.toLowerCase()}(s). Edita el código de cada uno en el encabezado.</p>
+        <Btn size="sm" variant="ghost" onClick={addEquipo}><Plus size={12} /> Agregar {plantilla.equipoLabel.toLowerCase()}</Btn>
+      </div>
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto mb-4">
+        <table className="text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-gray-800">
+              <th className="px-2 py-2 text-gray-600 font-medium text-left sticky left-0 bg-gray-900 z-10 w-10">Cód.</th>
+              <th className="px-2 py-2 text-gray-600 font-medium text-left sticky left-10 bg-gray-900 z-10" style={{ minWidth: 220 }}>Ítem de verificación</th>
+              {equipos.map((eq, i) => (
+                <th key={i} className="px-1.5 py-1.5 text-gray-600 font-medium text-center border-l border-gray-800" style={{ minWidth: 84 }}>
+                  <div className="text-[10px] text-blue-300 mb-1">{plantilla.equipoLabel} N°{i + 1}</div>
+                  <div className="flex items-center gap-1">
+                    <input value={eq[ek] || ""} onChange={e => setEquipo(i, e.target.value)} placeholder="Código"
+                      className="w-full bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[10px] text-gray-200 text-center focus:outline-none focus:border-blue-500" />
+                    {equipos.length > 1 && (
+                      <button onClick={() => delEquipo(i)} className="text-red-500/40 hover:text-red-400 shrink-0" title="Quitar"><Trash2 size={11} /></button>
+                    )}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {plantilla.grupos.map(g => (
+              <Fragment key={g.titulo}>
+                <tr>
+                  <td colSpan={totalCols} className="bg-gray-800/60 px-3 py-1.5 text-[11px] font-semibold text-blue-300 uppercase tracking-wide sticky left-0">{g.titulo}</td>
+                </tr>
+                {g.items.map(it => {
+                  idx++; const i = idx; const row = items[i] || { vals: {} };
+                  return (
+                    <tr key={it.c} className="border-b border-gray-800/40 hover:bg-gray-800/20">
+                      <td className="px-2 py-1.5 text-gray-500 sticky left-0 bg-gray-900">{it.c}</td>
+                      <td className="px-2 py-1.5 text-gray-300 sticky left-10 bg-gray-900">{it.n}</td>
+                      {equipos.map((_, eq) => (
+                        <td key={eq} className="px-1 py-1 border-l border-gray-800/40">
+                          <select value={row.vals?.[eq] || ""} onChange={e => setVal(i, eq, e.target.value)}
+                            className={`w-full rounded px-0.5 py-1 text-[11px] text-center font-bold focus:outline-none border ${matCalifClass(row.vals?.[eq])}`}>
+                            <option value=""></option>
+                            {plantilla.calificaciones.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-[11px] text-gray-600 mb-3">{plantilla.leyendaCalif}</p>
+      <FormField label="Observaciones generales / Nota">
+        <Input value={observaciones} onChange={e => setObservaciones(e.target.value)} placeholder={plantilla.recomendacion} />
+      </FormField>
+      <div className="flex justify-end gap-2 pt-4">
+        <Btn variant="ghost" onClick={onCancel}>Cancelar</Btn>
+        <Btn variant="primary" onClick={guardar} disabled={saving}>{saving ? "Guardando..." : registro ? "Actualizar" : "Guardar inspección"}</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
 //  FORMULARIO — Patrón "evento" (RACS)
 // ════════════════════════════════════════════════════════════════════
 function FormularioEvento({ empresaId, plantilla, registro, onCancel, onSaved }) {
@@ -735,6 +903,50 @@ function DetalleModal({ registro, plantilla, onClose }) {
             <p className="text-gray-300"><span className="text-gray-600">Acción inmediata:</span> {registro.cabecera?.accion || "—"}</p>
             {(registro.foto_urls || [])[0] && <img src={registro.foto_urls[0]} alt="Evidencia" className="h-48 rounded-lg border border-gray-700" />}
           </div>
+        ) : plantilla.patron === "matriz" ? (
+          (() => {
+            const equipos = registro.cabecera?.equipos || [];
+            const ek = plantilla.equipoCampo.key;
+            let mi = -1;
+            return (
+              <div className="overflow-x-auto border border-gray-800 rounded-lg">
+                <table className="text-xs border-collapse">
+                  <thead><tr className="border-b border-gray-800 bg-gray-900/50">
+                    <th className="px-2 py-2 text-gray-600 text-left">Cód.</th>
+                    <th className="px-2 py-2 text-gray-600 text-left" style={{ minWidth: 200 }}>Ítem</th>
+                    {equipos.map((eq, i) => (
+                      <th key={i} className="px-2 py-2 text-gray-600 text-center border-l border-gray-800">
+                        {plantilla.equipoLabel} {i + 1}<br /><span className="text-gray-500 font-mono">{eq[ek] || "—"}</span>
+                      </th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {plantilla.grupos.map(g => (
+                      <Fragment key={g.titulo}>
+                        <tr><td colSpan={2 + equipos.length} className="bg-gray-800/40 px-2 py-1 text-[11px] font-semibold text-blue-300">{g.titulo}</td></tr>
+                        {g.items.map(it => {
+                          mi++; const row = (registro.filas || [])[mi] || { vals: {} };
+                          return (
+                            <tr key={it.c} className="border-b border-gray-800/40">
+                              <td className="px-2 py-1.5 text-gray-500">{it.c}</td>
+                              <td className="px-2 py-1.5 text-gray-300">{it.n}</td>
+                              {equipos.map((_, eq) => (
+                                <td key={eq} className="px-2 py-1.5 text-center border-l border-gray-800/40">
+                                  {row.vals?.[eq]
+                                    ? <Badge color={row.vals[eq] === "B" ? "green" : row.vals[eq] === "M" ? "red" : "gray"}>{row.vals[eq]}</Badge>
+                                    : <span className="text-gray-700">—</span>}
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()
         ) : plantilla.patron === "secciones" ? (
           <div className="overflow-x-auto border border-gray-800 rounded-lg">
             <table className="w-full text-xs">
@@ -897,6 +1109,7 @@ export async function generarPDF(registro, plantilla) {
   const M = 8;
   const y = dibujarEncabezado(doc, plantilla, registro, W, M, logo);
   if (plantilla.patron === "secciones") pdfSecciones(doc, plantilla, registro, W, M, y);
+  else if (plantilla.patron === "matriz") pdfMatriz(doc, plantilla, registro, W, M, y);
   else pdfActivos(doc, plantilla, registro, W, M, y);
   guardarPDF(doc, plantilla, registro);
 }
@@ -1051,6 +1264,54 @@ function pdfActivos(doc, plantilla, registro, W, M, y) {
     if (fy > doc.internal.pageSize.getHeight() - 20) { doc.addPage(); fy = 15; }
     doc.text(`${i + 1}. ${p.label}`, M, fy); fy += 3;
   });
+
+  dibujarFirmas(doc, plantilla, W, M, fy);
+}
+
+// ── PDF para patrón "matriz" (equipos en columnas, ítems en filas) — Anti-Caídas ──
+function pdfMatriz(doc, plantilla, registro, W, M, y) {
+  const items = Array.isArray(registro.filas) ? registro.filas : [];
+  const equipos = registro.cabecera?.equipos || [];
+  const ek = plantilla.equipoCampo.key;
+  const byCodigo = Object.fromEntries(items.map(it => [it.codigo, it]));
+
+  const head = [[
+    "Cód.", "Ítem de verificación",
+    ...equipos.map((eq, i) => `${plantilla.equipoLabel} ${i + 1}\n${eq[ek] || ""}`),
+  ]];
+  const body = [];
+  const ncol = 2 + equipos.length;
+  plantilla.grupos.forEach(g => {
+    body.push([{ content: g.titulo, colSpan: ncol, styles: { fillColor: [226, 232, 240], textColor: [15, 23, 42], fontStyle: "bold", halign: "left" } }]);
+    g.items.forEach(it => {
+      const r = byCodigo[it.c] || { vals: {} };
+      body.push([it.c, it.n, ...equipos.map((_, eq) => (r.vals?.[eq] || ""))]);
+    });
+  });
+
+  const eqColStyles = {};
+  equipos.forEach((_, i) => { eqColStyles[2 + i] = { cellWidth: Math.min(22, (W - 2 * M - 90) / Math.max(equipos.length, 1)), halign: "center", fontStyle: "bold" }; });
+
+  autoTable(doc, {
+    startY: y, head, body, theme: "grid",
+    styles: { fontSize: 5.5, cellPadding: 0.8, valign: "middle", lineWidth: 0.1, lineColor: [0, 0, 0] },
+    headStyles: { fillColor: [0, 51, 102], textColor: 255, fontSize: 5.5, fontStyle: "bold", halign: "center" },
+    columnStyles: { 0: { cellWidth: 12, halign: "center" }, 1: { cellWidth: 78, halign: "left" }, ...eqColStyles },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index >= 2) {
+        const v = data.cell.raw;
+        if (v === "M") { data.cell.styles.fillColor = [254, 226, 226]; data.cell.styles.textColor = [185, 28, 28]; }
+        else if (v === "B") { data.cell.styles.fillColor = [220, 252, 231]; data.cell.styles.textColor = [22, 101, 52]; }
+        else if (v === "NA") { data.cell.styles.fillColor = [241, 245, 249]; data.cell.styles.textColor = [100, 116, 139]; }
+      }
+    },
+    margin: { left: M, right: M },
+  });
+
+  let fy = doc.lastAutoTable.finalY + 4;
+  doc.setFontSize(6).setFont(undefined, "normal");
+  doc.text(plantilla.leyendaCalif, M, fy); fy += 4;
+  if (registro.observaciones) { doc.text(`Nota: ${registro.observaciones}`, M, fy); fy += 4; }
 
   dibujarFirmas(doc, plantilla, W, M, fy);
 }
