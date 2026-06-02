@@ -22,6 +22,32 @@ import {
 
 const calColor = (v) => CALIF[v === "N.T." ? "NT" : v]?.color || "gray";
 
+// Veredicto unificado de una calificación (secciones y matriz) → color/estado.
+// Cubre las escalas usadas por los formatos: B/R/M, SI/NO, C/NC, APRUEBA/FALLÓ, NA.
+function calVerdict(v) {
+  const s = String(v || "").trim().toUpperCase();
+  if (["B", "SI", "SÍ", "C", "OK", "APRUEBA", "BUENO", "CONFORME"].includes(s)) return "ok";
+  if (["M", "NO", "NC", "FALLO", "FALLÓ", "MALO"].includes(s)) return "bad";
+  if (["R", "REGULAR"].includes(s)) return "warn";
+  return "na";
+}
+const VERDICT_COLOR = { ok: "green", bad: "red", warn: "amber", na: "gray" };
+const VERDICT_CLASS = {
+  ok: "bg-emerald-900/40 border-emerald-700 text-emerald-300",
+  bad: "bg-red-900/40 border-red-700 text-red-300",
+  warn: "bg-amber-900/30 border-amber-700 text-amber-300",
+  na: "bg-gray-800 border-gray-700 text-gray-400",
+};
+// Color RGB para celdas de PDF según veredicto (o null si no aplica)
+function verdictPdfFill(v) {
+  const verd = calVerdict(v);
+  if (!v) return null;
+  if (verd === "bad") return { fill: [254, 226, 226], text: [185, 28, 28] };
+  if (verd === "ok") return { fill: [220, 252, 231], text: [22, 101, 52] };
+  if (verd === "warn") return { fill: [254, 243, 199], text: [146, 64, 14] };
+  return null;
+}
+
 export default function InspeccionesHGP({ empresaId }) {
   const [vista, setVista] = useState("dashboard"); // dashboard | catalogo | form
   const [registros, setRegistros] = useState([]);
@@ -239,8 +265,8 @@ function contarNC(r) {
   let n = 0;
   if (r.cabecera?.nivel) return r.cabecera.nivel === "alto" ? 1 : 0;          // evento (RACS)
   filas.forEach(f => {
-    if (f.vals !== undefined) { Object.values(f.vals).forEach(v => { if (v === "M" || v === "NO") n++; }); } // matriz
-    else if (f.calificacion !== undefined) { if (f.calificacion === "M" || f.calificacion === "NO") n++; } // secciones
+    if (f.vals !== undefined) { Object.values(f.vals).forEach(v => { if (calVerdict(v) === "bad") n++; }); } // matriz
+    else if (f.calificacion !== undefined) { if (calVerdict(f.calificacion) === "bad") n++; } // secciones
     else Object.values(f).forEach(v => { if (v === "NC") n++; });             // activos
   });
   return n;
@@ -407,14 +433,9 @@ const califClass = (v) =>
 // ════════════════════════════════════════════════════════════════════
 //  FORMULARIO — Patrón "secciones"
 // ════════════════════════════════════════════════════════════════════
-const secCalifClass = (v) =>
-  (v === "B" || v === "SI") ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
-  : v === "R" ? "bg-amber-900/30 border-amber-700 text-amber-300"
-  : (v === "M" || v === "NO") ? "bg-red-900/40 border-red-700 text-red-300"
-  : "bg-gray-800 border-gray-700 text-gray-400";
+const secCalifClass = (v) => VERDICT_CLASS[calVerdict(v)];
 // Color de badge para una calificación de secciones (vista detalle)
-const secCalColor = (v) =>
-  (v === "B" || v === "SI") ? "green" : v === "R" ? "amber" : (v === "M" || v === "NO") ? "red" : "gray";
+const secCalColor = (v) => VERDICT_COLOR[calVerdict(v)];
 
 function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved }) {
   const hoy = new Date().toISOString().split("T")[0];
@@ -555,13 +576,8 @@ function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved
 // ════════════════════════════════════════════════════════════════════
 //  FORMULARIO — Patrón "matriz" (equipos en columnas, ítems en filas)
 // ════════════════════════════════════════════════════════════════════
-const matCalifClass = (v) =>
-  (v === "B" || v === "SI") ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
-  : (v === "M" || v === "NO") ? "bg-red-900/40 border-red-700 text-red-300"
-  : v === "NA" ? "bg-gray-800 border-gray-700 text-gray-400"
-  : "bg-gray-800 border-gray-700 text-gray-400";
-const matCalColor = (v) =>
-  (v === "B" || v === "SI") ? "green" : (v === "M" || v === "NO") ? "red" : "gray";
+const matCalifClass = (v) => VERDICT_CLASS[calVerdict(v)];
+const matCalColor = (v) => VERDICT_COLOR[calVerdict(v)];
 
 function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved }) {
   const hoy = new Date().toISOString().split("T")[0];
@@ -685,7 +701,7 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
                   <th key={i} className="px-1.5 py-1.5 text-gray-600 font-medium text-center border-l border-gray-800" style={{ minWidth: 84 }}>
                     <div className="text-[10px] text-blue-300 mb-1">{plantilla.equipoLabel} N°{i + 1}</div>
                     <div className="flex items-center gap-1">
-                      <input value={eq[ek] || ""} onChange={e => setEquipo(i, e.target.value)} placeholder="Código"
+                      <input value={eq[ek] || ""} onChange={e => setEquipo(i, e.target.value)} placeholder={plantilla.equipoCampo?.label || "Código"}
                         className="w-full bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[10px] text-gray-200 text-center focus:outline-none focus:border-blue-500" />
                       {equipos.length > 1 && (
                         <button onClick={() => delEquipo(i)} className="text-red-500/40 hover:text-red-400 shrink-0" title="Quitar"><Trash2 size={11} /></button>
@@ -708,7 +724,10 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
                   return (
                     <tr key={it.c} className="border-b border-gray-800/40 hover:bg-gray-800/20">
                       <td className="px-2 py-1.5 text-gray-500 sticky left-0 bg-gray-900">{it.c}</td>
-                      <td className="px-2 py-1.5 text-gray-300 sticky left-10 bg-gray-900">{it.n}</td>
+                      <td className="px-2 py-1.5 text-gray-300 sticky left-10 bg-gray-900">
+                        {it.n}
+                        {it.desc && <div className="text-[10px] text-gray-500 font-normal mt-0.5 leading-tight" style={{ maxWidth: 240 }}>{it.desc}</div>}
+                      </td>
                       {extra && <td className="px-2 py-1.5 text-gray-500 text-center">{row.cantidad ?? it.cantidad ?? ""}</td>}
                       {Array.from({ length: nCols }).map((_, eq) => (
                         <td key={eq} className="px-1 py-1 border-l border-gray-800/40">
@@ -962,7 +981,7 @@ function DetalleModal({ registro, plantilla, onClose }) {
                           return (
                             <tr key={it.c} className="border-b border-gray-800/40">
                               <td className="px-2 py-1.5 text-gray-500">{it.c}</td>
-                              <td className="px-2 py-1.5 text-gray-300">{it.n}</td>
+                              <td className="px-2 py-1.5 text-gray-300">{it.n}{it.desc && <span className="block text-[10px] text-gray-500">{it.desc}</span>}</td>
                               {extra && <td className="px-2 py-1.5 text-gray-500 text-center">{row.cantidad ?? it.cantidad ?? ""}</td>}
                               {Array.from({ length: nCols }).map((_, eq) => (
                                 <td key={eq} className="px-2 py-1.5 text-center border-l border-gray-800/40">
@@ -1332,7 +1351,7 @@ function pdfMatriz(doc, plantilla, registro, W, M, y) {
     g.items.forEach(it => {
       const r = byCodigo[it.c] || { vals: {} };
       body.push([
-        it.c, it.n,
+        it.c, it.desc ? `${it.n}\n${it.desc}` : it.n,
         ...(extra ? [r.cantidad ?? it.cantidad ?? ""] : []),
         ...Array.from({ length: nCols }, (_, eq) => (r.vals?.[eq] || "")),
       ]);
@@ -1350,10 +1369,8 @@ function pdfMatriz(doc, plantilla, registro, W, M, y) {
     columnStyles: { 0: { cellWidth: 10, halign: "center" }, 1: { cellWidth: extra ? 62 : 78, halign: "left" }, ...(extra ? { 2: { cellWidth: 14, halign: "center" } } : {}), ...dataColStyles },
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index >= dataCol0) {
-        const v = data.cell.raw;
-        if (v === "M" || v === "NO") { data.cell.styles.fillColor = [254, 226, 226]; data.cell.styles.textColor = [185, 28, 28]; }
-        else if (v === "B" || v === "SI") { data.cell.styles.fillColor = [220, 252, 231]; data.cell.styles.textColor = [22, 101, 52]; }
-        else if (v === "NA") { data.cell.styles.fillColor = [241, 245, 249]; data.cell.styles.textColor = [100, 116, 139]; }
+        const c = verdictPdfFill(data.cell.raw);
+        if (c) { data.cell.styles.fillColor = c.fill; data.cell.styles.textColor = c.text; }
       }
     },
     margin: { left: M, right: M },
@@ -1396,10 +1413,8 @@ function pdfSecciones(doc, plantilla, registro, W, M, y) {
     },
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index === 2) {
-        const v = data.cell.raw;
-        if (v === "M" || v === "NO") { data.cell.styles.fillColor = [254, 226, 226]; data.cell.styles.textColor = [185, 28, 28]; }
-        else if (v === "R") { data.cell.styles.fillColor = [254, 243, 199]; data.cell.styles.textColor = [146, 64, 14]; }
-        else if (v === "B" || v === "SI") { data.cell.styles.fillColor = [220, 252, 231]; data.cell.styles.textColor = [22, 101, 52]; }
+        const c = verdictPdfFill(data.cell.raw);
+        if (c) { data.cell.styles.fillColor = c.fill; data.cell.styles.textColor = c.text; }
       }
     },
     margin: { left: M, right: M },
