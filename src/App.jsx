@@ -30,6 +30,7 @@ import PublicRacForm from "./modulos/ssoma/PublicRacForm.jsx";
 import IpercModulo from "./modulos/ssoma/IpercModulo.jsx";
 import InspeccionesModulo from "./modulos/ssoma/InspeccionesModulo.jsx";
 import InversionSST from "./modulos/ssoma/InversionSST.jsx";
+import IndicadoresComind from "./modulos/ssoma/IndicadoresComind.jsx";
 import ATSPetarModulo from "./modulos/ssoma/AtsPetarModulo.jsx";
 import ReportesSSOMAModulo from "./modulos/ssoma/ReportesSSOMA.jsx";
 import ContratistasModulo from "./modulos/ssoma/ContratistasModulo.jsx";
@@ -167,7 +168,11 @@ export default function App() {
   const esHydroGlobal = empresa?.nombre?.toLowerCase().includes("hydro") || false;
   const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria") || false;
   // Módulos ocultos por empresa
-  const moduloOculto = (id) => esComindustria && ["ats"].includes(id);
+  const moduloOculto = (id) => {
+    if (esComindustria && ["ats"].includes(id)) return true;
+    if (!esComindustria && ["indicadores"].includes(id)) return true; // solo Comindustria
+    return false;
+  };
 
   const pageTitles = {
     home: "Inicio",
@@ -465,6 +470,7 @@ export default function App() {
           {page === "plan_so" && esMultisel && <PlanSOModulo empresaId={empresaId} />}
           {page === "contratistas" && <ContratistasModulo empresaId={empresaId} />}
           {page === "inversion" && <InversionSST empresaId={empresaId} />}
+          {page === "indicadores" && esComindustria && <IndicadoresComind empresaId={empresaId} />}
           {page === "hallazgos_hgp" && esHydroGlobal && <HallazgosHGP empresaId={empresaId} />}
         </main>
       </div>

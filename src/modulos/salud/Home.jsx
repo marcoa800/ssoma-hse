@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BookOpen, FileText, BarChart2, Stethoscope,
   AlertTriangle, CheckCircle, Plus, Download, ChevronRight, Lock, FileDown,
   ClipboardList, ShieldAlert, Shield, Activity, Home, HeartPulse,
-  Microscope, Settings, Building2, DollarSign
+  Microscope, Settings, Building2, DollarSign, TrendingUp
 } from 'lucide-react';
 
 export default function HomeModulo({ profile, role, platform, setPlatform, navigate, setPage, empresa }) {
@@ -17,7 +17,11 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
   const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria") || false;
   const HYDRO_SALUD_PERMITIDOS = new Set(["dashboard", "directorio", "capacitaciones", "documentos", "accidentes", "epps", "monitoreo", "reportes"]);
   const hydroBloqueado = (id) => esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
-  const moduloOcultoHome = (id) => esComindustria && ["ats"].includes(id);
+  const moduloOcultoHome = (id) => {
+    if (esComindustria && ["ats"].includes(id)) return true;
+    if (!esComindustria && ["indicadores"].includes(id)) return true;
+    return false;
+  };
 
   const SALUD_CARDS = [
     { id: "dashboard",       label: "Dashboard General",         desc: "Métricas y KPIs en tiempo real",          Icon: LayoutDashboard, color: "blue" },
@@ -49,6 +53,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     { id: "monitoreo",        label: "Monitoreo",           desc: "Monitoreo de agentes físicos",        Icon: Activity,        color: "cyan" },
     { id: "contratistas",     label: "Contratistas",        desc: "Gestión de empresas contratistas",    Icon: Building2,       color: "amber" },
     { id: "inversion",        label: "Inversión SST",       desc: "Costos de seguridad y plan vs real",  Icon: DollarSign,      color: "emerald" },
+    { id: "indicadores",      label: "Indicadores SST",     desc: "IF, IG, IA — estadística de accidentabilidad", Icon: TrendingUp, color: "blue" },
     { id: "reportes_ssoma",   label: "Reportes PDF",        desc: "Generación de informes SSOMA",        Icon: FileDown,        color: "gray" },
     ...(esHydroGlobal ? [{ id: "hallazgos_hgp", label: "Reporte de Hallazgos", desc: "Seguimiento de hallazgos FR-039", Icon: AlertTriangle, color: "orange" }] : []),
   ];
