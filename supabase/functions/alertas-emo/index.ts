@@ -8,8 +8,8 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ── Config de email ──────────────────────────────────────────────────
-// Destinatario: solo el Gmail del Dr. Marco (sin dominio verificado)
-// Cuando medicloud.pe esté verificado en Resend, agregar "fsalaman@comindustria.pe"
+// TEMPORAL: solo Gmail hasta verificar medicloud.pe
+// Cuando esté verificado cambiar a: ["medico.ocupacional@comindustria.pe", "fsalaman@comindustria.pe"]
 const TO = ["marcoa800.mm@gmail.com"];
 
 // FROM temporal: onboarding@resend.dev no requiere dominio verificado
