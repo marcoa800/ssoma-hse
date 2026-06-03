@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { excelDateToISO } from '../../lib/helpers.js';
+import { excelDateToISO, fmtFecha} from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
@@ -224,7 +224,7 @@ function DetalleGastos({ empresaId }) {
             {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
             {!loading && filtered.map(r => (
               <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                <td className="px-4 py-3 font-mono text-xs text-gray-400 whitespace-nowrap">{r.fecha}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-400 whitespace-nowrap">{fmtFecha(r.fecha)}</td>
                 <td className="px-4 py-3 text-xs text-gray-400">{r.proyecto || "—"}</td>
                 <td className="px-4 py-3"><Badge color="blue">{r.categoria || "—"}</Badge></td>
                 <td className="px-4 py-3 text-xs text-gray-300 max-w-[260px]">{r.descripcion || "—"}</td>

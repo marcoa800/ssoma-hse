@@ -1,4 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
+import { fmtFecha } from '../../lib/helpers.js';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabase.js';
@@ -198,7 +199,7 @@ export default function InspeccionesHGP({ empresaId }) {
               const nc = contarNC(r);
               return (
                 <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{fmtFecha(r.fecha)}</td>
                   <td className="px-4 py-3 text-xs text-gray-300 font-medium">{r.plantilla_nombre}</td>
                   <td className="px-4 py-3 text-xs text-gray-400">{r.area || "—"}</td>
                   <td className="px-4 py-3 text-xs text-gray-500">{r.inspector || "—"}</td>
@@ -923,7 +924,7 @@ function FormularioEvento({ empresaId, plantilla, registro, onCancel, onSaved })
 function DetalleModal({ registro, plantilla, onClose }) {
   const filas = Array.isArray(registro.filas) ? registro.filas : [];
   return (
-    <Modal title={`${registro.plantilla_nombre} — ${registro.fecha}`} onClose={onClose} wide>
+    <Modal title={`${registro.plantilla_nombre} — ${fmtFecha(registro.fecha)}`} onClose={onClose} wide>
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="text-xs text-gray-400">

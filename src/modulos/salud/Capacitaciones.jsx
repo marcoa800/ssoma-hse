@@ -6,7 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia, excelDateToISO } from '../../lib/helpers.js';
+import { calcularEdad, calcularVigencia, excelDateToISO, fmtFecha} from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { ProgressBar } from '../../components/ui/ProgressBar.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
@@ -75,7 +75,7 @@ export default function Capacitaciones({ workers, trainings, setTrainings, empre
       <div>
         <div className="flex items-center gap-3 mb-5">
           <Btn size="sm" onClick={() => setDetail(null)}><ChevronLeft size={13} /> Volver</Btn>
-          <div><div className="text-sm font-semibold text-white">{t.nombre}</div><div className="text-xs text-gray-600">Fecha: {t.fecha} · {presentCount}/{active.length} presentes</div></div>
+          <div><div className="text-sm font-semibold text-white">{t.nombre}</div><div className="text-xs text-gray-600">Fecha: {fmtFecha(t.fecha)} · {presentCount}/{active.length} presentes</div></div>
           <div className="ml-auto flex gap-2">
             <label className="cursor-pointer"><span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white transition-all cursor-pointer"><Upload size={13} /> Importar CSV</span><input type="file" accept=".csv" className="hidden" onChange={e => importAttendanceCSV(e, detail)} /></label>
             <Btn size="sm" onClick={() => exportAttendance(t)}><Download size={13} /> Exportar</Btn>
@@ -105,7 +105,7 @@ export default function Capacitaciones({ workers, trainings, setTrainings, empre
       <div className="space-y-2">
         {trainings.map(t => { const pct = t.programados > 0 ? Math.round(((t.asistencia_count || 0) / t.programados) * 100) : 0; return (
           <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 flex items-center gap-4">
-            <div className="flex-1 min-w-0"><div className="font-medium text-white text-sm">{t.nombre}</div><div className="text-xs text-gray-600 mt-0.5">{t.fecha}</div></div>
+            <div className="flex-1 min-w-0"><div className="font-medium text-white text-sm">{t.nombre}</div><div className="text-xs text-gray-600 mt-0.5">{fmtFecha(t.fecha)}</div></div>
             <div className="flex items-center gap-3 w-48"><div className="flex-1"><ProgressBar value={pct} color={pct >= 80 ? "emerald" : pct >= 40 ? "amber" : "red"} /></div><span className="text-xs text-gray-500 whitespace-nowrap">{t.asistencia_count || 0}/{t.programados} ({pct}%)</span></div>
             <Btn size="sm" onClick={() => setDetail(t.id)}>Ver detalle <ChevronRight size={12} /></Btn>
             <Btn size="sm" variant="danger" disabled={isDeleting === t.id} onClick={() => deleteTraining(t.id)}><Trash2 size={12} /></Btn>

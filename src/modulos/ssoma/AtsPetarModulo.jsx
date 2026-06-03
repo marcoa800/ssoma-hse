@@ -5,7 +5,7 @@ import autoTable from 'jspdf-autotable';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia } from '../../lib/helpers.js';
+import { calcularEdad, calcularVigencia, fmtFecha} from '../../lib/helpers.js';
 import { TRIAJE_CATS, CATEGORIAS_RIESGO, DETALLES_ESPECIFICOS, NIVEL_RIESGO_DESC } from '../../constants/triaje.js';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
@@ -187,7 +187,7 @@ export default function ATSPetarModulo({ empresaId }) {
                   <td className="px-4 py-3 text-gray-400 text-xs">{d.area}{d.ubicacion ? <span className="text-gray-600"> · {d.ubicacion}</span> : ""}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{d.supervisor || "—"}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{d.responsable_ssoma || "—"}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs font-mono">{d.fecha}{d.hora_inicio ? <div className="text-gray-600">{d.hora_inicio}{d.hora_fin ? ` → ${d.hora_fin}` : ""}</div> : null}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs font-mono">{fmtFecha(d.fecha)}{d.hora_inicio ? <div className="text-gray-600">{d.hora_inicio}{d.hora_fin ? ` → ${d.hora_fin}` : ""}</div> : null}</td>
                   <td className="px-4 py-3"><Badge color={ATS_ESTADO_COLOR[d.estado] || "gray"}>{d.estado}</Badge></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-end">
@@ -286,7 +286,7 @@ export default function ATSPetarModulo({ empresaId }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Área / Ubicación</div><div className="text-gray-300 font-medium">{selected.area}</div>{selected.ubicacion && <div className="text-gray-500 text-xs">{selected.ubicacion}</div>}</div>
               <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Estado</div><Badge color={ATS_ESTADO_COLOR[selected.estado] || "gray"}>{selected.estado}</Badge></div>
-              <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Fecha y horario</div><div className="text-gray-300">{selected.fecha}</div>{selected.hora_inicio && <div className="text-gray-500 text-xs">{selected.hora_inicio}{selected.hora_fin ? ` → ${selected.hora_fin}` : ""}</div>}</div>
+              <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Fecha y horario</div><div className="text-gray-300">{fmtFecha(selected.fecha)}</div>{selected.hora_inicio && <div className="text-gray-500 text-xs">{selected.hora_inicio}{selected.hora_fin ? ` → ${selected.hora_fin}` : ""}</div>}</div>
               <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Supervisor</div><div className="text-gray-300">{selected.supervisor || "—"}</div><div className="text-gray-500 text-xs">SSOMA: {selected.responsable_ssoma || "—"}</div></div>
             </div>
             {selected.descripcion && (

@@ -6,7 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia, excelDateToISO } from '../../lib/helpers.js';
+import { calcularEdad, calcularVigencia, excelDateToISO, fmtFecha} from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { ProgressBar } from '../../components/ui/ProgressBar.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
@@ -990,7 +990,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
                     </div>
                     <div className="text-xs text-gray-500 mb-2 truncate">
                       {r.macroproceso && <span>{r.macroproceso}{r.subproceso ? ` › ${r.subproceso}` : ""} · </span>}
-                      {r.fecha} {r.evaluador && `· ${r.evaluador}`}
+                      {fmtFecha(r.fecha)} {r.evaluador && `· ${r.evaluador}`}
                     </div>
                     <div className="flex gap-4 text-xs text-gray-600">
                       <span>👥 {(r.num_varones || 0) + (r.num_mujeres || 0)} trabajadores</span>

@@ -117,6 +117,17 @@ export function calcularVigencia(ultimaEmo, duracion) {
   return fecha.toISOString().split("T")[0];
 }
 
+// Formatea una fecha ISO (YYYY-MM-DD) a DD/MM/AA para mostrar en la UI.
+// Acepta null/undefined → retorna "—".
+export function fmtFecha(val) {
+  if (!val) return "—";
+  const s = String(val).trim();
+  // YYYY-MM-DD
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1].slice(2)}`;
+  return s; // si ya está en otro formato, lo devuelve tal cual
+}
+
 export function excelDateToISO(val) {
   if (!val) return null;
   if (typeof val === "string" && val.includes("-")) return val;

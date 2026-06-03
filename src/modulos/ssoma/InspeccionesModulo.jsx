@@ -5,7 +5,7 @@ import autoTable from 'jspdf-autotable';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia } from '../../lib/helpers.js';
+import { calcularEdad, calcularVigencia, fmtFecha} from '../../lib/helpers.js';
 import { TRIAJE_CATS, CATEGORIAS_RIESGO, DETALLES_ESPECIFICOS, NIVEL_RIESGO_DESC } from '../../constants/triaje.js';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
@@ -164,7 +164,7 @@ function InspeccionesGenerico({ empresaId }) {
               const hs = hallazgosDe(i); const abiertos = hs.filter(h=>h.estado!=="Cerrado").length;
               return (
                 <tr key={i.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{i.fecha}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{fmtFecha(i.fecha)}</td>
                   <td className="px-4 py-3 text-xs text-gray-400">{i.tipo}</td>
                   <td className="px-4 py-3 text-xs text-gray-200 font-medium">{i.area}</td>
                   <td className="px-4 py-3 text-xs text-gray-500">{i.inspector||"—"}</td>
@@ -221,7 +221,7 @@ function InspeccionesGenerico({ empresaId }) {
 
       {/* Modal — Detalle + hallazgos */}
       {showDetailModal && selectedInsp && (
-        <Modal title={`Hallazgos — ${selectedInsp.area} (${selectedInsp.fecha})`} onClose={()=>setShowDetailModal(false)} wide>
+        <Modal title={`Hallazgos — ${selectedInsp.area} (${fmtFecha(selectedInsp.fecha)})`} onClose={()=>setShowDetailModal(false)} wide>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">

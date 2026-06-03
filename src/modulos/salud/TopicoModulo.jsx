@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { fmtFecha } from '../../lib/helpers.js';
 import { HumanBody } from 'react-body-medic';
 import * as XLSX from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
@@ -528,7 +529,7 @@ export default function TopicoModulo({ empresaId }) {
             </div>
             {/* Info del paciente */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-800/40 rounded-xl p-3 text-xs">
-              <div><p className="text-gray-600 mb-0.5">Fecha</p><p className="text-gray-200 font-mono">{selected.fecha || "—"} {selected.hora || ""}</p></div>
+              <div><p className="text-gray-600 mb-0.5">Fecha</p><p className="text-gray-200 font-mono">{fmtFecha(selected.fecha)} {selected.hora || ""}</p></div>
               <div><p className="text-gray-600 mb-0.5">DNI</p><p className="text-gray-200 font-mono">{selected.dni || "—"}</p></div>
               <div><p className="text-gray-600 mb-0.5">Edad / Sexo</p><p className="text-gray-200">{selected.edad || "—"} años · {selected.sexo || "—"}</p></div>
               <div><p className="text-gray-600 mb-0.5">Cargo</p><p className="text-gray-200">{selected.cargo || "—"}</p></div>
@@ -763,7 +764,7 @@ export default function TopicoModulo({ empresaId }) {
                           <div className="font-medium text-gray-200 text-sm">{r.nombre_paciente}</div>
                           <div className="text-xs text-gray-600">{r.cargo || "—"} · {r.empresa_paciente || "—"}</div>
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-500 font-mono whitespace-nowrap">{r.fecha}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500 font-mono whitespace-nowrap">{fmtFecha(r.fecha)}</td>
                         <td className="px-4 py-3"><Badge color={r.tipo_atencion === "Nueva" ? "blue" : "amber"}>{r.tipo_atencion}</Badge></td>
                         <td className="px-4 py-3 text-xs text-gray-400 max-w-[180px] truncate">{r.diagnostico1 || "—"}</td>
                         <td className="px-4 py-3">
@@ -810,7 +811,7 @@ export default function TopicoModulo({ empresaId }) {
                     {filtered.slice(0, 200).map(r => (
                       <tr key={r.id} onClick={() => setSelected(r)}
                         className={`border-b border-gray-800/50 hover:bg-gray-800/30 cursor-pointer transition-colors ${r.caracteristica === "ACCIDENTE LABORAL" ? "border-l-2 border-red-600" : ""}`}>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{r.fecha}<br/><span className="text-gray-700">{r.hora}</span></td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{fmtFecha(r.fecha)}<br/><span className="text-gray-700">{r.hora}</span></td>
                         <td className="px-4 py-3">
                           <div className="text-gray-200 font-medium text-sm">{r.nombre_paciente}</div>
                           <div className="text-xs text-gray-600">{r.dni} · {r.sexo}{r.edad ? ` · ${r.edad}a` : ""}</div>

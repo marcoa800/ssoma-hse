@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fmtFecha } from '../../lib/helpers.js';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabase.js';
@@ -103,7 +104,7 @@ export default function RegistrosLegalesHGP({ empresaId, onBack }) {
             {loading && <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
             {!loading && registros.map(r => (
               <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500">{fmtFecha(r.fecha)}</td>
                 <td className="px-4 py-3 text-xs text-gray-300 font-medium">{r.plantilla_nombre}</td>
                 <td className="px-4 py-3 text-xs text-gray-400">{r.referencia || "—"}</td>
                 <td className="px-4 py-3"><div className="flex gap-1.5">
@@ -311,7 +312,7 @@ function FichaForm({ empresaId, plantilla, registro, onCancel, onSaved }) {
 function DetalleLegal({ registro, plantilla, onClose }) {
   const d = registro.datos || {};
   return (
-    <Modal title={`${registro.plantilla_nombre} — ${registro.fecha}`} onClose={onClose} wide>
+    <Modal title={`${registro.plantilla_nombre} — ${fmtFecha(registro.fecha)}`} onClose={onClose} wide>
       <div className="space-y-4">
         <div className="flex justify-end">
           <Btn size="sm" variant="primary" onClick={() => generarPDFLegal(registro, plantilla)}><FileDown size={13} /> Descargar PDF</Btn>

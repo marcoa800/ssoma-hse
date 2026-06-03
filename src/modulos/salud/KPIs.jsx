@@ -6,7 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia, excelDateToISO } from '../../lib/helpers.js';
+import { calcularEdad, calcularVigencia, excelDateToISO, fmtFecha} from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { ProgressBar } from '../../components/ui/ProgressBar.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
@@ -72,7 +72,7 @@ export default function KPIs({ kpis, setKpis, empresaId }) {
             <div className="text-xs text-gray-500 mb-1 pr-4">{k.nombre}</div>
             <div className={`text-2xl font-semibold ${ok ? "text-emerald-400" : "text-red-400"}`}>{val}{k.unidad}</div>
             <div className="text-xs text-gray-600 mt-0.5">Meta: {k.meta}{k.unidad}</div>
-            {k.mes && <div className="text-xs text-gray-700 mt-0.5">{k.mes}{k.fecha ? ` · ${k.fecha}` : ""}</div>}
+            {k.mes && <div className="text-xs text-gray-700 mt-0.5">{k.mes}{k.fecha ? ` · ${fmtFecha(k.fecha)}` : ""}</div>}
             <div className="mt-2"><ProgressBar value={k.meta > 0 ? Math.min(Math.round((val / k.meta) * 100), 100) : 100} color={ok ? "emerald" : "red"} /></div>
             <div className={`text-xs mt-1.5 font-medium ${ok ? "text-emerald-500" : "text-red-500"}`}>{ok ? "✓ Cumplido" : "✕ No cumplido"}</div>
           </div>

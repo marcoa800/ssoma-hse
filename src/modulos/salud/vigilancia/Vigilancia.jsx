@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fmtFecha } from '../../../lib/helpers.js';
 import { supabase } from '../../../lib/supabase.js';
 import { calcularVigencia } from '../../../lib/helpers.js';
 import { Badge } from '../../../components/ui/Badge.jsx';
@@ -136,10 +137,10 @@ export default function Vigilancia({ workers, empresaId }) {
                   const soonVenc = !isVenc && vigencia && new Date(vigencia) <= in30;
                   return (<tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                     <td className="px-4 py-3 font-medium text-white">{w.nombre}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.ultima_emo || "—"}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{fmtFecha(w.ultima_emo)}</td>
                     <td className="px-4 py-3"><Badge color={w.duracion_emo === "Bianual" ? "purple" : "blue"}>{w.duracion_emo || "Anual"}</Badge></td>
                     <td className={`px-4 py-3 font-mono text-xs font-medium ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-400"}`}>{vigencia || "—"}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{w.lectura_emo || "—"}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{fmtFecha(w.lectura_emo)}</td>
                     <td className="px-4 py-3"><Badge color={isVenc ? "red" : soonVenc ? "amber" : "green"}>{isVenc ? "Vencido" : soonVenc ? "Por vencer" : "Vigente"}</Badge></td>
                     <td className="px-4 py-3"><Badge color={w.aptitud === "Apto" ? "green" : w.aptitud === "Apto con restricción" ? "amber" : "gray"}>{w.aptitud}</Badge></td>
                   </tr>);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fmtFecha } from '../../../lib/helpers.js';
 import { supabase } from '../../../lib/supabase.js';
 import { showToast } from '../../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia } from '../../../lib/helpers.js';
@@ -134,8 +135,8 @@ export default function DescansosMedicosModulo({ workers, empresaId }) {
                   <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                     <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
                     <td className="px-4 py-3 text-gray-300 text-xs">{r.tipo_reposo}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-400">{r.fecha_inicio}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-400">{r.fecha_fin}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-400">{fmtFecha(r.fecha_inicio)}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-400">{fmtFecha(r.fecha_fin)}</td>
                     <td className="px-4 py-3 text-center text-gray-300 font-mono text-xs">{diasDescanso(r)}</td>
                     <td className="px-4 py-3 text-gray-400 text-xs">{r.diagnostico}{r.cie10 ? <span className="ml-1 text-gray-600">({r.cie10})</span> : ""}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{r.centro_medico || "—"}</td>

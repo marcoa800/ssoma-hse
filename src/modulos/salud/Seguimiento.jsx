@@ -6,7 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia, excelDateToISO } from '../../lib/helpers.js';
+import { calcularEdad, calcularVigencia, excelDateToISO, fmtFecha} from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { ProgressBar } from '../../components/ui/ProgressBar.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
@@ -176,7 +176,7 @@ export default function SeguimientoModulo({ workers, empresaId }) {
                     <div className="text-gray-600 text-[10px]">{r.trabajadores?.cargo || ""}</div>
                   </td>
                   <td className="px-4 py-3"><Badge color={r.tipo_caso.includes("Accidente") ? "red" : r.tipo_caso.includes("Enf") ? "amber" : "purple"}>{r.tipo_caso}</Badge></td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_inicio}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{fmtFecha(r.fecha_inicio)}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs max-w-[140px] truncate">{r.diagnostico_presuntivo || "—"}</td>
                   <td className="px-4 py-3"><Badge color={prioColor(r.prioridad)}>{r.prioridad}</Badge></td>
                   <td className="px-4 py-3"><Badge color={estadoColor(r.estado)}>{r.estado}</Badge></td>

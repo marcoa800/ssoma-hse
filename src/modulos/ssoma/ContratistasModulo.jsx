@@ -5,7 +5,7 @@ import autoTable from 'jspdf-autotable';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia } from '../../lib/helpers.js';
+import { calcularEdad, calcularVigencia, fmtFecha} from '../../lib/helpers.js';
 import { TRIAJE_CATS, CATEGORIAS_RIESGO, DETALLES_ESPECIFICOS } from '../../constants/triaje.js';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
@@ -429,7 +429,7 @@ export default function ContratistasModulo({ empresaId }) {
                           {p.fecha_emo ? (
                             <div>
                               <div className="text-[10px] text-gray-500">{p.tipo_emo||"—"}</div>
-                              <div className="text-[10px] font-mono text-gray-400">{p.fecha_emo}</div>
+                              <div className="text-[10px] font-mono text-gray-400">{fmtFecha(p.fecha_emo)}</div>
                               {p.clinica_ocupacional && <div className="text-[10px] text-gray-600 truncate max-w-[90px]">{p.clinica_ocupacional}</div>}
                             </div>
                           ) : <span className="text-[10px] text-red-600">Pendiente</span>}
@@ -494,8 +494,8 @@ export default function ContratistasModulo({ empresaId }) {
                         </div>
                         <p className="text-sm text-white font-medium mb-1.5">{t.descripcion}</p>
                         <div className="flex flex-wrap gap-4 text-xs text-gray-500">
-                          {t.fecha_inicio && <span>🗓 Inicio: <span className="font-mono text-gray-400">{t.fecha_inicio}</span></span>}
-                          {t.fecha_fin && <span>🏁 Fin: <span className="font-mono text-gray-400">{t.fecha_fin}</span></span>}
+                          {t.fecha_inicio && <span>🗓 Inicio: <span className="font-mono text-gray-400">{fmtFecha(t.fecha_inicio)}</span></span>}
+                          {t.fecha_fin && <span>🏁 Fin: <span className="font-mono text-gray-400">{fmtFecha(t.fecha_fin)}</span></span>}
                           {t.responsable_obra && <span>👤 <span className="text-gray-400">{t.responsable_obra}</span></span>}
                         </div>
                         {asignados.length > 0 && (

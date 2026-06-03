@@ -6,7 +6,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia, excelDateToISO } from '../../lib/helpers.js';
+import { calcularEdad, calcularVigencia, excelDateToISO, fmtFecha} from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { ProgressBar } from '../../components/ui/ProgressBar.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
@@ -220,9 +220,9 @@ export default function Dashboard({ workers, trainings }) {
                   {w.nombre} <span className="text-gray-500 font-mono text-xs">({w.dni})</span>
                 </span>
                 <Badge color="gray">{w.cargo || "—"}</Badge>
-                <span className="text-amber-300 text-xs whitespace-nowrap">EMO: {w.ultima_emo}</span>
+                <span className="text-amber-300 text-xs whitespace-nowrap">EMO: {fmtFecha(w.ultima_emo)}</span>
                 {w.lectura_emo
-                  ? <Badge color="amber">Lectura anterior: {w.lectura_emo}</Badge>
+                  ? <Badge color="amber">Lectura anterior: {fmtFecha(w.lectura_emo)}</Badge>
                   : <Badge color="red">Sin lectura</Badge>
                 }
               </div>
@@ -252,7 +252,7 @@ export default function Dashboard({ workers, trainings }) {
                   <div key={x.w.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-amber-900/15 border border-amber-900/40 text-sm">
                     <span className="text-white font-medium flex-1 min-w-0 truncate">{x.w.nombre} <span className="text-gray-500 font-mono text-xs">({x.w.dni})</span></span>
                     <Badge color="gray">{x.w.cargo || "—"}</Badge>
-                    <span className="text-amber-300 text-xs whitespace-nowrap hidden sm:inline">Vence {x.vence}</span>
+                    <span className="text-amber-300 text-xs whitespace-nowrap hidden sm:inline">Vence {fmtFecha(x.vence)}</span>
                     <Badge color={x.dias <= 7 ? "red" : "amber"}>{x.dias} día{x.dias === 1 ? "" : "s"}</Badge>
                   </div>
                 ))}
@@ -269,7 +269,7 @@ export default function Dashboard({ workers, trainings }) {
                     <AlertTriangle size={14} className="text-red-400 shrink-0" />
                     <span className="text-white font-medium flex-1 min-w-0 truncate">{x.w.nombre} <span className="text-gray-500 font-mono text-xs">({x.w.dni})</span></span>
                     <Badge color="gray">{x.w.cargo || "—"}</Badge>
-                    <span className="text-red-400 text-xs whitespace-nowrap hidden sm:inline">Venció {x.vence}</span>
+                    <span className="text-red-400 text-xs whitespace-nowrap hidden sm:inline">Venció {fmtFecha(x.vence)}</span>
                     <Badge color="red">{Math.abs(x.dias)} día{Math.abs(x.dias) === 1 ? "" : "s"}</Badge>
                   </div>
                 ))}
