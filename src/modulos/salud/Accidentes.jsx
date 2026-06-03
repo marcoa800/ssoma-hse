@@ -200,7 +200,9 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
               <FormField label="Trabajador involucrado">
                 <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
                   <option value="">No especificado / Colectivo</option>
-                  {workers.map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+                  {workers.filter(w => w.estado !== "Cesado").sort((a,b) => a.nombre.localeCompare(b.nombre,"es")).map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+                  {workers.some(w => w.estado === "Cesado") && <option disabled>── Cesados ──</option>}
+                  {workers.filter(w => w.estado === "Cesado").sort((a,b) => a.nombre.localeCompare(b.nombre,"es")).map(w => <option key={w.id} value={w.id}>{w.nombre} (Cesado)</option>)}
                 </Select>
               </FormField>
               <FormField label="Fecha del evento *"><Input type="date" value={form.fecha_evento} onChange={e => setForm(f => ({ ...f, fecha_evento: e.target.value }))} /></FormField>

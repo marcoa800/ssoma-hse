@@ -181,7 +181,9 @@ export default function EppModulo({ workers, empresaId }) {
               <FormField label="Trabajador *">
                 <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
                   <option value="">Seleccionar trabajador...</option>
-                  {workers.map(w => <option key={w.id} value={w.id}>{w.nombre}{w.cargo ? ` — ${w.cargo}` : ""}</option>)}
+                  {workers.filter(w => w.estado !== "Cesado").sort((a,b) => a.nombre.localeCompare(b.nombre,"es")).map(w => <option key={w.id} value={w.id}>{w.nombre}{w.cargo ? ` — ${w.cargo}` : ""}</option>)}
+                  {workers.some(w => w.estado === "Cesado") && <option disabled>── Cesados ──</option>}
+                  {workers.filter(w => w.estado === "Cesado").sort((a,b) => a.nombre.localeCompare(b.nombre,"es")).map(w => <option key={w.id} value={w.id}>{w.nombre} (Cesado){w.cargo ? ` — ${w.cargo}` : ""}</option>)}
                 </Select>
               </FormField>
               <FormField label="Tipo de EPP *">

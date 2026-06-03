@@ -426,7 +426,7 @@ export default function App() {
           {page === "home" && <HomeModulo profile={profile} role={role} platform={platform} setPlatform={setPlatform} navigate={navigate} setPage={setPage} empresa={empresa} />}
           {page === "superadmin" && isSuperAdmin && <SuperAdmin />}
           {page === "dashboard" && <Dashboard workers={workers} trainings={trainings} />}
-          {page === "directorio" && <Directorio workers={workers} setWorkers={setWorkers} role={role} empresaId={empresaId} />}
+          {page === "directorio" && <Directorio workers={workers} setWorkers={setWorkers} role={role} empresaId={empresaId} empresa={empresa} />}
           {page === "capacitaciones" && !saludBloqueado("capacitaciones") && <Capacitaciones workers={workers} trainings={trainings} setTrainings={setTrainings} empresaId={empresaId} />}
           {page === "documentos"    && !saludBloqueado("documentos")    && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
           {page === "kpis"          && !saludBloqueado("kpis")          && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}

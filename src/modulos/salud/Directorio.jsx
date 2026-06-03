@@ -27,9 +27,12 @@ import {
   Building2, Phone
 } from 'lucide-react';
 
-export default function Directorio({ workers, setWorkers, role, empresaId }) {
+export default function Directorio({ workers, setWorkers, role, empresaId, empresa }) {
+  const esComindustria = empresa?.nombre?.toLowerCase().includes('comindustria') || false;
+  const [vistaDir, setVistaDir] = useState("activos"); // "activos" | "cesados"
   const [filter, setFilter] = useState({ text: "", estado: "", aptitud: [], cargo: "", epp: "", emo: "", lectura: "" });
   const APTITUDES = ["Apto", "Apto con restricción", "Observado", "No apto", "No evaluado"];
+  const MOTIVOS_CESE = ["Renuncia voluntaria","Término de contrato","Despido","Fallecimiento","Jubilación","Mutuo acuerdo","Otro"];
   const toggleAptitud = (a) => setFilter(f => ({
     ...f, aptitud: f.aptitud.includes(a) ? f.aptitud.filter(x => x !== a) : [...f.aptitud, a]
   }));
@@ -43,9 +46,14 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
   const canEditEmo = role !== "SEGURIDAD";
   const cargos = [...new Set(workers.map(w => w.cargo).filter(Boolean))].sort();
 
+  // Separar activos y cesados
+  const workersActivos = workers.filter(w => w.estado !== "Cesado");
+  const workersCesados = workers.filter(w => w.estado === "Cesado")
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+
   const hoy0 = new Date(new Date().toISOString().split("T")[0] + "T00:00:00");
   const emoDias = (w) => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v ? Math.ceil((new Date(v + "T00:00:00") - hoy0) / 86400000) : null; };
-  const filtered = workers.filter(w => {
+  const filtered = workersActivos.filter(w => {
     const t = filter.text.toLowerCase();
     const d = emoDias(w);
     const emoOk = !filter.emo
@@ -62,7 +70,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
   }).sort((a, b) => sortAZ ? a.nombre.localeCompare(b.nombre, "es") : 0);
 
   const openModal = (worker = null) => {
-    setForm(worker || { nombre: "", dni: "", cargo: "", celular: "", sede: "Lima", estado: "Activo", fecha_nacimiento: "", ultima_emo: "", duracion_emo: "Anual", aptitud: "No evaluado", restriccion_medica: "Ninguna", lectura_emo: "", epp_recibido: false, epp_detalle: "", epp_fecha: "" });
+    setForm(worker || { nombre: "", dni: "", cargo: "", celular: "", sede: "Lima", estado: "Activo", fecha_nacimiento: "", ultima_emo: "", duracion_emo: "Anual", aptitud: "No evaluado", restriccion_medica: "Ninguna", lectura_emo: "", epp_recibido: false, epp_detalle: "", epp_fecha: "", fecha_cese: "", motivo_cese: "" });
     setModal(worker ? "edit" : "new");
   };
 
@@ -71,7 +79,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
     setIsSaving(true);
     const vigencia = calcularVigencia(form.ultima_emo, form.duracion_emo);
     const edad = calcularEdad(form.fecha_nacimiento);
-    const payload = { nombre: form.nombre, dni: form.dni, cargo: form.cargo || "", celular: form.celular || null, sede: "Lima", estado: form.estado || "Activo", fecha_nacimiento: form.fecha_nacimiento || null, edad, ultima_emo: form.ultima_emo || null, duracion_emo: form.duracion_emo || "Anual", vencimiento_emo: vigencia, lectura_emo: form.lectura_emo || null, aptitud: form.aptitud || "No evaluado", restriccion_medica: form.restriccion_medica || "Ninguna", epp_recibido: form.epp_recibido || false, epp_detalle: form.epp_detalle || null, epp_fecha: form.epp_fecha || null, empresa_id: empresaId };
+    const payload = { nombre: form.nombre, dni: form.dni, cargo: form.cargo || "", celular: form.celular || null, sede: "Lima", estado: form.estado || "Activo", fecha_nacimiento: form.fecha_nacimiento || null, edad, ultima_emo: form.ultima_emo || null, duracion_emo: form.duracion_emo || "Anual", vencimiento_emo: vigencia, lectura_emo: form.lectura_emo || null, aptitud: form.aptitud || "No evaluado", restriccion_medica: form.restriccion_medica || "Ninguna", epp_recibido: form.epp_recibido || false, epp_detalle: form.epp_detalle || null, epp_fecha: form.epp_fecha || null, fecha_cese: form.estado === "Cesado" ? (form.fecha_cese || null) : null, motivo_cese: form.estado === "Cesado" ? (form.motivo_cese || null) : null, empresa_id: empresaId };
     if (modal === "edit") {
       const { error } = await supabase.from("trabajadores").update(payload).eq("id", form.id);
       if (error) { showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
@@ -143,8 +151,67 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
   return (
     <div>
       {showGuide && <ImportGuideModal onClose={() => setShowGuide(false)} />}
+
+      {/* Pestañas Activos / Cesados — solo Comindustria */}
+      {esComindustria && (
+        <div className="flex gap-2 mb-4 bg-gray-900/50 border border-gray-800 rounded-xl p-1.5 w-fit">
+          <button onClick={() => setVistaDir("activos")}
+            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${vistaDir === "activos" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-200"}`}>
+            Activos ({workersActivos.length})
+          </button>
+          <button onClick={() => setVistaDir("cesados")}
+            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${vistaDir === "cesados" ? "bg-red-700 text-white" : "text-gray-500 hover:text-gray-200"}`}>
+            Cesados ({workersCesados.length})
+          </button>
+        </div>
+      )}
+
+      {/* ── Vista Cesados (solo Comindustria) ── */}
+      {esComindustria && vistaDir === "cesados" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="text-sm font-semibold text-white">Trabajadores Cesados</div>
+              <div className="text-xs text-gray-600">{workersCesados.length} registro(s)</div>
+            </div>
+            <Btn size="sm" variant="primary" onClick={() => openModal()}><Plus size={13} /> Registrar cesado</Btn>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-gray-800">
+                {["Apellido y Nombre","DNI","Cargo","Fecha de cese","Motivo","Aptitud",""].map(h => (
+                  <th key={h} className="text-left text-xs text-gray-600 font-medium px-3 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {workersCesados.map(w => (
+                  <tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="px-3 py-3 font-medium text-white">{w.nombre}</td>
+                    <td className="px-3 py-3 font-mono text-xs text-gray-500">{w.dni}</td>
+                    <td className="px-3 py-3 text-gray-400">{w.cargo || "—"}</td>
+                    <td className="px-3 py-3 font-mono text-xs text-gray-400">{fmtFecha(w.fecha_cese)}</td>
+                    <td className="px-3 py-3 text-xs text-gray-400">{w.motivo_cese || "—"}</td>
+                    <td className="px-3 py-3"><Badge color={aptitudColor[w.aptitud] || "gray"}>{w.aptitud || "—"}</Badge></td>
+                    <td className="px-3 py-3"><div className="flex gap-1">
+                      <button onClick={() => openModal(w)} className="text-gray-500 hover:text-blue-400"><Pencil size={13} /></button>
+                      <button onClick={() => deleteWorker(w.id)} className="text-red-500/40 hover:text-red-400"><Trash2 size={13} /></button>
+                    </div></td>
+                  </tr>
+                ))}
+                {!workersCesados.length && (
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-600 text-sm">Sin trabajadores cesados registrados.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Vista Activos ── */}
+      {(!esComindustria || vistaDir === "activos") && (
+      <div>
       <div className="flex items-center justify-between mb-4">
-        <div><div className="text-sm font-semibold text-white">Sábana de Personal</div><div className="text-xs text-gray-600">{filtered.length} de {workers.length} trabajadores</div></div>
+        <div><div className="text-sm font-semibold text-white">Sábana de Personal</div><div className="text-xs text-gray-600">{filtered.length} de {workersActivos.length} trabajadores</div></div>
         <div className="flex gap-2 flex-wrap">
           <Btn size="sm" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>
           <label className="cursor-pointer"><span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white transition-all cursor-pointer"><Upload size={13} /> Importar Excel/CSV</span><input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={importCSV} /></label>
@@ -216,6 +283,8 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
         </div>
       </div>
       {!canSeeMedical && <div className="flex items-center gap-2 mt-3 text-xs text-gray-600"><Lock size={12} className="text-red-500" /><span className="px-2 py-0.5 rounded bg-red-900/30 text-red-500 border border-red-900 font-mono text-xs">CONFIDENCIAL</span> Restricciones médicas visibles solo para MEDICO y ADMIN</div>}
+      </div>
+      )}
 
       {modal && (
         <Modal title={modal === "edit" ? "Editar Trabajador" : "Registrar Trabajador"} onClose={() => setModal(null)} wide>
@@ -225,7 +294,21 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
             <FormField label="Celular"><Input value={form.celular || ""} maxLength={12} onChange={e => { const val = e.target.value.replace(/\D/g, ""); setForm(f => ({ ...f, celular: val })); }} placeholder="999888777" /></FormField>
             <FormField label="Puesto / Cargo"><Input value={form.cargo || ""} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))} /></FormField>
             <FormField label="Fecha de Nacimiento"><Input type="date" value={form.fecha_nacimiento || ""} onChange={e => setForm(f => ({ ...f, fecha_nacimiento: e.target.value }))} /></FormField>
-            <FormField label="Estado"><Select value={form.estado || "Activo"} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}><option>Activo</option><option>Vacaciones</option><option>Inactivo</option></Select></FormField>
+            <FormField label="Estado">
+              <Select value={form.estado || "Activo"} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}>
+                <option>Activo</option><option>Vacaciones</option><option>Inactivo</option>
+                {esComindustria && <option>Cesado</option>}
+              </Select>
+            </FormField>
+            {esComindustria && form.estado === "Cesado" && (<>
+              <FormField label="Fecha de cese"><Input type="date" value={form.fecha_cese || ""} onChange={e => setForm(f => ({ ...f, fecha_cese: e.target.value }))} /></FormField>
+              <FormField label="Motivo de cese">
+                <Select value={form.motivo_cese || ""} onChange={e => setForm(f => ({ ...f, motivo_cese: e.target.value }))}>
+                  <option value="">Seleccionar...</option>
+                  {MOTIVOS_CESE.map(m => <option key={m}>{m}</option>)}
+                </Select>
+              </FormField>
+            </>)}
             <FormField label="Sede"><Input value="Lima" disabled className="opacity-50" /></FormField>
           </div>
           <div className="border border-gray-800 rounded-xl p-3 mb-3">
