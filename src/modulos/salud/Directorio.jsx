@@ -28,7 +28,11 @@ import {
 } from 'lucide-react';
 
 export default function Directorio({ workers, setWorkers, role, empresaId }) {
-  const [filter, setFilter] = useState({ text: "", estado: "", aptitud: "", cargo: "", epp: "", emo: "", lectura: "" });
+  const [filter, setFilter] = useState({ text: "", estado: "", aptitud: [], cargo: "", epp: "", emo: "", lectura: "" });
+  const APTITUDES = ["Apto", "Apto con restricción", "Observado", "No apto", "No evaluado"];
+  const toggleAptitud = (a) => setFilter(f => ({
+    ...f, aptitud: f.aptitud.includes(a) ? f.aptitud.filter(x => x !== a) : [...f.aptitud, a]
+  }));
   const [sortAZ, setSortAZ] = useState(false);
   const [modal, setModal] = useState(null);
   const [showGuide, setShowGuide] = useState(false);
@@ -50,7 +54,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
       || (filter.emo === "alerta" && d !== null && d <= 30);
     return (!t || w.nombre.toLowerCase().includes(t) || (w.dni || "").includes(t))
       && (!filter.estado || w.estado === filter.estado)
-      && (!filter.aptitud || w.aptitud === filter.aptitud)
+      && (filter.aptitud.length === 0 || filter.aptitud.includes(w.aptitud))
       && (!filter.cargo || w.cargo === filter.cargo)
       && (!filter.epp || (filter.epp === "si" ? w.epp_recibido : !w.epp_recibido))
       && (!filter.lectura || (filter.lectura === "si" ? !!w.lectura_emo : !w.lectura_emo))
@@ -134,7 +138,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
     showToast("Excel descargado", "success");
   };
 
-  const aptitudColor = { "Apto": "green", "Apto con restricción": "amber", "No apto": "red", "No evaluado": "gray" };
+  const aptitudColor = { "Apto": "green", "Apto con restricción": "amber", "Observado": "blue", "No apto": "red", "No evaluado": "gray" };
 
   return (
     <div>
@@ -155,7 +159,19 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
         <Input placeholder="Buscar nombre o DNI..." value={filter.text} onChange={e => setFilter(f => ({ ...f, text: e.target.value }))} style={{ flex: 1, minWidth: 160 }} />
         <Select value={filter.cargo} onChange={e => setFilter(f => ({ ...f, cargo: e.target.value }))} style={{ width: 180 }}><option value="">Todos los puestos</option>{cargos.map(c => <option key={c}>{c}</option>)}</Select>
         <Select value={filter.estado} onChange={e => setFilter(f => ({ ...f, estado: e.target.value }))} style={{ width: 150 }}><option value="">Todos los estados</option>{["Activo", "Vacaciones", "Inactivo"].map(s => <option key={s}>{s}</option>)}</Select>
-        <Select value={filter.aptitud} onChange={e => setFilter(f => ({ ...f, aptitud: e.target.value }))} style={{ width: 180 }}><option value="">Toda aptitud</option>{["Apto", "Apto con restricción", "No apto", "No evaluado"].map(a => <option key={a}>{a}</option>)}</Select>
+        <div className="flex flex-wrap gap-1 items-center">
+          {APTITUDES.map(a => {
+            const on = filter.aptitud.includes(a);
+            const col = { "Apto": "text-emerald-300 border-emerald-700 bg-emerald-900/40", "Apto con restricción": "text-amber-300 border-amber-700 bg-amber-900/30", "Observado": "text-blue-300 border-blue-700 bg-blue-900/30", "No apto": "text-red-300 border-red-700 bg-red-900/40", "No evaluado": "text-gray-400 border-gray-600 bg-gray-800" }[a];
+            return (
+              <button key={a} onClick={() => toggleAptitud(a)}
+                className={`px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-all ${on ? col : "text-gray-600 border-gray-800 bg-gray-900 hover:border-gray-600 hover:text-gray-400"}`}>
+                {a}
+              </button>
+            );
+          })}
+          {filter.aptitud.length > 0 && <button onClick={() => setFilter(f => ({ ...f, aptitud: [] }))} className="text-[11px] text-blue-400 hover:text-blue-300 ml-1">✕</button>}
+        </div>
         <Select value={filter.epp} onChange={e => setFilter(f => ({ ...f, epp: e.target.value }))} style={{ width: 140 }}><option value="">EPP: Todos</option><option value="si">Con EPP</option><option value="no">Sin EPP</option></Select>
         <Select value={filter.lectura} onChange={e => setFilter(f => ({ ...f, lectura: e.target.value }))} style={{ width: 170 }}><option value="">Lectura EMO: Todos</option><option value="si">Con lectura</option><option value="no">Sin lectura</option></Select>
         <Select value={filter.emo} onChange={e => setFilter(f => ({ ...f, emo: e.target.value }))} style={{ width: 190 }}><option value="">EMO: Todos</option><option value="alerta">⚠ En alerta (≤30d + vencidos)</option><option value="porvencer">Por vencer (≤30 días)</option><option value="vencido">Vencidos</option></Select>
@@ -220,7 +236,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
                 <FormField label="Duración EMO"><Select value={form.duracion_emo || "Anual"} onChange={e => setForm(f => ({ ...f, duracion_emo: e.target.value }))}><option>Anual</option><option>Bianual</option></Select></FormField>
                 <FormField label="Vigente Hasta (automático)"><Input value={calcularVigencia(form.ultima_emo, form.duracion_emo) || "—"} disabled className="opacity-60 bg-gray-700" /></FormField>
                 <FormField label="Lectura de Resultados EMO"><Input type="date" value={form.lectura_emo || ""} onChange={e => setForm(f => ({ ...f, lectura_emo: e.target.value }))} /></FormField>
-                <FormField label="Aptitud Médica"><Select value={form.aptitud || "No evaluado"} onChange={e => setForm(f => ({ ...f, aptitud: e.target.value }))}><option>Apto</option><option>Apto con restricción</option><option>No apto</option><option>No evaluado</option></Select></FormField>
+                <FormField label="Aptitud Médica"><Select value={form.aptitud || "No evaluado"} onChange={e => setForm(f => ({ ...f, aptitud: e.target.value }))}><option>Apto</option><option>Apto con restricción</option><option>Observado</option><option>No apto</option><option>No evaluado</option></Select></FormField>
               </div>
             ) : (
               <div className="px-3 py-2.5 rounded-lg bg-amber-900/20 border border-amber-900/40 text-xs text-amber-400 flex items-center gap-2"><Lock size={12} /> Los campos de EMO solo pueden editarlos MEDICO o ADMIN</div>
