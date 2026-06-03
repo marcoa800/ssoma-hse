@@ -15,6 +15,7 @@
 // ════════════════════════════════════════════════════════════════════
 
 import { PLANTILLAS_LOTE2, CATALOGO_LOTE2 } from './inspecciones-lote2-hgp.js';
+import { PLANTILLAS_COMIND } from './inspecciones-comind.js';
 import { PLANTILLAS_LOTE3, CATALOGO_LOTE3 } from './inspecciones-lote3-hgp.js';
 import { PLANTILLAS_LOTE4, CATALOGO_LOTE4 } from './inspecciones-lote4-hgp.js';
 
@@ -403,6 +404,7 @@ export const PLANTILLAS_HGP = {
   ...PLANTILLAS_LOTE2,
   ...PLANTILLAS_LOTE3,
   ...PLANTILLAS_LOTE4,
+  ...PLANTILLAS_COMIND,
 };
 
 // Lista para el catálogo (orden de aparición)

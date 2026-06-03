@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 
 import InspeccionesHGP from './InspeccionesHGP.jsx';
+import InspeccionesComind from './InspeccionesComind.jsx';
 
 const TIPOS_INSPECCION = ["Planeada","No planeada","Gerencial","Orden y limpieza","Equipos y herramientas","Instalaciones eléctricas","EPPs","Otro"];
 const RESULTADO_COLOR = { Satisfactorio:"green", "Con observaciones":"amber", Insatisfactorio:"red" };
@@ -32,7 +33,9 @@ const RESULTADO_COLOR = { Satisfactorio:"green", "Con observaciones":"amber", In
 export default function InspeccionesModulo({ empresaId, empresa }) {
   // Hydro Global usa el motor de inspecciones basado en formatos oficiales (FR-0XX)
   const esHydroGlobal = empresa?.nombre?.toLowerCase().includes("hydro") || false;
+  const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria") || false;
   if (esHydroGlobal) return <InspeccionesHGP empresaId={empresaId} />;
+  if (esComindustria) return <InspeccionesComind empresaId={empresaId} />;
 
   return <InspeccionesGenerico empresaId={empresaId} />;
 }

@@ -49,7 +49,7 @@ function verdictPdfFill(v) {
   return null;
 }
 
-export default function InspeccionesHGP({ empresaId }) {
+export default function InspeccionesHGP({ empresaId, empresaInfo = EMPRESA_HGP, catalogo = CATALOGO_HGP }) {
   const [vista, setVista] = useState("dashboard"); // dashboard | catalogo | form
   const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -114,19 +114,19 @@ export default function InspeccionesHGP({ empresaId }) {
 
   // ════════ VISTA: CATÁLOGO ════════
   if (vista === "catalogo") {
-    const grupos = [...new Set(CATALOGO_HGP.map(c => c.grupo))];
+    const grupos = [...new Set(catalogo.map(c => c.grupo))];
     return (
       <div>
         <button onClick={() => setVista("dashboard")} className="mb-4 flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300">
           <ArrowLeft size={13} /> Volver al dashboard
         </button>
         <h3 className="text-white font-semibold text-sm mb-1">Catálogo de Formatos de Inspección</h3>
-        <p className="text-gray-500 text-xs mb-5">Selecciona un formato para iniciar una nueva inspección. {EMPRESA_HGP.proyecto}</p>
+        <p className="text-gray-500 text-xs mb-5">Selecciona un formato para iniciar una nueva inspección. {empresaInfo.proyecto || ""}</p>
         {grupos.map(g => (
           <div key={g} className="mb-5">
             <p className="text-[11px] uppercase tracking-wide text-gray-600 font-semibold mb-2">{g}</p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {CATALOGO_HGP.filter(c => c.grupo === g).map(c => (
+              {catalogo.filter(c => c.grupo === g).map(c => (
                 <button key={c.codigo} disabled={!c.disponible}
                   onClick={() => c.enlaceExterno ? setEnlaceExterno(c) : nuevaInspeccion(c.codigo)}
                   className={`text-left p-4 rounded-xl border transition-all ${c.disponible
@@ -160,9 +160,9 @@ export default function InspeccionesHGP({ empresaId }) {
       <div className="flex items-start justify-between mb-5">
         <div>
           <h3 className="text-white font-semibold text-sm mb-1 flex items-center gap-2">
-            <Layers size={15} className="text-blue-400" /> Inspecciones — {EMPRESA_HGP.nombre}
+            <Layers size={15} className="text-blue-400" /> Inspecciones — {empresaInfo.nombre}
           </h3>
-          <p className="text-gray-500 text-xs max-w-xl">{EMPRESA_HGP.proyecto}. Sistema de registro de inspecciones con formatos oficiales y reporte PDF.</p>
+          <p className="text-gray-500 text-xs max-w-xl">{(empresaInfo.proyecto || empresaInfo.nombre)}. Sistema de registro de inspecciones con formatos oficiales y reporte PDF.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-4">
           <Btn size="sm" variant="primary" onClick={() => setVista("catalogo")}><Plus size={13} /> Nueva inspección</Btn>
@@ -181,7 +181,7 @@ export default function InspeccionesHGP({ empresaId }) {
         <Search size={12} className="text-gray-500 shrink-0" />
         <select value={fCodigo} onChange={e => setFCodigo(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500">
           <option value="">Todos los formatos</option>
-          {CATALOGO_HGP.filter(c => c.disponible).map(c => <option key={c.codigo} value={c.codigo}>{c.nombre}</option>)}
+          {catalogo.filter(c => c.disponible).map(c => <option key={c.codigo} value={c.codigo}>{c.nombre}</option>)}
         </select>
         {fCodigo && <button onClick={() => setFCodigo("")} className="text-xs text-blue-400 hover:text-blue-300 ml-1">✕ Limpiar</button>}
       </div>
@@ -210,7 +210,7 @@ export default function InspeccionesHGP({ empresaId }) {
                   </td>
                   <td className="px-4 py-3"><div className="flex gap-1.5">
                     <button onClick={() => setDetalle(r)} className="text-gray-500 hover:text-emerald-400" title="Ver"><Eye size={13} /></button>
-                    <button onClick={() => generarPDF(r, getPlantilla(r.plantilla_codigo))} className="text-gray-500 hover:text-blue-400" title="Descargar PDF"><FileDown size={13} /></button>
+                    <button onClick={() => generarPDF(r, getPlantilla(r.plantilla_codigo), empresaInfo)} className="text-gray-500 hover:text-blue-400" title="Descargar PDF"><FileDown size={13} /></button>
                     <button onClick={() => editarRegistro(r)} className="text-gray-500 hover:text-blue-400" title="Editar"><Pencil size={13} /></button>
                     <button onClick={() => eliminar(r.id)} className="text-red-500/40 hover:text-red-400" title="Eliminar"><Trash2 size={13} /></button>
                   </div></td>
@@ -284,6 +284,7 @@ function FormularioActivos({ empresaId, plantilla, registro, onCancel, onSaved }
     return c;
   };
   const initFilas = () => {
+    if (plantilla.filasPreset?.length) return plantilla.filasPreset;
     const n = plantilla.filasIniciales || 10;
     return Array.from({ length: n }, (_, i) => filaVacia(plantilla, i + 1));
   };
@@ -931,7 +932,7 @@ function DetalleModal({ registro, plantilla, onClose }) {
             <span className="text-gray-600">Inspector:</span> {registro.inspector || "—"}
             <span className="text-gray-600 ml-3">Área:</span> {registro.area || "—"}
           </div>
-          <Btn size="sm" variant="primary" onClick={() => generarPDF(registro, plantilla)}><FileDown size={13} /> Descargar PDF</Btn>
+          <Btn size="sm" variant="primary" onClick={() => generarPDF(registro, plantilla, empresaInfo)}><FileDown size={13} /> Descargar PDF</Btn>
         </div>
         {!plantilla ? (
           <p className="text-gray-500 text-sm">Plantilla no disponible para visualizar el detalle.</p>
@@ -1089,7 +1090,7 @@ function cargarLogo(src) {
 
 // Dibuja el encabezado oficial (3 celdas con logo) + datos de cabecera.
 // Devuelve la coordenada Y donde continúa el contenido.
-function dibujarEncabezado(doc, plantilla, registro, W, M, logo) {
+function dibujarEncabezado(doc, plantilla, registro, W, M, logo, empresa = EMPRESA_HGP) {
   const hY = 8, hH = 16;
   const c1 = 32, c3 = 70, c2 = W - 2 * M - c1 - c3;
   doc.setLineWidth(0.3);
@@ -1104,9 +1105,9 @@ function dibujarEncabezado(doc, plantilla, registro, W, M, logo) {
     doc.addImage(logo.data, "PNG", M + (c1 - lw) / 2, hY + (hH - lh) / 2, lw, lh);
   } else {
     doc.setFontSize(7).setFont(undefined, "bold");
-    doc.text(EMPRESA_HGP.nombre, M + c1 / 2, hY + 7, { align: "center" });
+    doc.text(empresa.nombre, M + c1 / 2, hY + 7, { align: "center" });
     doc.setFontSize(5).setFont(undefined, "normal");
-    doc.text("HYDRO GLOBAL", M + c1 / 2, hY + 11, { align: "center" });
+    doc.text(empresa.nombre.split(" ")[0], M + c1 / 2, hY + 11, { align: "center" });
   }
 
   doc.setFontSize(7).setFont(undefined, "bold");
@@ -1154,9 +1155,9 @@ function guardarPDF(doc, plantilla, registro) {
   doc.save(nombre);
 }
 
-export async function generarPDF(registro, plantilla) {
+export async function generarPDF(registro, plantilla, empresa = EMPRESA_HGP) {
   if (!plantilla) { showToast("Plantilla no encontrada para el PDF", "error"); return; }
-  const logo = await cargarLogo(EMPRESA_HGP.logo);
+  const logo = await cargarLogo(empresa.logo || EMPRESA_HGP.logo);
 
   // El RACS (evento) usa formato vertical propio
   if (plantilla.patron === "evento") {
@@ -1167,7 +1168,7 @@ export async function generarPDF(registro, plantilla) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const M = 8;
-  const y = dibujarEncabezado(doc, plantilla, registro, W, M, logo);
+  const y = dibujarEncabezado(doc, plantilla, registro, W, M, logo, empresa);
   if (plantilla.patron === "secciones") pdfSecciones(doc, plantilla, registro, W, M, y);
   else if (plantilla.patron === "matriz") pdfMatriz(doc, plantilla, registro, W, M, y);
   else pdfActivos(doc, plantilla, registro, W, M, y);
