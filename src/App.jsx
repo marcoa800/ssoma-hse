@@ -17,6 +17,7 @@ import SeguimientoModulo from "./modulos/salud/Seguimiento.jsx";
 import EppModulo from "./modulos/salud/Epps.jsx";
 import EppInventario from "./modulos/salud/EppInventario.jsx";
 import MonitoreoModulo from "./modulos/salud/Monitoreo.jsx";
+import MonitoreoComind from "./modulos/salud/MonitoreoComind.jsx";
 import Vigilancia from "./modulos/salud/vigilancia/Vigilancia.jsx";
 import CaracterizacionRiesgoModulo from "./modulos/salud/Caracterizacion.jsx";
 import PlanSOModulo from "./modulos/salud/PlanSO.jsx";
@@ -440,7 +441,9 @@ export default function App() {
           {page === "epps"          && !saludBloqueado("epps")          && (esComindustria
             ? <EppInventario empresaId={empresaId} />
             : <EppModulo workers={workers} empresaId={empresaId} />)}
-          {page === "monitoreo"     && !saludBloqueado("monitoreo")     && <MonitoreoModulo empresaId={empresaId} />}
+          {page === "monitoreo"     && !saludBloqueado("monitoreo")     && (esComindustria
+            ? <MonitoreoComind empresaId={empresaId} />
+            : <MonitoreoModulo empresaId={empresaId} />)}
           {page === "vigilancia"    && !saludBloqueado("vigilancia")    && <Vigilancia workers={workers} empresaId={empresaId} />}
           {page === "caracterizacion" && !saludBloqueado("caracterizacion") && <CaracterizacionRiesgoModulo empresaId={empresaId} />}
           {page === "topico"        && !saludBloqueado("topico")        && <TopicoModulo empresaId={empresaId} />}
