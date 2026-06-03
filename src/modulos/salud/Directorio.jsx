@@ -38,6 +38,8 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
   }));
   const [sortAZ, setSortAZ] = useState(false);
   const [modal, setModal] = useState(null);
+  const [showGuideCesados, setShowGuideCesados] = useState(false);
+  const [importandoCesados, setImportandoCesados] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [form, setForm] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -146,6 +148,43 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
     showToast("Excel descargado", "success");
   };
 
+  // ── Importar cesados desde Excel ──
+  const importCesados = (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      setImportandoCesados(true);
+      try {
+        const wb = XLSX.read(ev.target.result, { type: "binary", cellDates: false });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+        const valid = rows.filter(r => r["APELLIDO Y NOMBRE"] && r["DOC. DE IDENTIDAD"]);
+        if (!valid.length) { showToast("Archivo inválido. Verifica los encabezados.", "error"); setImportandoCesados(false); return; }
+        const inserts = valid.map(r => ({
+          nombre: String(r["APELLIDO Y NOMBRE"]).trim(),
+          dni: String(r["DOC. DE IDENTIDAD"]).replace(/\D/g, "").slice(0, 8),
+          cargo: String(r["CARGO"] || r["PUESTO"] || "").trim() || null,
+          fecha_nacimiento: excelDateToISO(r["FECHA DE NACIMIENTO"]) || null,
+          fecha_cese: excelDateToISO(r["FECHA DE CESE"]) || null,
+          motivo_cese: String(r["MOTIVO DE CESE"] || "").trim() || null,
+          aptitud: String(r["APTITUD"] || "No evaluado").trim(),
+          estado: "Cesado",
+          sede: "Lima",
+          duracion_emo: "Anual",
+          empresa_id: empresaId,
+        }));
+        const { error } = await supabase.from("trabajadores").insert(inserts);
+        if (error) { showToast("Error al insertar: " + error.message, "error"); setImportandoCesados(false); return; }
+        // Recargar workers desde App (actualizar state local)
+        const { data } = await supabase.from("trabajadores").select("*").eq("empresa_id", empresaId);
+        if (data) setWorkers(data);
+        showToast(`✅ ${inserts.length} cesados importados`, "success");
+      } catch (err) { showToast("Error al leer el archivo: " + err.message, "error"); }
+      setImportandoCesados(false);
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const aptitudColor = { "Apto": "green", "Apto con restricción": "amber", "Observado": "blue", "No apto": "red", "No evaluado": "gray" };
 
   return (
@@ -174,7 +213,16 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
               <div className="text-sm font-semibold text-white">Trabajadores Cesados</div>
               <div className="text-xs text-gray-600">{workersCesados.length} registro(s)</div>
             </div>
-            <Btn size="sm" variant="primary" onClick={() => openModal()}><Plus size={13} /> Registrar cesado</Btn>
+            <div className="flex gap-2">
+              <Btn size="sm" onClick={() => setShowGuideCesados(true)}><HelpCircle size={13} /> Guía</Btn>
+              <label className="cursor-pointer">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white transition-all cursor-pointer">
+                  <Upload size={13} /> {importandoCesados ? "Importando..." : "Importar Excel"}
+                </span>
+                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={importCesados} disabled={importandoCesados} />
+              </label>
+              <Btn size="sm" variant="primary" onClick={() => openModal()}><Plus size={13} /> Registrar cesado</Btn>
+            </div>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
             <table className="w-full text-sm">
@@ -286,6 +334,8 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
       </div>
       )}
 
+      {showGuideCesados && <GuideCesadosModal onClose={() => setShowGuideCesados(false)} />}
+
       {modal && (
         <Modal title={modal === "edit" ? "Editar Trabajador" : "Registrar Trabajador"} onClose={() => setModal(null)} wide>
           <div className="grid grid-cols-2 gap-x-4">
@@ -338,5 +388,60 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
         </Modal>
       )}
     </div>
+  );
+}
+
+// ── Modal Guía de Importación de Cesados ──
+function GuideCesadosModal({ onClose }) {
+  const cols = [
+    { col: "APELLIDO Y NOMBRE",  desc: "Nombre completo del trabajador",            ejemplo: "Ramirez Torres Pedro",    req: true  },
+    { col: "DOC. DE IDENTIDAD",  desc: "DNI — solo números, 8 dígitos",             ejemplo: "12345678",                 req: true  },
+    { col: "CARGO",              desc: "Cargo o puesto que ocupaba",                 ejemplo: "Operador de Planta",       req: false },
+    { col: "FECHA DE CESE",      desc: "Fecha de cese DD/MM/AAAA",                  ejemplo: "15/03/2025",               req: false },
+    { col: "MOTIVO DE CESE",     desc: "Renuncia / Despido / Término de contrato…", ejemplo: "Término de contrato",      req: false },
+    { col: "FECHA DE NACIMIENTO",desc: "Fecha de nacimiento DD/MM/AAAA",            ejemplo: "10/06/1985",               req: false },
+    { col: "APTITUD",            desc: "Apto / Apto con restricción / No evaluado", ejemplo: "Apto",                     req: false },
+  ];
+  const downloadTemplate = () => {
+    const headers = cols.map(c => c.col);
+    const example = cols.map(c => c.ejemplo);
+    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+    ws["!cols"] = headers.map(() => ({ wch: 24 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Cesados");
+    XLSX.writeFile(wb, "plantilla_cesados.xlsx");
+    showToast("Plantilla descargada", "success");
+  };
+  return (
+    <Modal title="Guía de Importación — Trabajadores Cesados" onClose={onClose} wide>
+      <div className="mb-4 px-3 py-2.5 rounded-lg bg-blue-900/20 border border-blue-900/40 text-xs text-blue-400">
+        El archivo Excel debe tener exactamente estos encabezados. Las columnas con <span className="text-red-400">*</span> son obligatorias.
+        Todos los trabajadores importados quedarán con estado <strong>Cesado</strong> automáticamente.
+      </div>
+      <div className="overflow-x-auto mb-4">
+        <table className="w-full text-xs">
+          <thead><tr className="border-b border-gray-800">
+            <th className="text-left text-gray-500 font-medium py-2 pr-4">Columna</th>
+            <th className="text-left text-gray-500 font-medium py-2 pr-4">Descripción</th>
+            <th className="text-left text-gray-500 font-medium py-2">Ejemplo</th>
+          </tr></thead>
+          <tbody>
+            {cols.map(c => (
+              <tr key={c.col} className="border-b border-gray-800/50">
+                <td className="py-2 pr-4 font-mono text-blue-400 whitespace-nowrap">
+                  {c.col}{c.req && <span className="text-red-400 ml-1">*</span>}
+                </td>
+                <td className="py-2 pr-4 text-gray-400">{c.desc}</td>
+                <td className="py-2 text-gray-600 font-mono">{c.ejemplo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Btn onClick={onClose}>Cerrar</Btn>
+        <Btn variant="primary" onClick={downloadTemplate}><Download size={13} /> Descargar Plantilla</Btn>
+      </div>
+    </Modal>
   );
 }
