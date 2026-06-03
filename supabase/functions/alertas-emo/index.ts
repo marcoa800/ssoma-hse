@@ -1,26 +1,22 @@
 // ════════════════════════════════════════════════════════════════════
 //  alertas-emo — Supabase Edge Function
-//  Revisa EMOs de Comindustria y envía alerta por email (Resend)
+//  Revisa EMOs de Comindustria y envía alerta por Gmail SMTP
 //  si hay vencidos o por vencer en ≤30 días.
 //  Se dispara diariamente vía pg_cron (ver sql/cron_alertas_emo.sql).
 // ════════════════════════════════════════════════════════════════════
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import nodemailer from "npm:nodemailer@6.9.9";
 
 // ── Config de email ──────────────────────────────────────────────────
-// TEMPORAL: solo Gmail hasta verificar medicloud.pe
-// Cuando esté verificado cambiar a: ["medico.ocupacional@comindustria.pe", "fsalaman@comindustria.pe"]
-const TO = ["marcoa800.mm@gmail.com"];
+const TO        = ["medico.ocupacional@comindustria.pe", "fsalaman@comindustria.pe"];
+const FROM_NAME = "Dr. Marco Melgarejo · Medicloud Safety";
+const FROM_USER = "marcoa800.mm@gmail.com";
 
-// FROM temporal: onboarding@resend.dev no requiere dominio verificado
-// Cuando medicloud.pe esté verificado, cambiar a: "Medicloud Safety <team.salud@medicloud.pe>"
-const FROM      = "Medicloud Safety — Salud Ocupacional <onboarding@resend.dev>";
-const REPLY_TO  = "medico.ocupacional@comindustria.pe";
-
-// ── Env vars (secrets de Supabase, no hardcodeados) ──────────────────
-const RESEND_KEY         = Deno.env.get("RESEND_API_KEY")!;
-const SUPABASE_URL       = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SVC_KEY   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// ── Env vars ─────────────────────────────────────────────────────────
+const GMAIL_PASS       = Deno.env.get("GMAIL_APP_PASSWORD")!;
+const SUPABASE_URL     = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SVC_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function calcVigencia(ultimaEmo: string | null, duracion: string | null): string | null {
@@ -195,28 +191,22 @@ serve(async (req) => {
     const vencidos  = alertas.filter((a: any) => a.dias < 0);
     const fechaHoy  = hoy.toISOString().split("T")[0];
 
-    // 5. Enviar email por Resend
-    const emailRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${RESEND_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: FROM,
-        to: TO,
-        reply_to: REPLY_TO,
-        subject: `⚠ Alerta EMO Comindustria — ${alertas.length} caso(s) · ${fechaHoy}`,
-        html: buildHTML(porVencer, vencidos, fechaHoy),
-      }),
+    // 5. Enviar email por Gmail SMTP
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: FROM_USER, pass: GMAIL_PASS },
     });
 
-    const emailData = await emailRes.json();
-    if (!emailRes.ok) throw new Error("Resend error: " + JSON.stringify(emailData));
+    const info = await transporter.sendMail({
+      from: `"${FROM_NAME}" <${FROM_USER}>`,
+      to: TO.join(", "),
+      subject: `⚠ Alerta EMO Comindustria — ${alertas.length} caso(s) · ${fechaHoy}`,
+      html: buildHTML(porVencer, vencidos, fechaHoy),
+    });
 
-    console.log(`Alerta enviada: ${vencidos.length} vencidos, ${porVencer.length} por vencer`);
+    console.log(`Alerta enviada: ${vencidos.length} vencidos, ${porVencer.length} por vencer — messageId: ${info.messageId}`);
     return new Response(
-      JSON.stringify({ sent: true, vencidos: vencidos.length, porVencer: porVencer.length, resend: emailData }),
+      JSON.stringify({ sent: true, vencidos: vencidos.length, porVencer: porVencer.length, messageId: info.messageId }),
       { status: 200 }
     );
 
