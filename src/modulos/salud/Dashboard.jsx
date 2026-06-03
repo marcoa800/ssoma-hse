@@ -31,6 +31,34 @@ export default function Dashboard({ workers, trainings }) {
   const now = new Date(); const in30 = new Date(); in30.setDate(in30.getDate() + 30);
   const emoVencer = workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); if (!v) return false; const d = new Date(v); return d >= now && d <= in30; }).length;
   const emoVencidos = workers.filter(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v && new Date(v) < now; });
+  // ── Alertas de vencimiento de EMO (control preventivo 30 días) ──
+  const diasHasta = (v) => Math.ceil((new Date(v + "T00:00:00") - new Date(now.toISOString().split("T")[0] + "T00:00:00")) / 86400000);
+  const emoAlertList = workers
+    .map(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v ? { w, vence: v, dias: diasHasta(v) } : null; })
+    .filter(x => x && x.dias <= 30)
+    .sort((a, b) => a.dias - b.dias);
+  const porVencer30 = emoAlertList.filter(x => x.dias >= 0);
+  const vencidosList = emoAlertList.filter(x => x.dias < 0);
+  const alertExport = emoAlertList.map(x => ({
+    Trabajador: x.w.nombre, DNI: x.w.dni, Cargo: x.w.cargo || "", "Última EMO": x.w.ultima_emo || "",
+    "Vence el": x.vence, "Días restantes": x.dias, Estado: x.dias < 0 ? "VENCIDO" : "Por vencer (≤30d)",
+  }));
+  const generarPDFAlertas = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(13).text("Alerta de Vencimiento de EMO", 14, 16);
+    doc.setFontSize(9).setTextColor(110);
+    doc.text(`Control preventivo de 30 días de anticipación · Generado: ${new Date().toISOString().split("T")[0]}`, 14, 22);
+    doc.text(`Por vencer (≤30d): ${porVencer30.length}   ·   Vencidos: ${vencidosList.length}`, 14, 27);
+    doc.setTextColor(0);
+    autoTable(doc, {
+      startY: 32,
+      head: [["Trabajador", "DNI", "Cargo", "Última EMO", "Vence el", "Días", "Estado"]],
+      body: emoAlertList.map(x => [x.w.nombre, x.w.dni, x.w.cargo || "", x.w.ultima_emo || "", x.vence, x.dias, x.dias < 0 ? "VENCIDO" : "Por vencer"]),
+      styles: { fontSize: 8, cellPadding: 1.5 }, headStyles: { fillColor: [180, 30, 30] },
+      didParseCell: (d) => { if (d.section === "body" && d.column.index === 6 && d.cell.raw === "VENCIDO") { d.cell.styles.textColor = [185, 28, 28]; d.cell.styles.fontStyle = "bold"; } },
+    });
+    doc.save(`alerta_emo_${new Date().toISOString().split("T")[0]}.pdf`);
+  };
   const pctEpp = workers.length ? Math.round((workers.filter(w => w.epp_recibido).length / workers.length) * 100) : 0;
   // aptNorm se define más abajo, duplicamos aquí para pctAptitud y conRestriccion
   const _aptN = (v) => (v || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -144,12 +172,56 @@ export default function Dashboard({ workers, trainings }) {
         </div>
       </div>
 
-      {emoVencidos.length > 0 && (
+      {emoAlertList.length > 0 ? (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2"><AlertTriangle size={15} className="text-red-400" /> Alertas — EMO Vencido</div>
-          <div className="space-y-2">
-            {emoVencidos.map(w => (<div key={w.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-red-900/20 border border-red-900/40 text-sm"><AlertTriangle size={14} className="text-red-400 shrink-0" /><span className="text-white font-medium">{w.nombre}</span><span className="text-red-400">— Vigente hasta: {calcularVigencia(w.ultima_emo, w.duracion_emo)}</span><Badge color="amber">{w.cargo}</Badge></div>))}
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="text-sm font-semibold text-white flex items-center gap-2">
+              <AlertTriangle size={15} className="text-amber-400" /> Alerta de Vencimiento de EMO
+              <span className="text-[11px] font-normal text-gray-500">— control preventivo 30 días</span>
+            </div>
+            <div className="flex gap-2">
+              <ExportBtn filename="alerta_emo" data={alertExport} />
+              <Btn size="sm" variant="default" onClick={generarPDFAlertas}><FileDown size={13} /> PDF</Btn>
+            </div>
           </div>
+
+          {porVencer30.length > 0 && (
+            <>
+              <p className="text-[11px] uppercase tracking-wide text-amber-400/80 font-semibold mb-1.5">Por vencer (≤30 días) — {porVencer30.length}</p>
+              <div className="space-y-2 mb-4">
+                {porVencer30.map(x => (
+                  <div key={x.w.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-amber-900/15 border border-amber-900/40 text-sm">
+                    <span className="text-white font-medium flex-1 min-w-0 truncate">{x.w.nombre} <span className="text-gray-500 font-mono text-xs">({x.w.dni})</span></span>
+                    <Badge color="gray">{x.w.cargo || "—"}</Badge>
+                    <span className="text-amber-300 text-xs whitespace-nowrap hidden sm:inline">Vence {x.vence}</span>
+                    <Badge color={x.dias <= 7 ? "red" : "amber"}>{x.dias} día{x.dias === 1 ? "" : "s"}</Badge>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {vencidosList.length > 0 && (
+            <>
+              <p className="text-[11px] uppercase tracking-wide text-red-400/80 font-semibold mb-1.5">Vencidos — {vencidosList.length}</p>
+              <div className="space-y-2">
+                {vencidosList.map(x => (
+                  <div key={x.w.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-red-900/20 border border-red-900/40 text-sm">
+                    <AlertTriangle size={14} className="text-red-400 shrink-0" />
+                    <span className="text-white font-medium flex-1 min-w-0 truncate">{x.w.nombre} <span className="text-gray-500 font-mono text-xs">({x.w.dni})</span></span>
+                    <Badge color="gray">{x.w.cargo || "—"}</Badge>
+                    <span className="text-red-400 text-xs whitespace-nowrap hidden sm:inline">Venció {x.vence}</span>
+                    <Badge color="red">{Math.abs(x.dias)} día{Math.abs(x.dias) === 1 ? "" : "s"}</Badge>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="bg-emerald-900/15 border border-emerald-900/40 rounded-xl p-4 flex items-center gap-2.5">
+          <CheckCircle size={16} className="text-emerald-400 shrink-0" />
+          <span className="text-sm text-emerald-200">Sin EMOs vencidos ni por vencer en los próximos 30 días. ✔</span>
         </div>
       )}
     </div>

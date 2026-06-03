@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 export default function Directorio({ workers, setWorkers, role, empresaId }) {
-  const [filter, setFilter] = useState({ text: "", estado: "", aptitud: "", cargo: "", epp: "" });
+  const [filter, setFilter] = useState({ text: "", estado: "", aptitud: "", cargo: "", epp: "", emo: "" });
   const [modal, setModal] = useState(null);
   const [showGuide, setShowGuide] = useState(false);
   const [form, setForm] = useState({});
@@ -38,13 +38,21 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
   const canEditEmo = role !== "SEGURIDAD";
   const cargos = [...new Set(workers.map(w => w.cargo).filter(Boolean))].sort();
 
+  const hoy0 = new Date(new Date().toISOString().split("T")[0] + "T00:00:00");
+  const emoDias = (w) => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return v ? Math.ceil((new Date(v + "T00:00:00") - hoy0) / 86400000) : null; };
   const filtered = workers.filter(w => {
     const t = filter.text.toLowerCase();
+    const d = emoDias(w);
+    const emoOk = !filter.emo
+      || (filter.emo === "porvencer" && d !== null && d >= 0 && d <= 30)
+      || (filter.emo === "vencido" && d !== null && d < 0)
+      || (filter.emo === "alerta" && d !== null && d <= 30);
     return (!t || w.nombre.toLowerCase().includes(t) || (w.dni || "").includes(t))
       && (!filter.estado || w.estado === filter.estado)
       && (!filter.aptitud || w.aptitud === filter.aptitud)
       && (!filter.cargo || w.cargo === filter.cargo)
-      && (!filter.epp || (filter.epp === "si" ? w.epp_recibido : !w.epp_recibido));
+      && (!filter.epp || (filter.epp === "si" ? w.epp_recibido : !w.epp_recibido))
+      && emoOk;
   });
 
   const openModal = (worker = null) => {
@@ -144,6 +152,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
         <Select value={filter.estado} onChange={e => setFilter(f => ({ ...f, estado: e.target.value }))} style={{ width: 150 }}><option value="">Todos los estados</option>{["Activo", "Vacaciones", "Inactivo"].map(s => <option key={s}>{s}</option>)}</Select>
         <Select value={filter.aptitud} onChange={e => setFilter(f => ({ ...f, aptitud: e.target.value }))} style={{ width: 180 }}><option value="">Toda aptitud</option>{["Apto", "Apto con restricción", "No apto", "No evaluado"].map(a => <option key={a}>{a}</option>)}</Select>
         <Select value={filter.epp} onChange={e => setFilter(f => ({ ...f, epp: e.target.value }))} style={{ width: 140 }}><option value="">EPP: Todos</option><option value="si">Con EPP</option><option value="no">Sin EPP</option></Select>
+        <Select value={filter.emo} onChange={e => setFilter(f => ({ ...f, emo: e.target.value }))} style={{ width: 190 }}><option value="">EMO: Todos</option><option value="alerta">⚠ En alerta (≤30d + vencidos)</option><option value="porvencer">Por vencer (≤30 días)</option><option value="vencido">Vencidos</option></Select>
       </div>
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <div className="overflow-x-scroll overflow-y-auto max-h-[calc(100vh-200px)]">
