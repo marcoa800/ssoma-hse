@@ -96,7 +96,7 @@ export default function TriajeModulo({ empresaId, empresa }) {
 
   // Distribución por categoría
   const catCount = Object.keys(TRIAJE_CATS).map(k => ({
-    key: k, label: TRIAJE_CATS[k].label.split(" ")[0], icon: TRIAJE_CATS[k].icon,
+    key: k, label: TRIAJE_CATS[k]?.label?.split(" ")[0] ?? k, icon: TRIAJE_CATS[k]?.icon ?? "❓",
     count: triajes.filter(t => (t.categorias || []).includes(k)).length,
   })).filter(c => c.count > 0).sort((a, b) => b.count - a.count);
 
@@ -215,8 +215,8 @@ export default function TriajeModulo({ empresaId, empresa }) {
                   return (
                     <tr key={t.id} className={`hover:bg-gray-800/30 transition-colors ${t.tiene_emergencia ? "border-l-2 border-red-600" : ""}`}>
                       <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap font-mono">
-                        {new Date(t.created_at).toLocaleDateString("es-PE",{day:"2-digit",month:"2-digit"})}<br/>
-                        <span className="text-gray-700">{new Date(t.created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}</span>
+                        {t.created_at ? new Date(t.created_at).toLocaleDateString("es-PE",{day:"2-digit",month:"2-digit"}) : "—"}<br/>
+                        <span className="text-gray-700">{t.created_at ? new Date(t.created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"}) : ""}</span>
                       </td>
                       <td className="px-4 py-3 min-w-[140px]">
                         <div className="text-sm font-medium text-gray-200 leading-tight">{t.nombre}</div>
@@ -226,7 +226,7 @@ export default function TriajeModulo({ empresaId, empresa }) {
                         <div className="flex flex-wrap gap-1">
                           {(t.categorias || []).map(k => (
                             <span key={k} className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${catColors[k] || "bg-gray-800 text-gray-400 border-gray-700"}`}>
-                              {TRIAJE_CATS[k]?.icon} {TRIAJE_CATS[k]?.label.split(" ")[0]}
+                              {TRIAJE_CATS[k]?.icon} {TRIAJE_CATS[k]?.label?.split(" ")[0] ?? k}
                             </span>
                           ))}
                         </div>
