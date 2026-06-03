@@ -15,6 +15,7 @@ import ReportesModulo from "./modulos/salud/Reportes.jsx";
 import AccidentesModulo from "./modulos/salud/Accidentes.jsx";
 import SeguimientoModulo from "./modulos/salud/Seguimiento.jsx";
 import EppModulo from "./modulos/salud/Epps.jsx";
+import EppInventario from "./modulos/salud/EppInventario.jsx";
 import MonitoreoModulo from "./modulos/salud/Monitoreo.jsx";
 import Vigilancia from "./modulos/salud/vigilancia/Vigilancia.jsx";
 import CaracterizacionRiesgoModulo from "./modulos/salud/Caracterizacion.jsx";
@@ -436,7 +437,9 @@ export default function App() {
           {page === "reportes"      && !saludBloqueado("reportes")      && <ReportesModulo workers={workers} trainings={trainings} empresaId={empresaId} empresa={empresa} />}
           {page === "accidentes"    && !saludBloqueado("accidentes")    && <AccidentesModulo workers={workers} empresaId={empresaId} empresa={empresa} />}
           {page === "seguimiento"   && !saludBloqueado("seguimiento")   && <SeguimientoModulo workers={workers} empresaId={empresaId} />}
-          {page === "epps"          && !saludBloqueado("epps")          && <EppModulo workers={workers} empresaId={empresaId} />}
+          {page === "epps"          && !saludBloqueado("epps")          && (esComindustria
+            ? <EppInventario empresaId={empresaId} />
+            : <EppModulo workers={workers} empresaId={empresaId} />)}
           {page === "monitoreo"     && !saludBloqueado("monitoreo")     && <MonitoreoModulo empresaId={empresaId} />}
           {page === "vigilancia"    && !saludBloqueado("vigilancia")    && <Vigilancia workers={workers} empresaId={empresaId} />}
           {page === "caracterizacion" && !saludBloqueado("caracterizacion") && <CaracterizacionRiesgoModulo empresaId={empresaId} />}
