@@ -60,9 +60,19 @@ export default function Dashboard({ workers, trainings }) {
     doc.save(`alerta_emo_${new Date().toISOString().split("T")[0]}.pdf`);
   };
   const pctEpp = workers.length ? Math.round((workers.filter(w => w.epp_recibido).length / workers.length) * 100) : 0;
-  const conLectura = workers.filter(w => !!w.lectura_emo).length;
-  const sinLectura = workers.length - conLectura;
-  const pctLectura = workers.length ? Math.round((conLectura / workers.length) * 100) : 0;
+  // ── Lecturas EMO ──
+  // "Necesita lectura" = tiene EMO pero: (1) no tiene lectura, o (2) la lectura es anterior al EMO
+  const necesitaLectura = (w) => {
+    if (!w.ultima_emo) return false;                           // sin EMO → no aplica
+    if (!w.lectura_emo) return true;                          // tiene EMO pero sin lectura
+    return w.lectura_emo < w.ultima_emo;                      // lectura es de un EMO anterior
+  };
+  const lecturaAlertList = workers.filter(necesitaLectura)
+    .sort((a, b) => (a.ultima_emo || "").localeCompare(b.ultima_emo || ""));
+  const conLectura = workers.filter(w => w.ultima_emo && w.lectura_emo && w.lectura_emo >= w.ultima_emo).length;
+  const sinLectura = lecturaAlertList.length;
+  const pctLectura = workers.filter(w => w.ultima_emo).length
+    ? Math.round((conLectura / workers.filter(w => w.ultima_emo).length) * 100) : 0;
   // aptNorm se define más abajo, duplicamos aquí para pctAptitud y conRestriccion
   const _aptN = (v) => (v || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const conRestriccion = workers.filter(w => _aptN(w.aptitud).includes("restricc")).length;
@@ -175,6 +185,51 @@ export default function Dashboard({ workers, trainings }) {
           )}
         </div>
       </div>
+
+      {/* ── Panel de alerta: Lecturas pendientes ── */}
+      {lecturaAlertList.length > 0 && (
+        <div className="bg-gray-900 border border-amber-900/50 rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="text-sm font-semibold text-white flex items-center gap-2">
+              <AlertTriangle size={15} className="text-amber-400" /> Lectura de Resultados Pendiente
+              <span className="text-[11px] font-normal text-gray-500">— {lecturaAlertList.length} trabajador(es)</span>
+            </div>
+            <Btn size="sm" variant="default" onClick={() => {
+              const doc = new jsPDF();
+              doc.setFontSize(13).text("Lecturas de Resultados EMO Pendientes", 14, 16);
+              doc.setFontSize(9).setTextColor(110).text(`Generado: ${new Date().toISOString().split("T")[0]}`, 14, 22);
+              doc.setTextColor(0);
+              autoTable(doc, {
+                startY: 28,
+                head: [["Trabajador", "DNI", "Cargo", "Fecha EMO", "Última lectura", "Motivo"]],
+                body: lecturaAlertList.map(w => [
+                  w.nombre, w.dni, w.cargo || "", w.ultima_emo || "",
+                  w.lectura_emo || "Sin lectura",
+                  w.lectura_emo ? "Lectura anterior al nuevo EMO" : "Sin lectura registrada"
+                ]),
+                styles: { fontSize: 8, cellPadding: 1.5 },
+                headStyles: { fillColor: [146, 64, 14] },
+              });
+              doc.save(`lecturas_pendientes_${new Date().toISOString().split("T")[0]}.pdf`);
+            }}><FileDown size={13} /> PDF</Btn>
+          </div>
+          <div className="space-y-2">
+            {lecturaAlertList.map(w => (
+              <div key={w.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-amber-900/15 border border-amber-900/40 text-sm flex-wrap">
+                <span className="text-white font-medium flex-1 min-w-0 truncate">
+                  {w.nombre} <span className="text-gray-500 font-mono text-xs">({w.dni})</span>
+                </span>
+                <Badge color="gray">{w.cargo || "—"}</Badge>
+                <span className="text-amber-300 text-xs whitespace-nowrap">EMO: {w.ultima_emo}</span>
+                {w.lectura_emo
+                  ? <Badge color="amber">Lectura anterior: {w.lectura_emo}</Badge>
+                  : <Badge color="red">Sin lectura</Badge>
+                }
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {emoAlertList.length > 0 ? (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
