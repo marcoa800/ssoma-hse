@@ -60,6 +60,9 @@ export default function Dashboard({ workers, trainings }) {
     doc.save(`alerta_emo_${new Date().toISOString().split("T")[0]}.pdf`);
   };
   const pctEpp = workers.length ? Math.round((workers.filter(w => w.epp_recibido).length / workers.length) * 100) : 0;
+  const conLectura = workers.filter(w => !!w.lectura_emo).length;
+  const sinLectura = workers.length - conLectura;
+  const pctLectura = workers.length ? Math.round((conLectura / workers.length) * 100) : 0;
   // aptNorm se define más abajo, duplicamos aquí para pctAptitud y conRestriccion
   const _aptN = (v) => (v || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const conRestriccion = workers.filter(w => _aptN(w.aptitud).includes("restricc")).length;
@@ -84,17 +87,18 @@ export default function Dashboard({ workers, trainings }) {
   ].filter(d => d.value > 0);
   return (
     <div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
         <KpiCard label="Personal Activo" value={activos} sub={`de ${workers.length} registrados`} accentColor="blue" />
         <KpiCard label="Aptos con Restricción" value={conRestriccion} sub="requieren seguimiento" accentColor="amber" />
         <KpiCard label="EMOs por Vencer" value={emoVencer} sub="próximos 30 días" accentColor="red" />
         <KpiCard label="EPP Entregado" value={`${pctEpp}%`} sub={`${workers.filter(w => w.epp_recibido).length} de ${workers.length}`} accentColor="emerald" />
+        <KpiCard label="Sin Lectura EMO" value={sinLectura} sub={`${conLectura} con lectura registrada`} accentColor={sinLectura > 0 ? "amber" : "emerald"} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <div className="text-sm font-semibold text-white mb-4">Indicadores de Cumplimiento</div>
           <div className="space-y-3">
-            {[{ label: "% EPP entregado", value: pctEpp, color: "emerald" }, { label: "% Aptitud Médica Vigente", value: pctAptitud, color: "purple" }, { label: "% Capacitaciones realizadas", value: trainings.length ? Math.round((trainings.filter(t => (t.asistencia_count || 0) > 0).length / trainings.length) * 100) : 0, color: "blue" }].map(item => (
+            {[{ label: "% EPP entregado", value: pctEpp, color: "emerald" }, { label: "% Aptitud Médica Vigente", value: pctAptitud, color: "purple" }, { label: "% Lectura EMO entregada", value: pctLectura, color: "amber" }, { label: "% Capacitaciones realizadas", value: trainings.length ? Math.round((trainings.filter(t => (t.asistencia_count || 0) > 0).length / trainings.length) * 100) : 0, color: "blue" }].map(item => (
               <div key={item.label}><div className="flex justify-between text-xs text-gray-500 mb-1.5"><span>{item.label}</span><span className="text-white font-medium">{item.value}%</span></div><ProgressBar value={item.value} color={item.color} height="h-2" /></div>
             ))}
           </div>
