@@ -29,6 +29,7 @@ import {
 
 export default function Directorio({ workers, setWorkers, role, empresaId }) {
   const [filter, setFilter] = useState({ text: "", estado: "", aptitud: "", cargo: "", epp: "", emo: "" });
+  const [sortAZ, setSortAZ] = useState(false);
   const [modal, setModal] = useState(null);
   const [showGuide, setShowGuide] = useState(false);
   const [form, setForm] = useState({});
@@ -53,7 +54,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
       && (!filter.cargo || w.cargo === filter.cargo)
       && (!filter.epp || (filter.epp === "si" ? w.epp_recibido : !w.epp_recibido))
       && emoOk;
-  });
+  }).sort((a, b) => sortAZ ? a.nombre.localeCompare(b.nombre, "es") : 0);
 
   const openModal = (worker = null) => {
     setForm(worker || { nombre: "", dni: "", cargo: "", celular: "", sede: "Lima", estado: "Activo", fecha_nacimiento: "", ultima_emo: "", duracion_emo: "Anual", aptitud: "No evaluado", restriccion_medica: "Ninguna", lectura_emo: "", epp_recibido: false, epp_detalle: "", epp_fecha: "" });
@@ -143,6 +144,9 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
           <Btn size="sm" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>
           <label className="cursor-pointer"><span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white transition-all cursor-pointer"><Upload size={13} /> Importar Excel/CSV</span><input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={importCSV} /></label>
           <Btn size="sm" onClick={exportExcel}><Download size={13} /> Exportar</Btn>
+          <Btn size="sm" variant={sortAZ ? "primary" : "default"} onClick={() => setSortAZ(v => !v)}>
+            {sortAZ ? "A→Z ✓" : "A→Z"}
+          </Btn>
           <Btn size="sm" variant="primary" onClick={() => openModal()}><Plus size={13} /> Registrar</Btn>
         </div>
       </div>
