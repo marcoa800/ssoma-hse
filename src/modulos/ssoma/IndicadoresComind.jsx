@@ -15,7 +15,7 @@ import { Btn } from '../../components/ui/Btn.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
 import {
   Upload, Pencil, Trash2, BarChart2, Users, Clock,
-  TrendingUp, AlertTriangle, Download
+  TrendingUp, AlertTriangle, Download, HelpCircle, CheckCircle, Info
 } from 'lucide-react';
 
 const MESES = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -44,6 +44,7 @@ export default function IndicadoresComind({ empresaId }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [editModal, setEditModal] = useState(null); // { anio, mes, area }
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
@@ -243,6 +244,7 @@ export default function IndicadoresComind({ empresaId }) {
             className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none">
             {[anioActual-1, anioActual, anioActual+1].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
+          <Btn size="sm" variant="ghost" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>
           <label className="cursor-pointer">
             <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} disabled={importing} />
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-700 bg-blue-900/30 text-blue-300 hover:bg-blue-900/50 transition-colors cursor-pointer">
@@ -403,6 +405,102 @@ export default function IndicadoresComind({ empresaId }) {
           </tbody>
         </table>
       </div>
+
+      {/* ── Modal de Guía ── */}
+      {showGuide && (
+        <Modal title="Guía — Indicadores de Accidentabilidad SST" onClose={() => setShowGuide(false)} wide>
+          <div className="space-y-5 text-sm">
+
+            {/* Paso 1 */}
+            <div className="bg-blue-900/20 border border-blue-900/40 rounded-xl p-4">
+              <p className="text-blue-300 font-semibold mb-2 flex items-center gap-2"><Upload size={14} /> Paso 1 — Importar el Excel de Horas Hombre</p>
+              <p className="text-gray-400 text-xs mb-3">Cada mes el ingeniero recibe un Excel con las horas trabajadas. Súbelo con el botón <strong className="text-white">"Importar Horas Hombre"</strong> y el sistema extrae automáticamente:</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { hoja: "Hoja OBJ", area: "PRODUCCIÓN", col: "Columna 8 (Horas Lab.)", color: "emerald" },
+                  { hoja: "Hoja EMP", area: "ADMINISTRATIVO", col: "Columna 8 (Total Horas lab.)", color: "blue" },
+                ].map(h => (
+                  <div key={h.area} className={`bg-gray-900 border border-gray-700 rounded-lg p-3`}>
+                    <p className={`text-${h.color}-400 font-medium text-xs`}>{h.area}</p>
+                    <p className="text-gray-500 text-[11px] mt-1">📄 {h.hoja}</p>
+                    <p className="text-gray-500 text-[11px]">📊 {h.col}</p>
+                    <p className="text-gray-500 text-[11px]">👥 Cuenta las filas con nombre</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-2 text-xs text-amber-300">
+                💡 El sistema detecta el mes automáticamente desde el nombre del archivo (ej. <span className="font-mono">HORAS HOMBRE -ENERO 2026.xlsx</span>). Si no lo detecta, podrás editarlo en la tabla.
+              </div>
+            </div>
+
+            {/* Paso 2 */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+              <p className="text-white font-semibold mb-2 flex items-center gap-2"><Pencil size={14} className="text-gray-400" /> Paso 2 — Completar los datos del mes</p>
+              <p className="text-gray-400 text-xs mb-3">Haz click en el ✏️ de cada fila (Admin / Producción) para ingresar los datos manualmente:</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead><tr className="border-b border-gray-700">
+                    <th className="text-left text-gray-500 py-1.5 pr-4">Campo</th>
+                    <th className="text-left text-gray-500 py-1.5 pr-4">Descripción</th>
+                    <th className="text-left text-gray-500 py-1.5">Fuente</th>
+                  </tr></thead>
+                  <tbody>
+                    {[
+                      ["Trabajadores",     "N° de trabajadores del área",             "Auto — del Excel HH"],
+                      ["HH Trabajadas",    "Total horas hombre trabajadas",            "Auto — del Excel HH"],
+                      ["HH Capacitación",  "Horas de capacitación del mes",            "Manual"],
+                      ["Acc. Leve",        "Accidentes sin incapacidad",               "Manual"],
+                      ["Acc. Incap.",      "Accidentes con incapacidad temporal",      "Manual"],
+                      ["Acc. Fatal",       "Accidentes fatales",                       "Manual"],
+                      ["Días Perdidos",    "Días de incapacidad por accidentes",       "Manual"],
+                      ["Días Cargados",    "Días cargados por accidentes fatales",     "Manual"],
+                      ["Inc. Peligrosos",  "Incidentes peligrosos del mes",            "Manual"],
+                      ["Inc. Leve",        "Incidentes leves del mes",                 "Manual"],
+                      ["Enf. Ocupacional", "Enfermedades ocupacionales registradas",   "Manual"],
+                    ].map(([c, d, f]) => (
+                      <tr key={c} className="border-b border-gray-800/50">
+                        <td className="py-1.5 pr-4 font-medium text-gray-300 whitespace-nowrap">{c}</td>
+                        <td className="py-1.5 pr-4 text-gray-500">{d}</td>
+                        <td className="py-1.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${f.includes("Auto") ? "bg-blue-900/40 text-blue-300" : "bg-gray-800 text-gray-500"}`}>{f}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Paso 3 — Fórmulas */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+              <p className="text-white font-semibold mb-3 flex items-center gap-2"><BarChart2 size={14} className="text-blue-400" /> Paso 3 — Indicadores (se calculan solos)</p>
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  { sigla: "IF", nombre: "Índice de Frecuencia", formula: "(Acc. Incap. + Fatal) × 1,000,000 ÷ HH Trabajadas", color: "blue", desc: "¿Con qué frecuencia ocurren accidentes?" },
+                  { sigla: "IG", nombre: "Índice de Gravedad",   formula: "Días Perdidos × 1,000,000 ÷ HH Trabajadas",          color: "orange", desc: "¿Qué tan graves son los accidentes?" },
+                  { sigla: "IA", nombre: "Índice de Accidentabilidad", formula: "IF × IG ÷ 1,000",                              color: "red", desc: "Indicador combinado de frecuencia y gravedad." },
+                ].map(i => (
+                  <div key={i.sigla} className={`flex items-start gap-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700`}>
+                    <div className={`text-${i.color}-400 font-bold text-lg w-8 shrink-0`}>{i.sigla}</div>
+                    <div>
+                      <p className="text-white text-xs font-medium">{i.nombre}</p>
+                      <p className="text-gray-500 text-[11px] font-mono mt-0.5">{i.formula}</p>
+                      <p className="text-gray-600 text-[11px] mt-0.5 italic">{i.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-gray-600 text-[11px] mt-3 flex items-center gap-1">
+                <Info size={11} /> El modal de edición muestra una vista previa de IF, IG e IA en tiempo real mientras ingresas los datos.
+              </p>
+            </div>
+
+            <div className="flex justify-end">
+              <Btn variant="primary" onClick={() => setShowGuide(false)}><CheckCircle size={13} /> Entendido</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* ── Modal de edición ── */}
       {editModal && (
