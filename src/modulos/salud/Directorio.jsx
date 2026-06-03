@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 export default function Directorio({ workers, setWorkers, role, empresaId }) {
-  const [filter, setFilter] = useState({ text: "", estado: "", aptitud: "", cargo: "", epp: "", emo: "" });
+  const [filter, setFilter] = useState({ text: "", estado: "", aptitud: "", cargo: "", epp: "", emo: "", lectura: "" });
   const [sortAZ, setSortAZ] = useState(false);
   const [modal, setModal] = useState(null);
   const [showGuide, setShowGuide] = useState(false);
@@ -53,6 +53,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
       && (!filter.aptitud || w.aptitud === filter.aptitud)
       && (!filter.cargo || w.cargo === filter.cargo)
       && (!filter.epp || (filter.epp === "si" ? w.epp_recibido : !w.epp_recibido))
+      && (!filter.lectura || (filter.lectura === "si" ? !!w.lectura_emo : !w.lectura_emo))
       && emoOk;
   }).sort((a, b) => sortAZ ? a.nombre.localeCompare(b.nombre, "es") : 0);
 
@@ -156,6 +157,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId }) {
         <Select value={filter.estado} onChange={e => setFilter(f => ({ ...f, estado: e.target.value }))} style={{ width: 150 }}><option value="">Todos los estados</option>{["Activo", "Vacaciones", "Inactivo"].map(s => <option key={s}>{s}</option>)}</Select>
         <Select value={filter.aptitud} onChange={e => setFilter(f => ({ ...f, aptitud: e.target.value }))} style={{ width: 180 }}><option value="">Toda aptitud</option>{["Apto", "Apto con restricción", "No apto", "No evaluado"].map(a => <option key={a}>{a}</option>)}</Select>
         <Select value={filter.epp} onChange={e => setFilter(f => ({ ...f, epp: e.target.value }))} style={{ width: 140 }}><option value="">EPP: Todos</option><option value="si">Con EPP</option><option value="no">Sin EPP</option></Select>
+        <Select value={filter.lectura} onChange={e => setFilter(f => ({ ...f, lectura: e.target.value }))} style={{ width: 170 }}><option value="">Lectura EMO: Todos</option><option value="si">Con lectura</option><option value="no">Sin lectura</option></Select>
         <Select value={filter.emo} onChange={e => setFilter(f => ({ ...f, emo: e.target.value }))} style={{ width: 190 }}><option value="">EMO: Todos</option><option value="alerta">⚠ En alerta (≤30d + vencidos)</option><option value="porvencer">Por vencer (≤30 días)</option><option value="vencido">Vencidos</option></Select>
       </div>
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
