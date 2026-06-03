@@ -37,6 +37,7 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
   const [editing, setEditing] = useState(null);
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
+  const [sortAZ, setSortAZ] = useState(false);
   const [fTipo, setFTipo] = useState("");
   const initForm = {
     trabajador_id: "", tipo: "Accidente Laboral",
@@ -45,6 +46,7 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
     agente_causante: "", tipo_lesion: "", gravedad: "Leve",
     dias_perdidos: "0", requirio_hospitalizacion: false,
     estado_investigacion: "Pendiente", medidas_correctivas: "",
+    estado_medidas: "Pendiente",
     medico_responsable: "", supervisor: "", observaciones: ""
   };
   const [form, setForm] = useState(initForm);
@@ -69,7 +71,8 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
       gravedad: r.gravedad || "Leve", dias_perdidos: r.dias_perdidos != null ? String(r.dias_perdidos) : "0",
       requirio_hospitalizacion: r.requirio_hospitalizacion || false,
       estado_investigacion: r.estado_investigacion || "Pendiente",
-      medidas_correctivas: r.medidas_correctivas || "", medico_responsable: r.medico_responsable || "",
+      medidas_correctivas: r.medidas_correctivas || "", estado_medidas: r.estado_medidas || "Pendiente",
+      medico_responsable: r.medico_responsable || "",
       supervisor: r.supervisor || "", observaciones: r.observaciones || ""
     });
     setEditing(r.id); setShowModal(true);
@@ -92,7 +95,8 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
       dias_perdidos: parseInt(form.dias_perdidos) || 0,
       requirio_hospitalizacion: form.requirio_hospitalizacion,
       estado_investigacion: form.estado_investigacion,
-      medidas_correctivas: form.medidas_correctivas, medico_responsable: form.medico_responsable,
+      medidas_correctivas: form.medidas_correctivas, estado_medidas: form.estado_medidas || "Pendiente",
+      medico_responsable: form.medico_responsable,
       supervisor: form.supervisor, observaciones: form.observaciones
     };
     const { error } = editing
@@ -109,8 +113,15 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
   const sinInvestigar = records.filter(r => r.estado_investigacion === "Pendiente").length;
   const graves = records.filter(r => ["Grave", "Fatal"].includes(r.gravedad)).length;
   const tipoOpts = [...new Set(records.map(r => r.tipo).filter(Boolean))].sort();
-  const filtered = records.filter(r =>
-    (!fFrom || r.fecha_evento >= fFrom) && (!fTo || r.fecha_evento <= fTo) && (!fTipo || r.tipo === fTipo));
+  const estadoMedidasColor = e => ({ Pendiente: "red", "En proceso": "amber", Cerrada: "green" }[e] || "gray");
+  const filtered = records
+    .filter(r => (!fFrom || r.fecha_evento >= fFrom) && (!fTo || r.fecha_evento <= fTo) && (!fTipo || r.tipo === fTipo))
+    .sort((a, b) => {
+      if (!sortAZ) return 0;
+      const na = a.trabajadores?.nombre || "";
+      const nb = b.trabajadores?.nombre || "";
+      return na.localeCompare(nb, "es");
+    });
 
   const gravColor = g => ({ Fatal: "red", Grave: "red", Moderado: "amber", Leve: "blue", "Sin lesión": "gray" }[g] || "gray");
   const investColor = e => ({ Completada: "green", "En proceso": "amber", Pendiente: "red" }[e] || "gray");
@@ -157,12 +168,18 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-gray-800">
-            {["Tipo", "Trabajador", "Fecha", "Hora", "Área / Lugar", "Gravedad", "Días perdidos", "Investigación", ""].map(h => (
-              <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
+            {["Tipo", "", "Fecha", "Hora", "Área / Lugar", "Gravedad", "Días perdidos", "Investigación", "Medidas", ""].map((h, i) => (
+              i === 1
+                ? <th key="trabajador" className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">
+                    <button onClick={() => setSortAZ(v => !v)} className={`flex items-center gap-1 hover:text-gray-300 transition-colors ${sortAZ ? "text-blue-400" : "text-gray-600"}`}>
+                      Trabajador {sortAZ ? "A→Z ✓" : "A→Z"}
+                    </button>
+                  </th>
+                : <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
             ))}
           </tr></thead>
           <tbody>
-            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {loading && <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
             {!loading && filtered.map(r => (
               <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                 <td className="px-4 py-3"><Badge color={r.tipo === "Accidente Laboral" || r.tipo === "Accidente de Trayecto" ? "red" : r.tipo === "Incidente Peligroso" ? "amber" : "gray"}>{r.tipo}</Badge></td>
@@ -173,6 +190,7 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
                 <td className="px-4 py-3"><Badge color={gravColor(r.gravedad)}>{r.gravedad}</Badge></td>
                 <td className="px-4 py-3 font-mono text-center text-xs font-bold text-white">{r.dias_perdidos ?? 0}</td>
                 <td className="px-4 py-3"><Badge color={investColor(r.estado_investigacion)}>{r.estado_investigacion}</Badge></td>
+                <td className="px-4 py-3"><Badge color={estadoMedidasColor(r.estado_medidas || "Pendiente")}>{r.estado_medidas || "Pendiente"}</Badge></td>
                 <td className="px-4 py-3"><div className="flex gap-1">
                   <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>
                   <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
@@ -180,7 +198,7 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
               </tr>
             ))}
             {!loading && !filtered.length && (
-              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">
+              <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-600 text-sm">
                 {records.length ? "Sin resultados para el filtro aplicado." : "Sin registros. Usa \"Nuevo Registro\" para comenzar."}
               </td></tr>
             )}
@@ -252,9 +270,18 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
               <FormField label="Médico / Enfermero responsable"><Input value={form.medico_responsable} onChange={e => setForm(f => ({ ...f, medico_responsable: e.target.value }))} /></FormField>
               <FormField label="Supervisor del área"><Input value={form.supervisor} onChange={e => setForm(f => ({ ...f, supervisor: e.target.value }))} /></FormField>
             </div>
-            <FormField label="Medidas correctivas implementadas">
-              <textarea value={form.medidas_correctivas} onChange={e => setForm(f => ({ ...f, medidas_correctivas: e.target.value }))} rows={2} placeholder="Describe las acciones tomadas para evitar recurrencia..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500 resize-none" />
-            </FormField>
+            <div className="grid grid-cols-3 gap-3">
+              <FormField label="Medidas correctivas implementadas" className="col-span-2">
+                <textarea value={form.medidas_correctivas} onChange={e => setForm(f => ({ ...f, medidas_correctivas: e.target.value }))} rows={2} placeholder="Describe las acciones tomadas para evitar recurrencia..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500 resize-none" />
+              </FormField>
+              <FormField label="Estatus de medidas">
+                <Select value={form.estado_medidas || "Pendiente"} onChange={e => setForm(f => ({ ...f, estado_medidas: e.target.value }))}>
+                  <option>Pendiente</option>
+                  <option>En proceso</option>
+                  <option>Cerrada</option>
+                </Select>
+              </FormField>
+            </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="hosp" checked={form.requirio_hospitalizacion} onChange={e => setForm(f => ({ ...f, requirio_hospitalizacion: e.target.checked }))} className="w-4 h-4 accent-blue-500" />
               <label htmlFor="hosp" className="text-xs text-gray-400">Requirió hospitalización</label>
