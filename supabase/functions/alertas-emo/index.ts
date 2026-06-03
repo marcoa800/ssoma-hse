@@ -10,12 +10,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // ── Config de email ──────────────────────────────────────────────────
 const TO = ["fsalaman@comindustria.pe", "marcoa800.mm@gmail.com"];
 
-// FROM: usa onboarding@resend.dev (funciona sin verificar dominio).
-// Para usar medico.ocupacional@comindustria.pe como remitente:
-//   1. Resend Dashboard → Domains → Add Domain → comindustria.pe
-//   2. Agrega los registros DNS que te muestre Resend
-//   3. Cambia FROM por: "Dr. Marco Melgarejo <medico.ocupacional@comindustria.pe>"
-const FROM      = "Dr. Marco Melgarejo · Medicloud Safety <onboarding@resend.dev>";
+// FROM: team.salud@medicloud.pe (requiere verificar medicloud.pe en resend.com/domains)
+const FROM      = "Medicloud Safety — Salud Ocupacional <team.salud@medicloud.pe>";
 const REPLY_TO  = "medico.ocupacional@comindustria.pe";
 
 // ── Env vars (secrets de Supabase, no hardcodeados) ──────────────────
@@ -133,7 +129,7 @@ function buildHTML(porVencer: any[], vencidos: any[], fecha: string): string {
           <a href="https://ssoma-hse.vercel.app" style="color:#6b7280">ssoma-hse.vercel.app</a>
         </p>
         <p style="margin:4px 0 0;color:#9ca3af;font-size:11px">
-          Dr. Marco Melgarejo · Médico Ocupacional · medico.ocupacional@comindustria.pe
+          Dr. Marco Melgarejo · Médico Ocupacional · team.salud@medicloud.pe
         </p>
       </div>
 
