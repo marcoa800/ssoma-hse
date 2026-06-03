@@ -8,10 +8,13 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ── Config de email ──────────────────────────────────────────────────
-const TO = ["fsalaman@comindustria.pe", "marcoa800.mm@gmail.com"];
+// Destinatario: solo el Gmail del Dr. Marco (sin dominio verificado)
+// Cuando medicloud.pe esté verificado en Resend, agregar "fsalaman@comindustria.pe"
+const TO = ["marcoa800.mm@gmail.com"];
 
-// FROM: team.salud@medicloud.pe (requiere verificar medicloud.pe en resend.com/domains)
-const FROM      = "Medicloud Safety — Salud Ocupacional <team.salud@medicloud.pe>";
+// FROM temporal: onboarding@resend.dev no requiere dominio verificado
+// Cuando medicloud.pe esté verificado, cambiar a: "Medicloud Safety <team.salud@medicloud.pe>"
+const FROM      = "Medicloud Safety — Salud Ocupacional <onboarding@resend.dev>";
 const REPLY_TO  = "medico.ocupacional@comindustria.pe";
 
 // ── Env vars (secrets de Supabase, no hardcodeados) ──────────────────
