@@ -9,7 +9,7 @@ import { PLANTILLAS_COMIND_LOTE2, CATALOGO_COMIND_LOTE2 } from './inspecciones-c
 export const EMPRESA_COMIND = {
   nombre: "COMINDUSTRIA",
   proyecto: "",
-  logo: "/logo.jpg",   // cambiar cuando haya logo propio de Comindustria
+  logo: "/logo-comind.png",
 };
 
 export const PLANTILLAS_COMIND = {
