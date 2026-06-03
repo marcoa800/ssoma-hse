@@ -220,7 +220,7 @@ export default function Dashboard({ workers, trainings }) {
                   {w.nombre} <span className="text-gray-500 font-mono text-xs">({w.dni})</span>
                 </span>
                 <Badge color="gray">{w.cargo || "—"}</Badge>
-                <span className="text-amber-300 text-xs whitespace-nowrap">EMO: {fmtFecha(w.ultima_emo)}</span>
+                <span className="text-gray-300 text-xs whitespace-nowrap">EMO: {fmtFecha(w.ultima_emo)}</span>
                 {w.lectura_emo
                   ? <Badge color="amber">Lectura anterior: {fmtFecha(w.lectura_emo)}</Badge>
                   : <Badge color="red">Sin lectura</Badge>
