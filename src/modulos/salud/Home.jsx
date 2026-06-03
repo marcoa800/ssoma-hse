@@ -14,8 +14,10 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
 
   const esMultisel = empresa?.nombre?.toLowerCase().includes("multisel") || false;
   const esHydroGlobal = empresa?.nombre?.toLowerCase().includes("hydro") || false;
+  const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria") || false;
   const HYDRO_SALUD_PERMITIDOS = new Set(["dashboard", "directorio", "capacitaciones", "documentos", "accidentes", "epps", "monitoreo", "reportes"]);
   const hydroBloqueado = (id) => esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
+  const moduloOcultoHome = (id) => esComindustria && ["ats"].includes(id);
 
   const SALUD_CARDS = [
     { id: "dashboard",       label: "Dashboard General",         desc: "Métricas y KPIs en tiempo real",          Icon: LayoutDashboard, color: "blue" },
@@ -66,7 +68,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     teal:    { border: "border-l-teal-500",    text: "text-teal-400",    glow: "hover:border-teal-600 hover:shadow-teal-500/20",      bg: "bg-teal-500/10" },
   };
 
-  const cards = platform === "salud" ? SALUD_CARDS : SSOMA_CARDS;
+  const cards = (platform === "salud" ? SALUD_CARDS : SSOMA_CARDS).filter(c => !moduloOcultoHome(c.id));
 
   const handleCard = (card) => {
     if (hydroBloqueado(card.id)) {

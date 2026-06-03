@@ -163,6 +163,9 @@ export default function App() {
   const saludBloqueado = (id) => esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
   const esMultisel = empresa?.nombre?.toLowerCase().includes("multisel") || false;
   const esHydroGlobal = empresa?.nombre?.toLowerCase().includes("hydro") || false;
+  const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria") || false;
+  // Módulos ocultos por empresa
+  const moduloOculto = (id) => esComindustria && ["ats"].includes(id);
 
   const pageTitles = {
     home: "Inicio",
@@ -302,7 +305,7 @@ export default function App() {
         ) : (
           <>
             <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">Seguridad y Medio Ambiente</div>
-            {SSOMA_NAV.map(({ id, label, icon: Icon }) => (
+            {SSOMA_NAV.filter(({ id }) => !moduloOculto(id)).map(({ id, label, icon: Icon }) => (
               <button key={id} onClick={() => go(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-amber-900/40 text-amber-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
                 <Icon size={16} />{label}
               </button>
@@ -451,7 +454,7 @@ export default function App() {
           {page === "triaje"         && <TriajeModulo empresaId={empresaId} empresa={empresa} />}
           {page === "iperc"          && <IpercModulo empresaId={empresaId} />}
           {page === "inspecciones"   && <InspeccionesModulo empresaId={empresaId} empresa={empresa} />}
-          {page === "ats"            && <ATSPetarModulo empresaId={empresaId} workers={workers} />}
+          {page === "ats"            && !moduloOculto("ats") && <ATSPetarModulo empresaId={empresaId} workers={workers} />}
           {page === "reportes_ssoma" && <ReportesSSOMAModulo empresaId={empresaId} empresa={empresa} workers={workers} />}
           {page === "plan_so" && esMultisel && <PlanSOModulo empresaId={empresaId} />}
           {page === "contratistas" && <ContratistasModulo empresaId={empresaId} />}
