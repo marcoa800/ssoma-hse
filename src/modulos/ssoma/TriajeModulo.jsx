@@ -156,14 +156,50 @@ export default function TriajeModulo({ empresaId, empresa }) {
         </div>
       )}
 
-      {/* Link público */}
+      {/* Link público + QR */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Link para el personal — sin login requerido</p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 bg-gray-800 rounded-lg px-3 py-2 text-xs text-blue-300 truncate">{triajUrl}</code>
-          <button onClick={copyUrl} className="px-3 py-2 bg-blue-600 rounded-lg text-xs text-white font-medium shrink-0 hover:bg-blue-500 transition-colors">{copied ? "✓" : "Copiar"}</button>
+        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-3 flex items-center gap-1.5">
+          <QrCode size={13} /> Acceso público — sin login requerido
+        </p>
+        <div className="flex gap-5 flex-wrap items-start">
+          {/* QR code */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="bg-white rounded-xl p-2">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(triajUrl)}&size=180x180&margin=6`}
+                alt="QR Triaje"
+                className="w-[140px] h-[140px]"
+              />
+            </div>
+            <a
+              href={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(triajUrl)}&size=400x400&margin=10`}
+              download="qr_triaje.png"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300"
+            >
+              <FileDown size={11} /> Descargar QR
+            </a>
+          </div>
+          {/* Link + instrucciones */}
+          <div className="flex-1 min-w-0 space-y-3">
+            <div>
+              <p className="text-xs text-gray-500 mb-1.5">Link directo</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-gray-800 rounded-lg px-3 py-2 text-xs text-blue-300 truncate">{triajUrl}</code>
+                <button onClick={copyUrl} className={`px-3 py-2 rounded-lg text-xs font-medium shrink-0 transition-colors ${copied ? "bg-green-600 text-white" : "bg-blue-600 hover:bg-blue-500 text-white"}`}>
+                  {copied ? "✓ Copiado" : "Copiar"}
+                </button>
+              </div>
+            </div>
+            <div className="bg-gray-800/60 rounded-lg px-3 py-2.5 text-xs text-gray-400 space-y-1">
+              <p className="font-medium text-gray-300">Cómo usar:</p>
+              <p>📱 <strong>Celular:</strong> escanea el QR con la cámara → abre el formulario directamente, sin contraseña.</p>
+              <p>🖥️ <strong>PC:</strong> comparte el link con el personal para que reporten desde cualquier navegador.</p>
+              <p>🖨️ <strong>Impreso:</strong> descarga el QR y colócalo en el tópico o mural de la empresa.</p>
+            </div>
+          </div>
         </div>
-        <p className="text-xs text-gray-700 mt-1.5">Comparte este link o genera un QR para que el personal reporte desde su celular.</p>
       </div>
 
       {/* Filtros y búsqueda */}
