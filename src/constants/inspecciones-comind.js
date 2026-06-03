@@ -4,6 +4,7 @@
 // ════════════════════════════════════════════════════════════════════
 
 import { PLANTILLAS_COMIND_LOTE1, CATALOGO_COMIND_LOTE1 } from './inspecciones-comind-lote1.js';
+import { PLANTILLAS_COMIND_LOTE2, CATALOGO_COMIND_LOTE2 } from './inspecciones-comind-lote2.js';
 
 export const EMPRESA_COMIND = {
   nombre: "COMINDUSTRIA",
@@ -13,10 +14,12 @@ export const EMPRESA_COMIND = {
 
 export const PLANTILLAS_COMIND = {
   ...PLANTILLAS_COMIND_LOTE1,
+  ...PLANTILLAS_COMIND_LOTE2,
 };
 
 export const CATALOGO_COMIND = [
   ...CATALOGO_COMIND_LOTE1,
+  ...CATALOGO_COMIND_LOTE2,
 ];
 
 export function getPlantillaComind(codigo) {
