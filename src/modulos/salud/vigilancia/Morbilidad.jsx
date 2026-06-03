@@ -148,7 +148,9 @@ export default function MorbilidadModulo({ workers, empresaId }) {
             <FormField label="Trabajador *">
               <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
                 <option value="">Seleccionar trabajador...</option>
-                {workers.map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+                {workers.filter(w => w.estado !== "Cesado").sort((a,b)=>a.nombre.localeCompare(b.nombre,"es")).map(w => <option key={w.id} value={w.id}>{w.nombre}</option>)}
+                  {workers.some(w => w.estado === "Cesado") && <option disabled>── Cesados ──</option>}
+                  {workers.filter(w => w.estado === "Cesado").sort((a,b)=>a.nombre.localeCompare(b.nombre,"es")).map(w => <option key={w.id} value={w.id}>{w.nombre} (Cesado)</option>)}
               </Select>
             </FormField>
             <div className="grid grid-cols-2 gap-3">
