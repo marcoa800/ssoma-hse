@@ -222,7 +222,20 @@ export default function PublicExamenForm({ empresaId }) {
                 );
               })}
             </div>
-            <p className="text-gray-600 text-[11px]">Tus respuestas han sido registradas. Puedes cerrar esta ventana.</p>
+            <p className="text-gray-600 text-[11px] mb-3">Tus respuestas han sido registradas.</p>
+            {/* Botones de navegación */}
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => { setExamenSel(null); setRespuestas({}); setResultado(null); setError(''); setPaso('examen'); }}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors">
+                📋 Rendir otro examen
+              </button>
+              <button
+                onClick={() => { setDni(''); setNombre(''); setExamenes([]); setExamenSel(null); setRespuestas({}); setResultado(null); setError(''); setPaso('dni'); }}
+                className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 text-sm rounded-xl transition-colors border border-gray-700">
+                🏠 Volver al inicio
+              </button>
+            </div>
           </div>
         )}
       </div>
