@@ -25,8 +25,11 @@ import {
   FileText, Users, LayoutDashboard, Stethoscope, Settings,
   Building2, Phone
 } from 'lucide-react';
+import ExamenModulo from './ExamenModulo.jsx';
 
-export default function Capacitaciones({ workers, trainings, setTrainings, empresaId }) {
+export default function Capacitaciones({ workers, trainings, setTrainings, empresaId, empresa, role }) {
+  const esComindustria = empresa?.nombre?.toLowerCase().includes('comindustria') || false;
+  const [vistaCAP, setVistaCAP] = useState('capacitaciones'); // capacitaciones | examenes
   const [detail, setDetail] = useState(null);
   const [attendance, setAttendance] = useState({});
   const [isDeleting, setIsDeleting] = useState(null);
@@ -90,8 +93,40 @@ export default function Capacitaciones({ workers, trainings, setTrainings, empre
       </div>
     );
   }
+  // Si es Comindustria y está en pestaña Exámenes, delegar al módulo
+  if (esComindustria && vistaCAP === 'examenes') {
+    return (
+      <div>
+        <div className="flex gap-2 mb-5 bg-gray-900/50 border border-gray-800 rounded-xl p-1.5 w-fit">
+          <button onClick={() => setVistaCAP('capacitaciones')}
+            className="px-4 py-1.5 text-xs font-medium rounded-lg transition-colors text-gray-500 hover:text-gray-200">
+            📚 Capacitaciones
+          </button>
+          <button onClick={() => setVistaCAP('examenes')}
+            className="px-4 py-1.5 text-xs font-medium rounded-lg transition-colors bg-blue-600 text-white">
+            📝 Exámenes
+          </button>
+        </div>
+        <ExamenModulo empresaId={empresaId} role={role} />
+      </div>
+    );
+  }
+
   return (
     <div>
+      {/* Pestañas — solo Comindustria */}
+      {esComindustria && (
+        <div className="flex gap-2 mb-5 bg-gray-900/50 border border-gray-800 rounded-xl p-1.5 w-fit">
+          <button onClick={() => setVistaCAP('capacitaciones')}
+            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${vistaCAP === 'capacitaciones' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-200'}`}>
+            📚 Capacitaciones
+          </button>
+          <button onClick={() => setVistaCAP('examenes')}
+            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${vistaCAP === 'examenes' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-200'}`}>
+            📝 Exámenes
+          </button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-4">
         <div><div className="text-sm font-semibold text-white">Plan de Capacitaciones</div><div className="text-xs text-gray-600">{trainings.length} capacitaciones</div></div>
         <Btn size="sm" variant="primary" onClick={async () => {

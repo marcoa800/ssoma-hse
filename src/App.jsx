@@ -442,7 +442,7 @@ export default function App() {
           {page === "superadmin" && isSuperAdmin && <SuperAdmin />}
           {page === "dashboard" && <Dashboard workers={workers} trainings={trainings} />}
           {page === "directorio" && <Directorio workers={workers} setWorkers={setWorkers} role={role} empresaId={empresaId} empresa={empresa} />}
-          {page === "capacitaciones" && !saludBloqueado("capacitaciones") && <Capacitaciones workers={workers} trainings={trainings} setTrainings={setTrainings} empresaId={empresaId} />}
+          {page === "capacitaciones" && !saludBloqueado("capacitaciones") && <Capacitaciones workers={workers} trainings={trainings} setTrainings={setTrainings} empresaId={empresaId} empresa={empresa} role={role} />}
           {page === "examenes" && esComindustria && <ExamenModulo empresaId={empresaId} role={role} />}
           {page === "documentos"    && !saludBloqueado("documentos")    && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
           {page === "kpis"          && !saludBloqueado("kpis")          && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}

@@ -36,7 +36,7 @@ export const SSOMA_NAV = [
   { id: "monitoreo",        label: "Monitoreo",       icon: Activity },
   { id: "contratistas",     label: "Contratistas",    icon: Building2 },
   { id: "inversion",        label: "Inversión SST",   icon: DollarSign },
-  { id: "indicadores",      label: "Indicadores SST", icon: TrendingUp },
+  { id: "indicadores",      label: "Indicadores SST",  icon: TrendingUp },
   { id: "examenes",         label: "Exámenes",        icon: BookOpen },
   { id: "reportes_ssoma",   label: "Reportes PDF",    icon: FileDown },
 ];
