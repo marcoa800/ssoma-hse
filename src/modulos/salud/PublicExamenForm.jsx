@@ -43,12 +43,15 @@ export default function PublicExamenForm({ empresaId }) {
     setLoading(true); setError('');
     const { data } = await supabase.from('trabajadores').select('nombre,estado')
       .eq('dni', dni).eq('empresa_id', empresaId).single();
-    if (data) setNombre(data.nombre || '');
+    const nombreDir = data?.nombre || '';
+    setNombre(nombreDir);
     const { data: exs } = await supabase.from('examenes').select('id,nombre,descripcion')
       .eq('empresa_id', empresaId).eq('activo', true).order('created_at', { ascending: false });
     setExamenes(exs || []);
     setLoading(false);
     if (!exs?.length) { setError('No hay exámenes disponibles en este momento.'); return; }
+    // Si no está en el directorio, pedir nombre manualmente
+    if (!nombreDir) { setPaso('nombre'); return; }
     setPaso('examen');
   };
 
@@ -121,6 +124,27 @@ export default function PublicExamenForm({ empresaId }) {
             <BtnInstant onClick={buscarDNI} disabled={loading || dni.length !== 8}
               className={`w-full py-3 font-semibold rounded-xl transition-colors text-white ${loading || dni.length !== 8 ? 'bg-blue-900/50 opacity-50' : 'bg-blue-600'}`}>
               {loading ? 'Buscando...' : 'Continuar →'}
+            </BtnInstant>
+          </div>
+        )}
+
+        {/* ── PASO 1b: nombre manual (DNI no encontrado en directorio) ── */}
+        {paso === 'nombre' && (
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+            <h2 className="text-white font-semibold text-lg text-center">¿Cuál es tu nombre?</h2>
+            <p className="text-gray-500 text-sm text-center">Tu DNI no está en el directorio. Escribe tu nombre completo para continuar.</p>
+            <input value={nombre} onChange={e => setNombre(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && nombre.trim().length > 2 && setPaso('examen')}
+              placeholder="Apellidos y Nombres"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500"/>
+            <BtnInstant onClick={() => { if (nombre.trim().length > 2) setPaso('examen'); }}
+              disabled={nombre.trim().length < 3}
+              className={`w-full py-3 font-semibold rounded-xl text-white transition-colors ${nombre.trim().length < 3 ? 'bg-blue-900/50 opacity-50' : 'bg-blue-600'}`}>
+              Continuar →
+            </BtnInstant>
+            <BtnInstant onClick={() => { setPaso('dni'); setError(''); setNombre(''); }}
+              className="w-full text-gray-600 text-xs text-center hover:text-gray-400 py-1">
+              ← Cambiar DNI
             </BtnInstant>
           </div>
         )}
