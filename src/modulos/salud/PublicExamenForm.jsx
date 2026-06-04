@@ -3,7 +3,7 @@
 //  URL: ?examen=empresaId
 //  Flujo: DNI → elige examen → 10 preguntas → resultado
 // ════════════════════════════════════════════════════════════════════
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { CheckCircle, XCircle, ClipboardList, Award, AlertTriangle } from 'lucide-react';
 
@@ -21,7 +21,7 @@ export default function PublicExamenForm({ empresaId }) {
   const [correctasMap, setCorrectasMap] = useState({}); // cargado al iniciar, no visible en UI
   const [resultado, setResultado] = useState(null);
   const [loading, setLoading] = useState(false);
-  const lastTouch = { current: 0 }; // guard contra ghost clicks en móvil
+  const lastTouchTs = useRef(0); // persiste entre renders sin causar re-render
   const [error, setError] = useState('');
 
   // ── Paso 1: buscar trabajador por DNI ──
@@ -67,9 +67,9 @@ export default function PublicExamenForm({ empresaId }) {
   // ── Paso 3: enviar respuestas ──
   const enviarRespuestas = (e) => {
     if (e?.type === 'touchend') {
-      lastTouch.current = Date.now();
+      lastTouchTs.current = Date.now();
       e.preventDefault();
-    } else if (e?.type === 'click' && Date.now() - lastTouch.current < 600) {
+    } else if (e?.type === 'click' && Date.now() - lastTouchTs.current < 600) {
       return; // ignorar ghost click post-touch
     }
     const sin = preguntas.filter(p => !respuestas[p.id]);
@@ -173,8 +173,15 @@ export default function PublicExamenForm({ empresaId }) {
                     const texto = p[`opcion_${l}`];
                     if (!texto || texto === '—') return null;
                     const sel = respuestas[p.id] === l;
+                    const seleccionar = (e) => {
+                      if (e?.type === 'touchend') e.preventDefault();
+                      setRespuestas(r=>({...r,[p.id]:l}));
+                    };
                     return (
-                      <button key={l} onClick={()=>setRespuestas(r=>({...r,[p.id]:l}))}
+                      <button key={l}
+                        onClick={seleccionar}
+                        onTouchEnd={seleccionar}
+                        style={{ touchAction: 'manipulation' }}
                         className={`w-full text-left flex items-start gap-3 p-3 rounded-xl border transition-all ${sel?'bg-blue-900/40 border-blue-600 text-white':'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'}`}>
                         <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border ${sel?'bg-blue-600 border-blue-500 text-white':'border-gray-600 text-gray-500'}`}>{LETRA_LABEL[l]}</span>
                         <span className="text-sm leading-snug">{texto}</span>
@@ -241,13 +248,13 @@ export default function PublicExamenForm({ empresaId }) {
             {/* Botones de navegación */}
             <div className="flex flex-col gap-2" style={{ touchAction: 'manipulation' }}>
               <button
-                onClick={(e) => { if (Date.now() - lastTouch.current < 600) return; setExamenSel(null); setRespuestas({}); setCorrectasMap({}); setResultado(null); setError(''); setPaso('examen'); }}
+                onClick={(e) => { if (Date.now() - lastTouchTs.current < 600) return; setExamenSel(null); setRespuestas({}); setCorrectasMap({}); setResultado(null); setError(''); setPaso('examen'); }}
                 style={{ touchAction: 'manipulation' }}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors select-none">
                 📋 Rendir otro examen
               </button>
               <button
-                onClick={(e) => { if (Date.now() - lastTouch.current < 600) return; setDni(''); setNombre(''); setExamenes([]); setExamenSel(null); setRespuestas({}); setCorrectasMap({}); setResultado(null); setError(''); setPaso('dni'); }}
+                onClick={(e) => { if (Date.now() - lastTouchTs.current < 600) return; setDni(''); setNombre(''); setExamenes([]); setExamenSel(null); setRespuestas({}); setCorrectasMap({}); setResultado(null); setError(''); setPaso('dni'); }}
                 style={{ touchAction: 'manipulation' }}
                 className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 text-sm rounded-xl transition-colors border border-gray-700 select-none">
                 🏠 Volver al inicio
