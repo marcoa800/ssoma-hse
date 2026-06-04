@@ -10,12 +10,14 @@ import { CheckCircle, XCircle, ClipboardList, Award } from 'lucide-react';
 const LETRAS = ['a','b','c','d'];
 const LETRA_LABEL = { a:'A', b:'B', c:'C', d:'D' };
 
-// ── Botón sin retardo: onPointerDown dispara al primer toque ──────────
+// ── Botón sin retardo 300ms: touch-action:manipulation en CSS ─────────
+// Elimina el tap delay en móvil sin interferir con eventos nativos.
 function BtnInstant({ onClick, disabled, className, children, style }) {
   return (
     <button
-      onPointerDown={(e) => { e.preventDefault(); if (!disabled) onClick(); }}
-      style={{ touchAction: 'manipulation', userSelect: 'none', ...style }}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent', ...style }}
       className={className}>
       {children}
     </button>
