@@ -25,6 +25,8 @@ import TopicoModulo from "./modulos/salud/TopicoModulo.jsx";
 import SSOMADashboard from "./modulos/ssoma/SSOMADashboard.jsx";
 import TriajeModulo from "./modulos/ssoma/TriajeModulo.jsx";
 import PublicTriajeForm from "./modulos/ssoma/PublicTriajeForm.jsx";
+import ExamenModulo from "./modulos/salud/ExamenModulo.jsx";
+import PublicExamenForm from "./modulos/salud/PublicExamenForm.jsx";
 import RacsModulo from "./modulos/ssoma/RacsModulo.jsx";
 import PublicRacForm from "./modulos/ssoma/PublicRacForm.jsx";
 import IpercModulo from "./modulos/ssoma/IpercModulo.jsx";
@@ -170,7 +172,7 @@ export default function App() {
   // Módulos ocultos por empresa
   const moduloOculto = (id) => {
     if (esComindustria && ["ats"].includes(id)) return true;
-    if (!esComindustria && ["indicadores"].includes(id)) return true; // solo Comindustria
+    if (!esComindustria && ["indicadores","examenes"].includes(id)) return true; // solo Comindustria
     return false;
   };
 
@@ -185,6 +187,7 @@ export default function App() {
     iperc: "IPERC / Matriz de Riesgos", inspecciones: "Inspecciones de Seguridad",
     ats: "ATS / PETAR", reportes_ssoma: "Reportes PDF — SSOMA",
     contratistas: "Gestión de Contratistas", inversion: "Inversión en Costos de Seguridad",
+    examenes: "Exámenes de Capacitación",
     hallazgos_hgp: "Reporte de Hallazgos — HGP",
   };
   const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800" };
@@ -194,6 +197,8 @@ export default function App() {
   if (publicTriajeId) return <PublicTriajeForm empresaId={publicTriajeId} />;
   const publicRacId = new URLSearchParams(window.location.search).get("rac");
   if (publicRacId) return <PublicRacForm empresaId={publicRacId} />;
+  const publicExamenId = new URLSearchParams(window.location.search).get("examen");
+  if (publicExamenId) return <PublicExamenForm empresaId={publicExamenId} />;
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando...</div>;
   if (!session) return <><Login /><ToastContainer /></>;
@@ -438,6 +443,7 @@ export default function App() {
           {page === "dashboard" && <Dashboard workers={workers} trainings={trainings} />}
           {page === "directorio" && <Directorio workers={workers} setWorkers={setWorkers} role={role} empresaId={empresaId} empresa={empresa} />}
           {page === "capacitaciones" && !saludBloqueado("capacitaciones") && <Capacitaciones workers={workers} trainings={trainings} setTrainings={setTrainings} empresaId={empresaId} />}
+          {page === "examenes" && esComindustria && <ExamenModulo empresaId={empresaId} role={role} />}
           {page === "documentos"    && !saludBloqueado("documentos")    && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
           {page === "kpis"          && !saludBloqueado("kpis")          && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}
           {page === "reportes"      && !saludBloqueado("reportes")      && <ReportesModulo workers={workers} trainings={trainings} empresaId={empresaId} empresa={empresa} />}
