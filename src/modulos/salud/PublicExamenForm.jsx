@@ -64,7 +64,8 @@ export default function PublicExamenForm({ empresaId }) {
   };
 
   // ── Paso 3: enviar respuestas ──
-  const enviarRespuestas = () => {
+  const enviarRespuestas = (e) => {
+    if (e) e.preventDefault();
     const sin = preguntas.filter(p => !respuestas[p.id]);
     if (sin.length) { setError(`Faltan ${sin.length} pregunta(s) por responder`); return; }
     setError('');
@@ -111,8 +112,10 @@ export default function PublicExamenForm({ empresaId }) {
               placeholder="12345678" maxLength={8}
               className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-2xl text-white text-center tracking-widest font-mono focus:outline-none focus:border-blue-500"/>
             {error && <p className="text-red-400 text-xs text-center">{error}</p>}
-            <button onClick={buscarDNI} disabled={loading || dni.length !== 8}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors">
+            <button onClick={buscarDNI} onTouchEnd={e=>{e.preventDefault();buscarDNI();}}
+              disabled={loading || dni.length !== 8}
+              style={{ touchAction: 'manipulation' }}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors select-none">
               {loading ? 'Buscando...' : 'Continuar →'}
             </button>
           </div>
@@ -128,8 +131,10 @@ export default function PublicExamenForm({ empresaId }) {
             {error && <p className="text-red-400 text-xs text-center bg-red-900/20 border border-red-900/40 rounded-lg p-2">{error}</p>}
             <div className="space-y-2">
               {examenes.map(ex=>(
-                <button key={ex.id} onClick={()=>elegirExamen(ex)} disabled={loading}
-                  className="w-full text-left p-4 bg-gray-800 hover:bg-gray-750 border border-gray-700 hover:border-blue-600 rounded-xl transition-all">
+                <button key={ex.id} onClick={()=>elegirExamen(ex)}
+                  onTouchEnd={e=>{e.preventDefault();elegirExamen(ex);}}
+                  disabled={loading} style={{ touchAction: 'manipulation' }}
+                  className="w-full text-left p-4 bg-gray-800 border border-gray-700 hover:border-blue-600 rounded-xl transition-all select-none">
                   <p className="text-white font-medium">{ex.nombre}</p>
                   {ex.descripcion && <p className="text-gray-500 text-xs mt-1">{ex.descripcion}</p>}
                   <p className="text-blue-400 text-xs mt-2">10 preguntas · Mínimo 7 correctas para aprobar →</p>
@@ -175,8 +180,11 @@ export default function PublicExamenForm({ empresaId }) {
             ))}
 
             {error && <p className="text-red-400 text-xs text-center bg-red-900/20 border border-red-900/40 rounded-lg p-2">{error}</p>}
-            <button onClick={enviarRespuestas}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold rounded-2xl text-lg transition-colors">
+            <button
+              onClick={enviarRespuestas}
+              onTouchEnd={enviarRespuestas}
+              style={{ touchAction: 'manipulation' }}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold rounded-2xl text-lg transition-colors select-none">
               ✓ Enviar respuestas
             </button>
           </div>
