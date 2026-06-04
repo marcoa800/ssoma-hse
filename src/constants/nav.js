@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, BookOpen, FileText,
   BarChart2, FileDown, AlertTriangle, Stethoscope,
-  Shield, Activity, ClipboardList, ShieldAlert, Building2, CheckCircle, HeartPulse, DollarSign, TrendingUp, BookOpen
+  Shield, Activity, ClipboardList, ShieldAlert, Building2, CheckCircle, HeartPulse, DollarSign, TrendingUp
 } from "lucide-react";
 
 export const THEMES = [
