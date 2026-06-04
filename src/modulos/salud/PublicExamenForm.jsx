@@ -17,7 +17,8 @@ export default function PublicExamenForm({ empresaId }) {
   const [examenes, setExamenes] = useState([]);
   const [examenSel, setExamenSel] = useState(null);
   const [preguntas, setPreguntas] = useState([]);
-  const [respuestas, setRespuestas] = useState({});  // { pregunta_id: 'a'|'b'|'c'|'d' }
+  const [respuestas, setRespuestas] = useState({});   // { pregunta_id: 'a'|'b'|'c'|'d' }
+  const [correctasMap, setCorrectasMap] = useState({}); // cargado al iniciar, no visible en UI
   const [resultado, setResultado] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -49,11 +50,14 @@ export default function PublicExamenForm({ empresaId }) {
       setError(`Ya rendiste el examen "${ex.nombre}". Cada examen se puede rendir solo una vez.`);
       return;
     }
-    // Cargar preguntas (sin mostrar la correcta)
-    const { data: ps } = await supabase.from('examen_preguntas').select('id,orden,pregunta,opcion_a,opcion_b,opcion_c,opcion_d')
+    // Cargar preguntas CON correcta (se usa solo al calcular, no se muestra en UI)
+    const { data: ps } = await supabase.from('examen_preguntas')
+      .select('id,orden,pregunta,opcion_a,opcion_b,opcion_c,opcion_d,correcta')
       .eq('examen_id', ex.id).order('orden');
     setExamenSel(ex);
     setPreguntas(ps || []);
+    // Guardar mapa de correctas en estado (oculto, no renderizado)
+    setCorrectasMap(Object.fromEntries((ps||[]).map(p => [p.id, p.correcta])));
     setRespuestas({});
     setLoading(false);
     setPaso('preguntas');
@@ -65,13 +69,9 @@ export default function PublicExamenForm({ empresaId }) {
     if (sin.length) { setError(`Faltan ${sin.length} pregunta(s) por responder`); return; }
     setLoading(true); setError('');
 
-    // Obtener respuestas correctas
-    const { data: correctas } = await supabase.from('examen_preguntas')
-      .select('id,correcta').eq('examen_id', examenSel.id);
-    const mapCorrectas = Object.fromEntries((correctas||[]).map(p=>[p.id, p.correcta]));
-
+    // Calcular puntaje con el mapa ya cargado (sin consulta extra)
     let puntaje = 0;
-    preguntas.forEach(p => { if (respuestas[p.id] === mapCorrectas[p.id]) puntaje++; });
+    preguntas.forEach(p => { if (respuestas[p.id] === correctasMap[p.id]) puntaje++; });
     const aprobado = puntaje >= 7;
 
     const { error: err } = await supabase.from('examen_resultados').upsert({
@@ -82,7 +82,7 @@ export default function PublicExamenForm({ empresaId }) {
 
     setLoading(false);
     if (err) { setError('Error al guardar: ' + err.message); return; }
-    setResultado({ puntaje, total: preguntas.length, aprobado, mapCorrectas });
+    setResultado({ puntaje, total: preguntas.length, aprobado, mapCorrectas: correctasMap });
     setPaso('resultado');
   };
 
@@ -226,7 +226,7 @@ export default function PublicExamenForm({ empresaId }) {
             {/* Botones de navegación */}
             <div className="flex flex-col gap-2">
               <button
-                onClick={() => { setExamenSel(null); setRespuestas({}); setResultado(null); setError(''); setPaso('examen'); }}
+                onClick={() => { setExamenSel(null); setRespuestas({}); setCorrectasMap({}); setResultado(null); setError(''); setPaso('examen'); }}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors">
                 📋 Rendir otro examen
               </button>
