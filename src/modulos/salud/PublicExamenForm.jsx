@@ -64,26 +64,27 @@ export default function PublicExamenForm({ empresaId }) {
   };
 
   // ── Paso 3: enviar respuestas ──
-  const enviarRespuestas = async () => {
+  const enviarRespuestas = () => {
     const sin = preguntas.filter(p => !respuestas[p.id]);
     if (sin.length) { setError(`Faltan ${sin.length} pregunta(s) por responder`); return; }
-    setLoading(true); setError('');
-
-    // Calcular puntaje con el mapa ya cargado (sin consulta extra)
+    setError('');
+    // Calcular resultado LOCALMENTE — sin esperar a la BD
     let puntaje = 0;
     preguntas.forEach(p => { if (respuestas[p.id] === correctasMap[p.id]) puntaje++; });
     const aprobado = puntaje >= 7;
 
-    const { error: err } = await supabase.from('examen_resultados').upsert({
+    // Mostrar resultado INMEDIATAMENTE (UI optimista)
+    setResultado({ puntaje, total: preguntas.length, aprobado, mapCorrectas: correctasMap });
+    setPaso('resultado');
+
+    // Guardar en BD en segundo plano (no bloquea la UI)
+    supabase.from('examen_resultados').upsert({
       empresa_id: empresaId, examen_id: examenSel.id,
       dni, nombre: nombre || null, puntaje, total_preguntas: preguntas.length,
       aprobado, respuestas, fecha: new Date().toISOString(),
-    }, { onConflict: 'examen_id,dni' });
-
-    setLoading(false);
-    if (err) { setError('Error al guardar: ' + err.message); return; }
-    setResultado({ puntaje, total: preguntas.length, aprobado, mapCorrectas: correctasMap });
-    setPaso('resultado');
+    }, { onConflict: 'examen_id,dni' }).then(({ error: err }) => {
+      if (err) console.error('Error guardando resultado:', err.message);
+    });
   };
 
   // ── UI ──
@@ -174,9 +175,9 @@ export default function PublicExamenForm({ empresaId }) {
             ))}
 
             {error && <p className="text-red-400 text-xs text-center bg-red-900/20 border border-red-900/40 rounded-lg p-2">{error}</p>}
-            <button onClick={enviarRespuestas} disabled={loading}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded-2xl text-lg transition-colors">
-              {loading ? 'Enviando...' : '✓ Enviar respuestas'}
+            <button onClick={enviarRespuestas}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold rounded-2xl text-lg transition-colors">
+              ✓ Enviar respuestas
             </button>
           </div>
         )}
