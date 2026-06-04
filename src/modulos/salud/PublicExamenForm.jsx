@@ -21,6 +21,7 @@ export default function PublicExamenForm({ empresaId }) {
   const [correctasMap, setCorrectasMap] = useState({}); // cargado al iniciar, no visible en UI
   const [resultado, setResultado] = useState(null);
   const [loading, setLoading] = useState(false);
+  const lastTouch = { current: 0 }; // guard contra ghost clicks en móvil
   const [error, setError] = useState('');
 
   // ── Paso 1: buscar trabajador por DNI ──
@@ -65,7 +66,12 @@ export default function PublicExamenForm({ empresaId }) {
 
   // ── Paso 3: enviar respuestas ──
   const enviarRespuestas = (e) => {
-    if (e) e.preventDefault();
+    if (e?.type === 'touchend') {
+      lastTouch.current = Date.now();
+      e.preventDefault();
+    } else if (e?.type === 'click' && Date.now() - lastTouch.current < 600) {
+      return; // ignorar ghost click post-touch
+    }
     const sin = preguntas.filter(p => !respuestas[p.id]);
     if (sin.length) { setError(`Faltan ${sin.length} pregunta(s) por responder`); return; }
     setError('');
@@ -233,15 +239,17 @@ export default function PublicExamenForm({ empresaId }) {
             </div>
             <p className="text-gray-600 text-[11px] mb-3">Tus respuestas han sido registradas.</p>
             {/* Botones de navegación */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2" style={{ touchAction: 'manipulation' }}>
               <button
-                onClick={() => { setExamenSel(null); setRespuestas({}); setCorrectasMap({}); setResultado(null); setError(''); setPaso('examen'); }}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors">
+                onClick={(e) => { if (Date.now() - lastTouch.current < 600) return; setExamenSel(null); setRespuestas({}); setCorrectasMap({}); setResultado(null); setError(''); setPaso('examen'); }}
+                style={{ touchAction: 'manipulation' }}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors select-none">
                 📋 Rendir otro examen
               </button>
               <button
-                onClick={() => { setDni(''); setNombre(''); setExamenes([]); setExamenSel(null); setRespuestas({}); setResultado(null); setError(''); setPaso('dni'); }}
-                className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 text-sm rounded-xl transition-colors border border-gray-700">
+                onClick={(e) => { if (Date.now() - lastTouch.current < 600) return; setDni(''); setNombre(''); setExamenes([]); setExamenSel(null); setRespuestas({}); setCorrectasMap({}); setResultado(null); setError(''); setPaso('dni'); }}
+                style={{ touchAction: 'manipulation' }}
+                className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 text-sm rounded-xl transition-colors border border-gray-700 select-none">
                 🏠 Volver al inicio
               </button>
             </div>
