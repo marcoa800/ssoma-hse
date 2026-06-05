@@ -4,6 +4,8 @@
 //  Público: DNI → elegir examen → 10 preguntas → resultado.
 // ════════════════════════════════════════════════════════════════════
 import { useState, useEffect } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { fmtFecha } from '../../lib/helpers.js';
@@ -15,11 +17,28 @@ import { Input } from '../../components/ui/Input.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import {
   Plus, Pencil, Trash2, Eye, ClipboardList, CheckCircle,
-  XCircle, Users, Award, QrCode, Copy, Lock, Unlock, ArrowLeft
+  XCircle, Users, Award, QrCode, Copy, Lock, Unlock, ArrowLeft, FileDown
 } from 'lucide-react';
 
 const LETRAS = ['a','b','c','d'];
 const LETRA_LABEL = { a:'A', b:'B', c:'C', d:'D' };
+
+// ── Carga logo desde /public como dataURL ──
+function cargarLogo(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext('2d').drawImage(img, 0, 0);
+      try { resolve({ data: c.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight }); }
+      catch { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
 
 export default function ExamenModulo({ empresaId, role }) {
   const isSuperAdmin = role === 'SUPERADMIN';
@@ -56,6 +75,93 @@ export default function ExamenModulo({ empresaId, role }) {
     showToast('Eliminado', 'info'); load();
   };
 
+  // ── Generar PDF de resultados por examen ──
+  const generarPDF = async (examen, lista) => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = doc.internal.pageSize.getWidth();
+    const M = 14;
+    const hoy = new Date().toISOString().split('T')[0];
+
+    // Logo de Comindustria
+    const logo = await cargarLogo('/logo-comind.png');
+    let y = M;
+    if (logo) {
+      const maxH = 16, maxW = 50;
+      const ratio = Math.min(maxW / logo.w, maxH / logo.h);
+      const lw = logo.w * ratio, lh = logo.h * ratio;
+      doc.addImage(logo.data, 'PNG', M, y, lw, lh);
+      y += lh + 4;
+    } else {
+      doc.setFontSize(11).setFont(undefined, 'bold').text('COMINDUSTRIA', M, y + 8);
+      y += 14;
+    }
+
+    // Título
+    doc.setFontSize(14).setFont(undefined, 'bold').setTextColor(30, 64, 175);
+    doc.text('Resultados de Examen', M, y);
+    doc.setFontSize(11).setFont(undefined, 'normal').setTextColor(0);
+    doc.text(examen.nombre, M, y + 7);
+    doc.setFontSize(8).setTextColor(120);
+    doc.text(`Generado: ${hoy}  ·  Mínimo aprobatorio: ${examen.puntaje_minimo || 7}/10`, M, y + 13);
+    doc.setTextColor(0);
+    y += 20;
+
+    // KPIs
+    const aprobados = lista.filter(r => r.aprobado).length;
+    const reprobados = lista.length - aprobados;
+    const prom = lista.length ? (lista.reduce((s, r) => s + r.puntaje, 0) / lista.length).toFixed(1) : '—';
+    const kpis = [
+      ['Total participantes', lista.length],
+      ['Aprobados', `${aprobados} (${lista.length ? Math.round(aprobados / lista.length * 100) : 0}%)`],
+      ['Desaprobados', reprobados],
+      ['Promedio', `${prom}/10`],
+    ];
+    kpis.forEach((k, i) => {
+      const x = M + i * ((W - 2 * M) / 4);
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(x, y, (W - 2 * M) / 4 - 3, 14, 2, 2, 'F');
+      doc.setFontSize(7).setTextColor(100).text(String(k[0]), x + 3, y + 5);
+      doc.setFontSize(10).setFont(undefined, 'bold').setTextColor(30, 64, 175).text(String(k[1]), x + 3, y + 11);
+      doc.setFont(undefined, 'normal').setTextColor(0);
+    });
+    y += 20;
+
+    // Tabla de resultados
+    autoTable(doc, {
+      startY: y,
+      head: [['N°', 'DNI', 'Apellidos y Nombres', 'Puntaje', 'Resultado', 'Fecha']],
+      body: lista.map((r, i) => [
+        i + 1, r.dni, r.nombre || '—',
+        `${r.puntaje}/${r.total_preguntas}`,
+        r.aprobado ? 'APROBADO' : 'DESAPROBADO',
+        fmtFecha(r.fecha?.split('T')[0]),
+      ]),
+      styles: { fontSize: 8, cellPadding: 1.8, lineWidth: 0.1, lineColor: [200, 200, 200] },
+      headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 8, halign: 'center' },
+        1: { cellWidth: 22, halign: 'center' },
+        3: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+        4: { cellWidth: 26, halign: 'center', fontStyle: 'bold' },
+        5: { cellWidth: 22, halign: 'center' },
+      },
+      didParseCell: (d) => {
+        if (d.section === 'body' && d.column.index === 4) {
+          if (d.cell.raw === 'APROBADO') { d.cell.styles.textColor = [22, 101, 52]; d.cell.styles.fillColor = [220, 252, 231]; }
+          else { d.cell.styles.textColor = [185, 28, 28]; d.cell.styles.fillColor = [254, 226, 226]; }
+        }
+      },
+      margin: { left: M, right: M },
+    });
+
+    // Pie de página
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFontSize(7).setTextColor(160);
+    doc.text(`INVERSIONES COMINDUSTRIA  ·  Sistema Medicloud Safety  ·  ${hoy}`, W / 2, pageH - 8, { align: 'center' });
+
+    doc.save(`resultados_${examen.nombre.replace(/\s+/g,'_')}_${hoy}.pdf`);
+  };
+
   const desbloquearDNI = async (resultadoId) => {
     if (!isSuperAdmin) { showToast('Solo SUPERADMIN puede desbloquear', 'error'); return; }
     if (!confirm('¿Permitir que este trabajador vuelva a rendir el examen?')) return;
@@ -81,8 +187,15 @@ export default function ExamenModulo({ empresaId, role }) {
           className="mb-4 flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300">
           <ArrowLeft size={13}/> Volver
         </button>
-        <h3 className="text-white font-semibold text-sm mb-1">{selected.nombre}</h3>
-        <p className="text-gray-500 text-xs mb-4">Resultados de los trabajadores</p>
+        <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
+          <div>
+            <h3 className="text-white font-semibold text-sm mb-1">{selected.nombre}</h3>
+            <p className="text-gray-500 text-xs">Resultados de los trabajadores</p>
+          </div>
+          <Btn size="sm" variant="primary" onClick={() => generarPDF(selected, resultados)}>
+            <FileDown size={13}/> Descargar PDF
+          </Btn>
+        </div>
         <div className="grid grid-cols-3 gap-3 mb-5">
           <KpiCard label="Rindieron" value={resultados.length} sub="trabajadores" accentColor="blue"/>
           <KpiCard label="Aprobados" value={aprobados} sub={`${resultados.length ? Math.round(aprobados/resultados.length*100) : 0}% tasa`} accentColor="emerald"/>
