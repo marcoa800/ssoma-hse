@@ -171,6 +171,7 @@ export default function ExamenModulo({ empresaId, role }) {
   };
 
   const publicUrl = `${window.location.origin}${window.location.pathname}?examen=${empresaId}`;
+  const publicUrlExamen = (exId) => `${window.location.origin}${window.location.pathname}?examen=${empresaId}&id=${exId}`;
   const copiarLink = () => {
     navigator.clipboard?.writeText(publicUrl).catch(() => {});
     setCopied(true); setTimeout(() => setCopied(false), 2000);
@@ -294,10 +295,21 @@ export default function ExamenModulo({ empresaId, role }) {
                 </div>
                 {ex.descripcion && <p className="text-gray-500 text-xs truncate">{ex.descripcion}</p>}
               </div>
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-3 shrink-0flex-wrap">
                 <button onClick={async () => { setSelected(ex); await loadResultados(ex.id); setVista('resultados'); }}
                   className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-emerald-400">
                   <Users size={13}/> Ver resultados
+                </button>
+                {/* Link directo a este examen */}
+                <button
+                  onClick={() => {
+                    const url = publicUrlExamen(ex.id);
+                    navigator.clipboard?.writeText(url).catch(()=>{});
+                    showToast('Link directo copiado ✓', 'success');
+                  }}
+                  className="flex items-center gap-1 text-xs text-violet-400/70 hover:text-violet-300"
+                  title="Copiar link directo a este examen">
+                  <QrCode size={13}/> Link directo
                 </button>
                 <button onClick={() => { setSelected(ex); setVista('editor'); }}
                   className="text-gray-500 hover:text-blue-400"><Pencil size={13}/></button>

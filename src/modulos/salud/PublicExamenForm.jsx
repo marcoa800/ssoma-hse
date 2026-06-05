@@ -25,6 +25,8 @@ function BtnInstant({ onClick, disabled, className, children, style }) {
 }
 
 export default function PublicExamenForm({ empresaId }) {
+  // Si viene con ?id=examenId, va directo a ese examen (sin elegir)
+  const examenIdFijo = new URLSearchParams(window.location.search).get('id');
   const [paso, setPaso] = useState('dni');
   const [dni, setDni] = useState('');
   const [nombre, setNombre] = useState('');
@@ -45,6 +47,18 @@ export default function PublicExamenForm({ empresaId }) {
       .eq('dni', dni).eq('empresa_id', empresaId).single();
     const nombreDir = data?.nombre || '';
     setNombre(nombreDir);
+
+    // Si viene con link directo a un examen específico
+    if (examenIdFijo) {
+      const { data: ex } = await supabase.from('examenes').select('id,nombre,descripcion,puntaje_minimo')
+        .eq('id', examenIdFijo).eq('activo', true).single();
+      setLoading(false);
+      if (!ex) { setError('Este examen no está disponible.'); return; }
+      if (!nombreDir) { setExamenes([ex]); setPaso('nombre'); return; }
+      await elegirExamen(ex, nombreDir);
+      return;
+    }
+
     const { data: exs } = await supabase.from('examenes').select('id,nombre,descripcion')
       .eq('empresa_id', empresaId).eq('activo', true).order('created_at', { ascending: false });
     setExamenes(exs || []);
@@ -56,8 +70,9 @@ export default function PublicExamenForm({ empresaId }) {
   };
 
   // ── Paso 2: seleccionar examen ──
-  const elegirExamen = async (ex) => {
+  const elegirExamen = async (ex, nombreOverride) => {
     setLoading(true); setError('');
+    const nombreFinal = nombreOverride || nombre;
     const { data: ya } = await supabase.from('examen_resultados').select('id,desbloqueado')
       .eq('examen_id', ex.id).eq('dni', dni).single();
     if (ya && !ya.desbloqueado) {
