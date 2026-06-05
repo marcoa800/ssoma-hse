@@ -19,7 +19,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
   const hydroBloqueado = (id) => esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
   const moduloOcultoHome = (id) => {
     if (esComindustria && ["ats"].includes(id)) return true;
-    if (!esComindustria && ["indicadores","examenes"].includes(id)) return true;
+    if (!esComindustria && ["indicadores"].includes(id)) return true;
     return false;
   };
 
@@ -54,7 +54,6 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     { id: "contratistas",     label: "Contratistas",        desc: "Gestión de empresas contratistas",    Icon: Building2,       color: "amber" },
     { id: "inversion",        label: "Inversión SST",       desc: "Costos de seguridad y plan vs real",  Icon: DollarSign,      color: "emerald" },
     { id: "indicadores",      label: "Indicadores SST",     desc: "IF, IG, IA — estadística de accidentabilidad", Icon: TrendingUp, color: "blue" },
-    { id: "examenes",         label: "Exámenes",            desc: "Evaluaciones de capacitación con QR para el personal", Icon: BookOpen, color: "purple" },
     { id: "reportes_ssoma",   label: "Reportes PDF",        desc: "Generación de informes SSOMA",        Icon: FileDown,        color: "gray" },
     ...(esHydroGlobal ? [{ id: "hallazgos_hgp", label: "Reporte de Hallazgos", desc: "Seguimiento de hallazgos FR-039", Icon: AlertTriangle, color: "orange" }] : []),
   ];
