@@ -170,21 +170,28 @@ serve(async (req) => {
       return new Response(JSON.stringify({ sent: false, reason: "Sin trabajadores activos" }), { status: 200 });
     }
 
-    // 3. Calcular alertas (solo ≤30 días)
+    // 3. Solo alertas NUEVAS que se activan HOY:
+    //    - Día 30: entra en ventana de alerta por primera vez
+    //    - Día 15: recordatorio a mitad de camino
+    //    - Día 7:  semana crítica
+    //    - Día 0:  vence hoy
+    //    (no se repite cada día — solo en esos hitos)
+    const DIAS_ALERTA = new Set([30, 15, 7, 0]);
     const hoy = new Date(new Date().toISOString().split("T")[0] + "T00:00:00");
     const alertas = workers
       .map((w: any) => {
         const v = calcVigencia(w.ultima_emo, w.duracion_emo);
         if (!v) return null;
         const dias = diasHasta(v, hoy);
-        return dias <= 30 ? { ...w, vence: v, dias } : null;
+        // Solo alertas nuevas en los días hito, o si venció exactamente hoy
+        return DIAS_ALERTA.has(dias) ? { ...w, vence: v, dias } : null;
       })
       .filter(Boolean)
       .sort((a: any, b: any) => a.dias - b.dias);
 
-    // 4. Si no hay alertas, no enviar nada
+    // 4. Si no hay alertas nuevas hoy, no enviar nada
     if (!alertas.length) {
-      return new Response(JSON.stringify({ sent: false, reason: "Sin alertas hoy — no se envió correo" }), { status: 200 });
+      return new Response(JSON.stringify({ sent: false, reason: "Sin alertas nuevas hoy — no se envió correo" }), { status: 200 });
     }
 
     const porVencer = alertas.filter((a: any) => a.dias >= 0);
@@ -200,7 +207,7 @@ serve(async (req) => {
     const info = await transporter.sendMail({
       from: `"${FROM_NAME}" <${FROM_USER}>`,
       to: TO.join(", "),
-      subject: `⚠ Alerta EMO Comindustria — ${alertas.length} caso(s) · ${fechaHoy}`,
+      subject: `🔔 Nueva alerta EMO Comindustria — ${alertas.length} caso(s) hoy · ${fechaHoy}`,
       html: buildHTML(porVencer, vencidos, fechaHoy),
     });
 
