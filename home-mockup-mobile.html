@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SSOMA HSE — Mobile Home Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #080c14;
+  --surface:     #0d1220;
+  --card:        #111827;
+  --card-hover:  #151e2e;
+  --border:      #1c2a3f;
+  --border-hi:   #253550;
+  --text:        #e2e8f0;
+  --muted:       #475569;
+  --dim:         #64748b;
+  --blue:        #3b82f6;
+  --emerald:     #10b981;
+  --purple:      #8b5cf6;
+  --red:         #ef4444;
+  --orange:      #f97316;
+  --amber:       #f59e0b;
+  --yellow:      #eab308;
+  --rose:        #f43f5e;
+  --green:       #22c55e;
+  --gray:        #6b7280;
+  --teal:        #14b8a6;
+}
+
+/* PAGE SHELL — centers the phone */
+body {
+  background: #02050b;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px 20px;
+  font-family: 'Inter', sans-serif;
+  gap: 48px;
+}
+
+/* Role switcher outside the phone */
+.role-switcher {
+  position: fixed;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(13,18,32,0.95);
+  border: 1px solid #1c2a3f;
+  border-radius: 50px;
+  padding: 6px 10px;
+  backdrop-filter: blur(12px);
+  font-size: 11px;
+  color: #64748b;
+  font-family: 'JetBrains Mono', monospace;
+}
+.role-switcher span { color: #94a3b8; }
+.role-btn {
+  padding: 4px 12px; border-radius: 20px; cursor: pointer;
+  transition: all 0.2s; border: 1px solid transparent; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.role-btn.active { background: rgba(59,130,246,0.2); color: #60a5fa; border-color: rgba(59,130,246,0.3); }
+.role-btn:not(.active) { color: #475569; }
+.role-btn:not(.active):hover { color: #94a3b8; background: rgba(255,255,255,0.04); }
+.role-btn.orange.active { background: rgba(249,115,22,0.2); color: #fb923c; border-color: rgba(249,115,22,0.3); }
+.role-btn.green.active { background: rgba(16,185,129,0.2); color: #34d399; border-color: rgba(16,185,129,0.3); }
+.role-btn.amber.active { background: rgba(245,158,11,0.2); color: #fbbf24; border-color: rgba(245,158,11,0.3); }
+
+/* PHONE FRAME */
+.phone-frame {
+  width: 393px;
+  min-height: 852px;
+  background: var(--bg);
+  border-radius: 48px;
+  border: 1px solid #1a2535;
+  box-shadow:
+    0 0 0 6px #0a0f1a,
+    0 0 0 7px #1a2535,
+    0 40px 80px rgba(0,0,0,0.8),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+  overflow: hidden;
+  position: relative;
+  margin-top: 60px;
+}
+
+/* Notch */
+.phone-notch {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.notch-bar {
+  width: 120px; height: 34px;
+  background: #000;
+  border-radius: 0 0 22px 22px;
+  position: absolute; top: 0;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.notch-cam {
+  width: 12px; height: 12px; border-radius: 50%; background: #111;
+  border: 2px solid #1a1a1a; position: relative;
+}
+.notch-cam::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 4px; height: 4px; border-radius: 50%; background: #222;
+}
+.status-left {
+  position: absolute; left: 22px;
+  font-size: 11px; font-weight: 600; color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+}
+.status-right {
+  position: absolute; right: 22px;
+  display: flex; align-items: center; gap: 5px;
+}
+.status-right svg { color: var(--text); }
+
+/* PHONE CONTENT */
+.phone-content {
+  height: calc(852px - 44px - 72px);
+  overflow-y: auto;
+  padding: 0 0 8px;
+  scrollbar-width: none;
+}
+.phone-content::-webkit-scrollbar { display: none; }
+
+/* DOT GRID */
+.phone-content::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, #162033 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* HEADER */
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px 10px;
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(8,12,20,0.9);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(28,42,63,0.6);
+}
+.app-logo { display: flex; align-items: center; gap: 8px; }
+.logo-sq {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px; color: #fff;
+  box-shadow: 0 0 10px rgba(59,130,246,0.35);
+}
+.logo-name { font-size: 13px; font-weight: 700; letter-spacing: -0.3px; }
+.logo-name span { color: var(--muted); font-weight: 400; }
+
+.header-right-app { display: flex; align-items: center; gap: 8px; }
+.notif-btn {
+  width: 30px; height: 30px; border-radius: 9px;
+  background: var(--surface); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; cursor: pointer;
+}
+.notif-dot {
+  position: absolute; top: 5px; right: 5px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--red);
+  border: 1.5px solid var(--bg);
+}
+.avatar {
+  width: 30px; height: 30px; border-radius: 9px;
+  background: linear-gradient(135deg, #1d4ed8, #7c3aed);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff; cursor: pointer;
+}
+
+/* HERO / GREETING */
+.greeting-block {
+  padding: 18px 20px 14px;
+  position: relative; z-index: 1;
+}
+.greeting-sub { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+.greeting-name { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+.greeting-name span { color: var(--blue); }
+.role-chip {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 7px;
+  padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.5px; font-family: 'JetBrains Mono', monospace;
+  border: 1px solid;
+}
+.role-chip.superadmin { background: rgba(249,115,22,0.1); color: #fb923c; border-color: rgba(249,115,22,0.2); }
+.role-chip.admin      { background: rgba(139,92,246,0.1); color: #a78bfa; border-color: rgba(139,92,246,0.2); }
+.role-chip.medico     { background: rgba(16,185,129,0.1); color: #34d399; border-color: rgba(16,185,129,0.2); }
+.role-chip.seguridad  { background: rgba(245,158,11,0.1); color: #fbbf24; border-color: rgba(245,158,11,0.2); }
+
+/* PLATFORM TOGGLE */
+.platform-bar {
+  display: flex; gap: 6px; padding: 0 20px 14px;
+  position: relative; z-index: 1;
+}
+.plat-btn {
+  flex: 1; padding: 8px 0; border-radius: 11px; font-size: 11px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  cursor: pointer; transition: all 0.2s; border: 1px solid transparent;
+}
+.plat-btn.active-blue {
+  background: rgba(59,130,246,0.15); color: #60a5fa;
+  border-color: rgba(59,130,246,0.25);
+}
+.plat-btn.active-amber {
+  background: rgba(245,158,11,0.15); color: #fbbf24;
+  border-color: rgba(245,158,11,0.25);
+}
+.plat-btn.inactive { background: var(--surface); color: var(--muted); border-color: var(--border); }
+
+/* SECTION */
+.section { padding: 0 16px 16px; position: relative; z-index: 1; }
+.section-head {
+  display: flex; align-items: center; gap: 8px; padding: 0 4px; margin-bottom: 10px;
+}
+.section-line { width: 3px; height: 16px; border-radius: 4px; }
+.section-line.blue   { background: linear-gradient(to bottom, #3b82f6, transparent); }
+.section-line.amber  { background: linear-gradient(to bottom, #f59e0b, transparent); }
+.section-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: var(--dim); text-transform: uppercase; font-family: 'JetBrains Mono', monospace; }
+.section-count { margin-left: auto; font-size: 10px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+/* CARD GRID */
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* CARD */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+  overflow: hidden;
+  min-height: 112px;
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.card:active { transform: scale(0.97); }
+
+/* Accent top bar */
+.card-top-accent {
+  position: absolute; top: 0; left: 14px; right: 14px;
+  height: 2px; border-radius: 0 0 4px 4px;
+  opacity: 0.6;
+}
+
+.card-icon-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+.card-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.card-arrow-sm {
+  width: 20px; height: 20px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 11px;
+}
+
+.card-title { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 3px; }
+.card-desc  { font-size: 10px; color: var(--muted); line-height: 1.4; }
+.card-badge {
+  display: inline-flex; align-items: center;
+  font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px;
+  font-family: 'JetBrains Mono', monospace; margin-top: 5px;
+}
+
+/* Hover glow variants */
+.card.blue-card:hover  { border-color: rgba(59,130,246,0.3); box-shadow: 0 6px 24px rgba(59,130,246,0.12); }
+.card.amber-card:hover { border-color: rgba(245,158,11,0.3);  box-shadow: 0 6px 24px rgba(245,158,11,0.1); }
+
+/* ── LOCK OVERLAY ── */
+.card.locked {
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+.lock-overlay {
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: rgba(8,12,20,0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px;
+  z-index: 10;
+  border: 1px solid rgba(255,255,255,0.04);
+  transition: all 0.2s;
+}
+.lock-overlay:hover {
+  background: rgba(8,12,20,0.8);
+}
+.lock-icon-wrap {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.2);
+  display: flex; align-items: center; justify-content: center;
+}
+.lock-svg { color: #f87171; }
+.lock-label {
+  font-size: 9px; font-weight: 700; color: #f87171;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace;
+}
+.lock-sublabel {
+  font-size: 8.5px; color: #64748b; text-align: center; line-height: 1.3;
+  max-width: 90px;
+}
+/* Shake on click */
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-4px); }
+  40%      { transform: translateX(4px); }
+  60%      { transform: translateX(-3px); }
+  80%      { transform: translateX(3px); }
+}
+.card.locked:active { animation: shake 0.35s ease; }
+
+/* Icon colors */
+.ic-blue    { background: rgba(59,130,246,0.12); color: #60a5fa; }
+.ic-emerald { background: rgba(16,185,129,0.12); color: #34d399; }
+.ic-purple  { background: rgba(139,92,246,0.12); color: #a78bfa; }
+.ic-red     { background: rgba(239,68,68,0.12);  color: #f87171; }
+.ic-orange  { background: rgba(249,115,22,0.12); color: #fb923c; }
+.ic-gray    { background: rgba(107,114,128,0.12);color: #9ca3af; }
+.ic-yellow  { background: rgba(234,179,8,0.12);  color: #facc15; }
+.ic-rose    { background: rgba(244,63,94,0.12);  color: #fb7185; }
+.ic-amber   { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.ic-green   { background: rgba(34,197,94,0.12);  color: #4ade80; }
+.ic-teal    { background: rgba(20,184,166,0.12); color: #2dd4bf; }
+
+.badge-red    { background: rgba(239,68,68,0.12);  color: #f87171; }
+.badge-blue   { background: rgba(59,130,246,0.12); color: #60a5fa; }
+.badge-amber  { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.badge-green  { background: rgba(34,197,94,0.12);  color: #4ade80; }
+
+/* BOTTOM NAV */
+.bottom-nav {
+  height: 72px;
+  background: rgba(13,18,32,0.97);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 8px 8px;
+  position: sticky; bottom: 0; z-index: 100;
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; cursor: pointer; padding: 6px 0;
+  border-radius: 12px; transition: all 0.2s;
+}
+.nav-item.active { background: rgba(59,130,246,0.1); }
+.nav-item svg { color: var(--muted); }
+.nav-item.active svg { color: #60a5fa; }
+.nav-item span { font-size: 9px; font-weight: 500; color: var(--muted); }
+.nav-item.active span { color: #60a5fa; }
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.greeting-block { animation: fadeUp 0.4s ease both; }
+.platform-bar   { animation: fadeUp 0.4s 0.05s ease both; }
+.section        { animation: fadeUp 0.4s 0.1s ease both; }
+
+.card { animation: fadeUp 0.35s ease both; }
+.card:nth-child(1) { animation-delay: 0.08s; }
+.card:nth-child(2) { animation-delay: 0.12s; }
+.card:nth-child(3) { animation-delay: 0.16s; }
+.card:nth-child(4) { animation-delay: 0.20s; }
+.card:nth-child(5) { animation-delay: 0.24s; }
+.card:nth-child(6) { animation-delay: 0.28s; }
+.card:nth-child(7) { animation-delay: 0.32s; }
+.card:nth-child(8) { animation-delay: 0.36s; }
+
+/* Pulse online dot */
+.pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; position: relative; }
+.pulse::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; background: rgba(34,197,94,0.3); animation: pulseRing 2s infinite; }
+@keyframes pulseRing { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.8);opacity:0} }
+
+/* Outside label */
+.outside-label {
+  color: #1e2d45;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: center;
+  margin-top: 16px;
+  letter-spacing: 1px;
+}
+
+/* Role descriptions panel */
+.role-desc {
+  margin-top: 20px;
+  background: rgba(13,18,32,0.8);
+  border: 1px solid #1c2a3f;
+  border-radius: 16px;
+  padding: 16px;
+  width: 220px;
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.6;
+}
+.role-desc h4 { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #64748b; text-transform: uppercase; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
+.role-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.role-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- Role switcher top-center -->
+<div class="role-switcher">
+  <span>Vista como:</span>
+  <div class="role-btn orange active" onclick="setRole('SUPERADMIN')">SUPERADMIN</div>
+  <div class="role-btn" onclick="setRole('ADMIN')" style="color:#8b5cf6">ADMIN</div>
+  <div class="role-btn green" onclick="setRole('MEDICO')">MEDICO</div>
+  <div class="role-btn amber" onclick="setRole('SEGURIDAD')">SEGURIDAD</div>
+</div>
+
+<div style="display:flex; flex-direction:column; align-items:center; margin-top:0;">
+
+  <!-- PHONE -->
+  <div class="phone-frame">
+
+    <!-- Notch -->
+    <div class="phone-notch">
+      <span class="status-left" id="clock">9:41</span>
+      <div class="notch-bar">
+        <div class="notch-cam"></div>
+      </div>
+      <div class="status-right">
+        <!-- Signal -->
+        <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor" style="color:#e2e8f0">
+          <rect x="0" y="7" width="3" height="4" rx="1"/>
+          <rect x="4" y="4.5" width="3" height="6.5" rx="1"/>
+          <rect x="8" y="2" width="3" height="9" rx="1"/>
+          <rect x="12" y="0" width="3" height="11" rx="1" opacity="0.3"/>
+        </svg>
+        <!-- WiFi -->
+        <svg width="15" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:#e2e8f0">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/>
+        </svg>
+        <!-- Battery -->
+        <svg width="22" height="11" viewBox="0 0 22 11" fill="none" style="color:#e2e8f0">
+          <rect x="0.5" y="0.5" width="18" height="10" rx="2.5" stroke="currentColor" stroke-width="1"/>
+          <rect x="2" y="2" width="14" height="7" rx="1.5" fill="currentColor"/>
+          <path d="M19.5 3.5v4a1.5 1.5 0 0 0 0-4z" fill="currentColor" opacity="0.4"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Scrollable content -->
+    <div class="phone-content">
+
+      <!-- Header -->
+      <div class="app-header">
+        <div class="app-logo">
+          <div class="logo-sq">S</div>
+          <div class="logo-name">SSOMA <span>HSE</span></div>
+        </div>
+        <div class="header-right-app">
+          <div class="notif-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <div class="notif-dot"></div>
+          </div>
+          <div class="avatar" id="avatarEl">MA</div>
+        </div>
+      </div>
+
+      <!-- Greeting -->
+      <div class="greeting-block">
+        <div class="greeting-sub">Buenos días 👋</div>
+        <div class="greeting-name" id="greetName">Dr. Marco <span>Arévalo</span></div>
+        <div class="role-chip superadmin" id="roleChip">
+          <div class="pulse"></div>
+          <span id="rolLabel">SUPERADMIN</span>
+        </div>
+      </div>
+
+      <!-- Platform toggle -->
+      <div class="platform-bar">
+        <div class="plat-btn active-blue" id="btnSalud" onclick="setPlat('salud')">🩺 Salud</div>
+        <div class="plat-btn inactive"    id="btnSsoma" onclick="setPlat('ssoma')">⚠️ SSOMA</div>
+      </div>
+
+      <!-- ── SALUD SECTION ── -->
+      <div class="section" id="secSalud">
+        <div class="section-head">
+          <div class="section-line blue"></div>
+          <div class="section-title">Salud Ocupacional</div>
+          <div class="section-count" id="saludCount">8 módulos</div>
+        </div>
+        <div class="card-grid">
+
+          <!-- Dashboard -->
+          <div class="card blue-card">
+            <div class="card-top-accent" style="background:#3b82f6"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-blue">📊</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">Dashboard</div>
+              <div class="card-desc">Métricas en tiempo real</div>
+            </div>
+          </div>
+
+          <!-- Directorio -->
+          <div class="card blue-card">
+            <div class="card-top-accent" style="background:#10b981"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-emerald">👥</div>
+              <div class="card-badge badge-green">124</div>
+            </div>
+            <div>
+              <div class="card-title">Directorio</div>
+              <div class="card-desc">Personal activo</div>
+            </div>
+          </div>
+
+          <!-- Capacitaciones -->
+          <div class="card blue-card">
+            <div class="card-top-accent" style="background:#8b5cf6"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-purple">🎓</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">Capacitaciones</div>
+              <div class="card-desc">Cursos y registro</div>
+            </div>
+          </div>
+
+          <!-- Vigilancia Médica — LOCKED for SEGURIDAD -->
+          <div class="card blue-card" id="cardVigilancia">
+            <div class="card-top-accent" style="background:#ef4444"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-red">🏥</div>
+              <div class="card-badge badge-red">8 prog.</div>
+            </div>
+            <div>
+              <div class="card-title">Vigilancia Médica</div>
+              <div class="card-desc">Programas activos</div>
+            </div>
+            <div class="lock-overlay" id="lockVigilancia" style="display:none">
+              <div class="lock-icon-wrap">
+                <svg class="lock-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+              <div class="lock-label">Sin acceso</div>
+              <div class="lock-sublabel">Requiere rol MEDICO o ADMIN</div>
+            </div>
+          </div>
+
+          <!-- Caracterización — LOCKED for SEGURIDAD -->
+          <div class="card blue-card" id="cardCaract">
+            <div class="card-top-accent" style="background:#f97316"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-orange">🔬</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">Caracterización</div>
+              <div class="card-desc">Riesgo RM-375</div>
+            </div>
+            <div class="lock-overlay" id="lockCaract" style="display:none">
+              <div class="lock-icon-wrap">
+                <svg class="lock-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+              <div class="lock-label">Sin acceso</div>
+              <div class="lock-sublabel">Requiere rol MEDICO o ADMIN</div>
+            </div>
+          </div>
+
+          <!-- Documentos -->
+          <div class="card blue-card">
+            <div class="card-top-accent" style="background:#6b7280"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-gray">📄</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">Documentos</div>
+              <div class="card-desc">Centro documental</div>
+            </div>
+          </div>
+
+          <!-- KPIs -->
+          <div class="card blue-card">
+            <div class="card-top-accent" style="background:#eab308"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-yellow">⚡</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">KPIs</div>
+              <div class="card-desc">Indicadores</div>
+            </div>
+          </div>
+
+          <!-- Accidentes -->
+          <div class="card blue-card">
+            <div class="card-top-accent" style="background:#f43f5e"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-rose">🚨</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">Accidentes</div>
+              <div class="card-desc">Registro eventos</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── SSOMA SECTION ── -->
+      <div class="section" id="secSsoma" style="display:none">
+        <div class="section-head">
+          <div class="section-line amber"></div>
+          <div class="section-title">Seguridad y MA</div>
+          <div class="section-count">6 módulos</div>
+        </div>
+        <div class="card-grid">
+
+          <div class="card amber-card">
+            <div class="card-top-accent" style="background:#f59e0b"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-amber">📊</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">Dashboard SSOMA</div>
+              <div class="card-desc">Panel operacional</div>
+            </div>
+          </div>
+
+          <div class="card amber-card">
+            <div class="card-top-accent" style="background:#f97316"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-orange">⚠️</div>
+              <div class="card-badge badge-amber">3 pend.</div>
+            </div>
+            <div>
+              <div class="card-title">RACs</div>
+              <div class="card-desc">Actos y condiciones</div>
+            </div>
+          </div>
+
+          <div class="card amber-card">
+            <div class="card-top-accent" style="background:#3b82f6"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-blue">📋</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">Inspecciones</div>
+              <div class="card-desc">Seguridad en campo</div>
+            </div>
+          </div>
+
+          <div class="card amber-card">
+            <div class="card-top-accent" style="background:#22c55e"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-green">✅</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">ATS / PETAR</div>
+              <div class="card-desc">Trabajo seguro</div>
+            </div>
+          </div>
+
+          <div class="card amber-card">
+            <div class="card-top-accent" style="background:#ef4444"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-red">🛡️</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">IPERC</div>
+              <div class="card-desc">Matriz de riesgos</div>
+            </div>
+          </div>
+
+          <div class="card amber-card">
+            <div class="card-top-accent" style="background:#6b7280"></div>
+            <div class="card-icon-row">
+              <div class="card-icon ic-gray">📑</div>
+              <div class="card-arrow-sm">↗</div>
+            </div>
+            <div>
+              <div class="card-title">Reportes PDF</div>
+              <div class="card-desc">Informes mensuales</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ADMIN section -->
+      <div class="section" id="secAdmin">
+        <div class="section-head">
+          <div class="section-line" style="background:linear-gradient(to bottom,#f97316,transparent)"></div>
+          <div class="section-title">Administración</div>
+        </div>
+        <div class="card-grid">
+          <div class="card" id="cardAdmin" style="border-color:rgba(249,115,22,0.2); grid-column: span 2;">
+            <div class="card-top-accent" style="background:#f97316; opacity:0.5"></div>
+            <div class="card-icon-row">
+              <div class="card-icon" style="background:rgba(249,115,22,0.1);color:#fb923c">⚙️</div>
+              <div class="card-badge" style="background:rgba(249,115,22,0.1);color:#fb923c">SUPERADMIN</div>
+            </div>
+            <div>
+              <div class="card-title">Panel de Administración</div>
+              <div class="card-desc">Empresas, usuarios y configuración del sistema</div>
+            </div>
+            <div class="lock-overlay" id="lockAdmin" style="display:none">
+              <div class="lock-icon-wrap">
+                <svg class="lock-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+              <div class="lock-label">Solo SUPERADMIN</div>
+              <div class="lock-sublabel">No tienes permisos para esta sección</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:8px"></div>
+    </div><!-- end phone-content -->
+
+    <!-- Bottom nav -->
+    <div class="bottom-nav">
+      <div class="nav-item active">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Inicio</span>
+      </div>
+      <div class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <span>Buscar</span>
+      </div>
+      <div class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span>Alertas</span>
+      </div>
+      <div class="nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Perfil</span>
+      </div>
+    </div>
+
+  </div><!-- end phone-frame -->
+  <div class="outside-label">ssoma-hse.vercel.app</div>
+</div>
+
+<!-- Side legend -->
+<div style="margin-top:80px; display:flex; flex-direction:column; gap:12px; max-width:200px;">
+  <div class="role-desc">
+    <h4>Permisos por rol</h4>
+    <div class="role-row"><div class="role-dot" style="background:#f97316"></div><span style="color:#94a3b8; font-weight:600;">SUPERADMIN</span> — Acceso total</div>
+    <div class="role-row"><div class="role-dot" style="background:#8b5cf6"></div><span style="color:#94a3b8; font-weight:600;">ADMIN</span> — Sin panel admin</div>
+    <div class="role-row"><div class="role-dot" style="background:#10b981"></div><span style="color:#94a3b8; font-weight:600;">MEDICO</span> — Solo Salud</div>
+    <div class="role-row"><div class="role-dot" style="background:#f59e0b"></div><span style="color:#94a3b8; font-weight:600;">SEGURIDAD</span> — Sin vigilancia médica ni caracterización</div>
+    <div style="margin-top:12px; padding-top:12px; border-top:1px solid #1c2a3f;">
+      <div style="font-size:10px; color:#475569; line-height:1.6;">🔒 Los módulos bloqueados muestran un candado translúcido con efecto blur y el rol requerido.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentRole = 'SUPERADMIN';
+let currentPlat = 'salud';
+
+const roleData = {
+  SUPERADMIN: { name: 'Dr. Marco Arévalo',   initials: 'MA', chipClass: 'superadmin', label: 'SUPERADMIN',
+    locks: [] },
+  ADMIN:      { name: 'Ing. Luis Quispe',     initials: 'LQ', chipClass: 'admin',      label: 'ADMIN',
+    locks: ['lockAdmin'] },
+  MEDICO:     { name: 'Dra. Ana Torres',      initials: 'AT', chipClass: 'medico',     label: 'MEDICO',
+    locks: ['lockAdmin'] },
+  SEGURIDAD:  { name: 'Lic. Frans Vargas',    initials: 'FV', chipClass: 'seguridad',  label: 'SEGURIDAD',
+    locks: ['lockVigilancia','lockCaract','lockAdmin'] },
+};
+
+function setRole(role) {
+  currentRole = role;
+  const d = roleData[role];
+
+  // Update greeting
+  const parts = d.name.split(' ');
+  document.getElementById('greetName').innerHTML =
+    parts.slice(0,-1).join(' ') + ' <span>' + parts[parts.length-1] + '</span>';
+
+  // Avatar
+  document.getElementById('avatarEl').textContent = d.initials;
+
+  // Role chip
+  const chip = document.getElementById('roleChip');
+  chip.className = 'role-chip ' + d.chipClass;
+  document.getElementById('rolLabel').textContent = d.label;
+
+  // All locks off
+  ['lockVigilancia','lockCaract','lockAdmin'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
+  // Cards un-lock
+  ['cardVigilancia','cardCaract','cardAdmin'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.classList.remove('locked');
+  });
+
+  // Apply locks for this role
+  d.locks.forEach(id => {
+    const lockEl = document.getElementById(id);
+    if(lockEl) lockEl.style.display = 'flex';
+    // lock the parent card
+    const cardMap = { lockVigilancia:'cardVigilancia', lockCaract:'cardCaract', lockAdmin:'cardAdmin' };
+    const cardEl = document.getElementById(cardMap[id]);
+    if(cardEl) cardEl.classList.add('locked');
+  });
+
+  // Update active button styles
+  document.querySelectorAll('.role-btn').forEach(b => {
+    b.classList.remove('active');
+    b.style.color = '';
+  });
+  const labels = ['SUPERADMIN','ADMIN','MEDICO','SEGURIDAD'];
+  const classes = ['orange','','green','amber'];
+  const idx = labels.indexOf(role);
+  const btn = document.querySelectorAll('.role-btn')[idx];
+  btn.classList.add('active');
+  if(classes[idx]) btn.classList.add(classes[idx]);
+}
+
+function setPlat(plat) {
+  currentPlat = plat;
+  document.getElementById('secSalud').style.display = plat === 'salud' ? '' : 'none';
+  document.getElementById('secSsoma').style.display = plat === 'ssoma' ? '' : 'none';
+  document.getElementById('btnSalud').className = plat === 'salud' ? 'plat-btn active-blue' : 'plat-btn inactive';
+  document.getElementById('btnSsoma').className = plat === 'ssoma' ? 'plat-btn active-amber' : 'plat-btn inactive';
+}
+
+// Clock
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
+}
+updateClock();
+setInterval(updateClock, 30000);
+</script>
+</body>
+</html>

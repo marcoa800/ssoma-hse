@@ -10,6 +10,7 @@ import { Modal } from '../../components/ui/Modal.jsx';
 import { FormField } from '../../components/ui/FormField.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 import {
   Plus, Trash2, Pencil, Eye, FileDown, Upload, Camera,
   AlertTriangle, CheckCircle, Clock, X, ArrowLeft, Search, Filter, FileText
@@ -470,8 +471,51 @@ export default function HallazgosHGP({ empresaId }) {
         <span className="text-xs text-gray-600 ml-auto">{filtrados.length} hallazgo{filtrados.length !== 1 ? "s" : ""}</span>
       </div>
 
+      {/* Vista móvil: tarjetas */}
+      <div className="md:hidden space-y-2.5">
+        {loading && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Cargando...</div>}
+        {!loading && filtrados.map(h => {
+          const vencido = h.estatus !== "Cerrado" && h.fecha_limite && h.fecha_limite < hoy;
+          return (
+            <div key={h.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm leading-snug">{h.descripcion}</div>
+                  <div className="text-xs text-gray-500 font-mono mt-0.5">{h.fecha_hallazgo}{h.lugar ? ` · ${h.lugar}` : ""}</div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => { setDetalle(h); setVista("detalle"); }} className="text-gray-500 hover:text-emerald-400 p-1" title="Ver"><Eye size={15} /></button>
+                  <button onClick={() => generarPDFHallazgo(h)} className="text-gray-500 hover:text-blue-400 p-1" title="PDF"><FileDown size={15} /></button>
+                  <button onClick={() => abrirEditar(h)} className="text-gray-500 hover:text-blue-400 p-1" title="Editar"><Pencil size={15} /></button>
+                  <button onClick={() => eliminar(h.id)} className="text-red-500/60 hover:text-red-400 p-1" title="Eliminar"><Trash2 size={15} /></button>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <Badge color={ESTATUS_COLOR[h.estatus] || "gray"}>{h.estatus}</Badge>
+                {h.tipo_hallazgo && <Badge color={TIPO_COLOR[h.tipo_hallazgo] || "gray"}>{h.tipo_hallazgo.replace("Clasificados en Riesgo ", "").replace("Riesgo ", "").substring(0, 20)}</Badge>}
+                {h.foto_inicial_url && <span className="text-[10px] text-blue-500">📷 con foto</span>}
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                <div className="truncate"><span className="text-gray-600">Supervisor:</span> <span className="text-gray-400">{h.supervisor_reportante || "—"}</span></div>
+                <div>
+                  <span className="text-gray-600">F. Límite:</span>{" "}
+                  <span className={`font-mono ${vencido ? "text-red-400 font-bold" : "text-gray-400"}`}>{h.fecha_limite || "—"}</span>
+                  {vencido && <span className="ml-1 text-[10px] text-red-500">⚠</span>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {!loading && !filtrados.length && (
+          <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">
+            {hallazgos.length ? "Sin resultados para los filtros." : "Sin hallazgos. Usa \"Nuevo hallazgo\" o importa un Excel."}
+          </div>
+        )}
+      </div>
+
       {/* Tabla */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="hidden md:block">
+        <WideTableScroll>
         <table className="w-full text-sm">
           <thead><tr className="border-b border-gray-800">
             {["Fecha", "Lugar", "Tipo", "Descripción", "Supervisor", "F. Límite", "Estatus", ""].map(h => (
@@ -517,6 +561,7 @@ export default function HallazgosHGP({ empresaId }) {
             )}
           </tbody>
         </table>
+        </WideTableScroll>
       </div>
     </div>
   );

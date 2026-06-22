@@ -16,6 +16,7 @@ import { Select } from '../../components/ui/Select.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 import {
   Plus, Upload, Download, Trash2, Pencil, AlertTriangle, CheckCircle,
   Filter, HelpCircle, Lock, Shield, ClipboardList, ShieldAlert,
@@ -164,11 +165,44 @@ export default function ATSPetarModulo({ empresaId }) {
         )}
       </div>
 
-      {/* Tabla */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* Vista móvil: tarjetas */}
+      <div className="md:hidden space-y-2.5">
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-gray-600 text-sm">Cargando...</div>
+          <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Cargando...</div>
+        ) : filtered.length > 0 ? filtered.map(d => (
+          <div key={d.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+            <div className="flex items-start justify-between gap-2 mb-1.5">
+              <div className="min-w-0">
+                <div className="font-semibold text-white text-sm leading-tight">{d.tipo_trabajo}</div>
+                <div className="text-xs text-gray-500 font-mono mt-0.5">{fmtFecha(d.fecha)}{d.hora_inicio ? ` · ${d.hora_inicio}${d.hora_fin ? ` → ${d.hora_fin}` : ""}` : ""}</div>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => openDetail(d)} className="text-gray-500 hover:text-blue-400 p-1" title="Ver detalle"><Eye size={15} /></button>
+                <button onClick={() => openEdit(d)} className="text-gray-500 hover:text-amber-400 p-1" title="Editar"><Pencil size={15} /></button>
+                <button onClick={() => del(d.id)} className="text-red-500/60 hover:text-red-400 p-1" title="Eliminar"><Trash2 size={15} /></button>
+              </div>
+            </div>
+            {d.descripcion && <div className="text-xs text-gray-400 mb-2">{d.descripcion}</div>}
+            <div className="mb-2"><Badge color={ATS_ESTADO_COLOR[d.estado] || "gray"}>{d.estado}</Badge></div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div className="truncate"><span className="text-gray-600">Área:</span> <span className="text-gray-400">{d.area}{d.ubicacion ? ` · ${d.ubicacion}` : ""}</span></div>
+              <div className="truncate"><span className="text-gray-600">Supervisor:</span> <span className="text-gray-400">{d.supervisor || "—"}</span></div>
+              <div className="truncate"><span className="text-gray-600">Resp. SSOMA:</span> <span className="text-gray-400">{d.responsable_ssoma || "—"}</span></div>
+            </div>
+          </div>
+        )) : (
+          <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">
+            {byTab.length ? "Sin resultados para el filtro." : `Sin documentos ${tab}. Usa "Nuevo ${tab}" para comenzar.`}
+          </div>
+        )}
+      </div>
+
+      {/* Tabla */}
+      <div className="hidden md:block">
+        {loading ? (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-center py-16 text-gray-600 text-sm">Cargando...</div>
         ) : (
+          <WideTableScroll maxH="max-h-[calc(100vh-200px)]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800">
@@ -204,6 +238,7 @@ export default function ATSPetarModulo({ empresaId }) {
               )}
             </tbody>
           </table>
+          </WideTableScroll>
         )}
       </div>
 
@@ -211,7 +246,7 @@ export default function ATSPetarModulo({ empresaId }) {
       {showForm && (
         <Modal title={`${editing ? "Editar" : "Nuevo"} ${form.tipo}`} onClose={() => setShowForm(false)}>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Tipo de documento">
                 <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
@@ -226,7 +261,7 @@ export default function ATSPetarModulo({ empresaId }) {
                 </select>
               </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Área *"><Input value={form.area} onChange={e => setForm(f => ({ ...f, area: e.target.value }))} placeholder="Ej: Planta / Piso 2" /></FormField>
               <FormField label="Ubicación / Punto exacto"><Input value={form.ubicacion} onChange={e => setForm(f => ({ ...f, ubicacion: e.target.value }))} placeholder="Ej: Tablero eléctrico TG-01" /></FormField>
             </div>
@@ -235,12 +270,12 @@ export default function ATSPetarModulo({ empresaId }) {
                 placeholder="Describe brevemente la tarea a realizar..."
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 resize-none" />
             </FormField>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <FormField label="Fecha *"><Input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} /></FormField>
               <FormField label="Hora inicio"><Input type="time" value={form.hora_inicio} onChange={e => setForm(f => ({ ...f, hora_inicio: e.target.value }))} /></FormField>
               <FormField label="Hora fin"><Input type="time" value={form.hora_fin} onChange={e => setForm(f => ({ ...f, hora_fin: e.target.value }))} /></FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Supervisor / Jefe de área"><Input value={form.supervisor} onChange={e => setForm(f => ({ ...f, supervisor: e.target.value }))} placeholder="Nombre del supervisor" /></FormField>
               <FormField label="Responsable SSOMA"><Input value={form.responsable_ssoma} onChange={e => setForm(f => ({ ...f, responsable_ssoma: e.target.value }))} placeholder="Nombre del prevencionista" /></FormField>
             </div>
@@ -260,7 +295,7 @@ export default function ATSPetarModulo({ empresaId }) {
                 ))}
               </div>
             </FormField>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Estado">
                 <select value={form.estado} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
@@ -283,7 +318,7 @@ export default function ATSPetarModulo({ empresaId }) {
       {showDetail && selected && (
         <Modal title={`${selected.tipo} — ${selected.tipo_trabajo}`} onClose={() => setShowDetail(false)}>
           <div className="space-y-4 text-sm">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Área / Ubicación</div><div className="text-gray-300 font-medium">{selected.area}</div>{selected.ubicacion && <div className="text-gray-500 text-xs">{selected.ubicacion}</div>}</div>
               <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Estado</div><Badge color={ATS_ESTADO_COLOR[selected.estado] || "gray"}>{selected.estado}</Badge></div>
               <div className="bg-gray-800/50 rounded-lg p-3"><div className="text-xs text-gray-500 mb-1">Fecha y horario</div><div className="text-gray-300">{fmtFecha(selected.fecha)}</div>{selected.hora_inicio && <div className="text-gray-500 text-xs">{selected.hora_inicio}{selected.hora_fin ? ` → ${selected.hora_fin}` : ""}</div>}</div>

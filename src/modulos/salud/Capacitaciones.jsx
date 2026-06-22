@@ -33,6 +33,9 @@ export default function Capacitaciones({ workers, trainings, setTrainings, empre
   const [detail, setDetail] = useState(null);
   const [attendance, setAttendance] = useState({});
   const [isDeleting, setIsDeleting] = useState(null);
+  const [attSearch, setAttSearch] = useState("");
+  const [attAlpha, setAttAlpha]   = useState(false);
+  const [attGrupo, setAttGrupo]   = useState("");
   useEffect(() => { if (detail) loadAttendance(detail); }, [detail]);
   const loadAttendance = async (id) => {
     const { data } = await supabase.from("asistencias").select("trabajador_id, presente").eq("capacitacion_id", id);
@@ -63,9 +66,11 @@ export default function Capacitaciones({ workers, trainings, setTrainings, empre
     }});
     e.target.value = "";
   };
-  const exportAttendance = (t) => {
-    const active = workers.filter(w => w.estado === "Activo");
-    const data = active.map(w => ({ Nombre: w.nombre, DNI: w.dni, Cargo: w.cargo, Asistencia: attendance[w.id] ? "Presente" : "Ausente" }));
+  const exportAttendance = (t, lista) => {
+    const data = (lista || workers.filter(w => w.estado === "Activo")).map(w => ({
+      Nombre: w.nombre, DNI: w.dni, Cargo: w.cargo,
+      Area: w.area || "", Asistencia: attendance[w.id] ? "Presente" : "Ausente"
+    }));
     const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Asistencia"); XLSX.writeFile(wb, `asistencia_${t.nombre.replace(/\s+/g, "_")}.xlsx`);
     showToast("Excel descargado", "success");
@@ -74,20 +79,132 @@ export default function Capacitaciones({ workers, trainings, setTrainings, empre
     const t = trainings.find(x => x.id === detail); if (!t) { setDetail(null); return null; }
     const active = workers.filter(w => w.estado === "Activo");
     const presentCount = Object.values(attendance).filter(Boolean).length;
+
+    // Opciones de grupo: usa "area" si los workers tienen área, si no usa "cargo"
+    const tieneAreas = active.some(w => w.area);
+    const grupoKey = tieneAreas ? "area" : "cargo";
+    const grupoLabel = tieneAreas ? "Área" : "Cargo";
+    const grupoOpciones = [...new Set(active.map(w => w[grupoKey]).filter(Boolean))].sort();
+
+    const q = attSearch.toLowerCase();
+    let displayed = active.filter(w => {
+      if (attGrupo && (w[grupoKey] || "") !== attGrupo) return false;
+      if (q && !w.nombre?.toLowerCase().includes(q) && !w.dni?.includes(q) && !w.cargo?.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    if (attAlpha) displayed = [...displayed].sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
+
     return (
       <div>
-        <div className="flex items-center gap-3 mb-5">
-          <Btn size="sm" onClick={() => setDetail(null)}><ChevronLeft size={13} /> Volver</Btn>
-          <div><div className="text-sm font-semibold text-white">{t.nombre}</div><div className="text-xs text-gray-600">Fecha: {fmtFecha(t.fecha)} · {presentCount}/{active.length} presentes</div></div>
-          <div className="ml-auto flex gap-2">
-            <label className="cursor-pointer"><span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white transition-all cursor-pointer"><Upload size={13} /> Importar CSV</span><input type="file" accept=".csv" className="hidden" onChange={e => importAttendanceCSV(e, detail)} /></label>
-            <Btn size="sm" onClick={() => exportAttendance(t)}><Download size={13} /> Exportar</Btn>
+        {/* ── Header ── */}
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <Btn size="sm" onClick={() => { setDetail(null); setAttSearch(""); setAttAlpha(false); setAttGrupo(""); }}>
+            <ChevronLeft size={13} /> Volver
+          </Btn>
+          <div>
+            <div className="text-sm font-semibold text-white">{t.nombre}</div>
+            <div className="text-xs text-gray-600">
+              Fecha: {fmtFecha(t.fecha)} · {presentCount}/{active.length} presentes
+              {attGrupo && <span className="ml-2 px-2 py-0.5 rounded-full bg-blue-900/40 border border-blue-800 text-blue-300">{attGrupo} ({displayed.length})</span>}
+            </div>
+          </div>
+          <div className="ml-auto flex gap-2 flex-wrap">
+            <label className="cursor-pointer">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white transition-all cursor-pointer">
+                <Upload size={13} /> Importar CSV
+              </span>
+              <input type="file" accept=".csv" className="hidden" onChange={e => importAttendanceCSV(e, detail)} />
+            </label>
+            <Btn size="sm" onClick={() => exportAttendance(t, displayed)}><Download size={13} /> Exportar{attGrupo ? ` (${attGrupo})` : ""}</Btn>
           </div>
         </div>
+
+        {/* ── Filtros de asistencia ── */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {/* Grupo / Área */}
+          {grupoOpciones.length > 0 && (
+            <select
+              value={attGrupo}
+              onChange={e => setAttGrupo(e.target.value)}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors focus:outline-none ${
+                attGrupo
+                  ? "bg-blue-600 border-blue-500 text-white"
+                  : "bg-gray-800 border-gray-700 text-gray-400"
+              }`}
+            >
+              <option value="">Todos ({active.length})</option>
+              {grupoOpciones.map(g => (
+                <option key={g} value={g}>
+                  {grupoLabel}: {g} ({active.filter(w => (w[grupoKey] || "") === g).length})
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Buscador */}
+          <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600" />
+            <input
+              value={attSearch}
+              onChange={e => setAttSearch(e.target.value)}
+              placeholder="Buscar nombre, DNI o cargo..."
+              className="w-full pl-7 pr-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          {/* A→Z */}
+          <button
+            onClick={() => setAttAlpha(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+              attAlpha
+                ? "bg-blue-600 border-blue-500 text-white"
+                : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+            }`}
+          >
+            A→Z
+          </button>
+
+          {(attSearch || attAlpha || attGrupo) && (
+            <span className="text-xs text-gray-500">{displayed.length} de {active.length}</span>
+          )}
+        </div>
+
+        {/* ── Tabla ── */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-gray-800"><th className="px-4 py-3 w-10"><input type="checkbox" className="accent-blue-500" onChange={async e => { for (const w of active) await toggleAttendance(detail, w.id, e.target.checked); }} /></th>{["Nombre", "DNI", "Cargo", "Asistencia"].map(h => <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide">{h}</th>)}</tr></thead>
-            <tbody>{active.map(w => { const present = !!attendance[w.id]; return (<tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30"><td className="px-4 py-3"><input type="checkbox" className="accent-blue-500" checked={present} onChange={e => toggleAttendance(detail, w.id, e.target.checked)} /></td><td className="px-4 py-3 font-medium text-white">{w.nombre}</td><td className="px-4 py-3 font-mono text-xs text-gray-600">{w.dni}</td><td className="px-4 py-3 text-gray-400">{w.cargo}</td><td className="px-4 py-3"><Badge color={present ? "green" : "gray"}>{present ? "Presente" : "Ausente"}</Badge></td></tr>); })}</tbody>
+            <thead>
+              <tr className="border-b border-gray-800">
+                <th className="px-4 py-3 w-10">
+                  <input type="checkbox" className="accent-blue-500"
+                    onChange={async e => { for (const w of displayed) await toggleAttendance(detail, w.id, e.target.checked); }} />
+                </th>
+                {["Nombre", "DNI", "Cargo", "Asistencia"].map(h => (
+                  <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {displayed.map(w => {
+                const present = !!attendance[w.id];
+                return (
+                  <tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="px-4 py-3">
+                      <input type="checkbox" className="accent-blue-500" checked={present}
+                        onChange={e => toggleAttendance(detail, w.id, e.target.checked)} />
+                    </td>
+                    <td className="px-4 py-3 font-medium text-white">{w.nombre}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{w.dni}</td>
+                    <td className="px-4 py-3 text-gray-400">{w.cargo}</td>
+                    <td className="px-4 py-3">
+                      <Badge color={present ? "green" : "gray"}>{present ? "Presente" : "Ausente"}</Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+              {displayed.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-gray-600">Sin resultados para "{attSearch}"</td></tr>
+              )}
+            </tbody>
           </table>
         </div>
       </div>

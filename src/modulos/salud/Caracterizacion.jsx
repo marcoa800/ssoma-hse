@@ -329,7 +329,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
           <div className="space-y-5">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2"><FileText size={16} className="text-blue-400" />Identificación del Proceso</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Fecha *</label>
                   <input type="date" value={form.fecha} onChange={e => f("fecha", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
@@ -354,7 +354,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
             </div>
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2"><Users size={16} className="text-blue-400" />Trabajadores Asignados</h3>
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Nº Varones</label>
                   <input type="number" min="0" value={form.num_varones} onChange={e => f("num_varones", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" />
@@ -406,7 +406,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Herramientas</label>
                   <input value={form.herramientas} onChange={e => f("herramientas", e.target.value)} placeholder="Ej. Taladro, esmeril, martillo…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
@@ -442,7 +442,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
               </div>
               {form.expuesto_ruido && (
                 <div className="px-5 pb-4 border-t border-blue-900/40 bg-blue-900/10 space-y-3">
-                  <div className="pt-3 grid grid-cols-2 gap-3">
+                  <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">Tipo de Ruido</label>
                       <select value={form.ruido_tipo} onChange={e => f("ruido_tipo", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
@@ -499,7 +499,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
                     <label className="text-xs text-gray-500 mb-1 block">Fuente generadora</label>
                     <input value={form.polvo_fuente} onChange={e => f("polvo_fuente", e.target.value)} placeholder="Ej. Chancadora, Viento, Faja transportadora…" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600" />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">Tipo Principal</label>
                       <select value={form.polvo_tipo_principal} onChange={e => f("polvo_tipo_principal", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
@@ -556,7 +556,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
             {/* OTROS FACTORES */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-white font-semibold text-sm mb-4">Otros Factores del Entorno</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Iluminación — Tipo</label>
                   <select value={form.iluminacion_tipo} onChange={e => f("iluminacion_tipo", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">

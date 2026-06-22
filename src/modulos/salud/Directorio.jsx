@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
@@ -24,19 +24,31 @@ import {
   CheckCircle, Home, HeartPulse, Microscope, Search, Shield,
   ClipboardList, ShieldAlert, Activity, BarChart2, BookOpen,
   FileText, Users, LayoutDashboard, Stethoscope, Settings,
-  Building2, Phone
+  Building2, Phone, Mail
 } from 'lucide-react';
 
-export default function Directorio({ workers, setWorkers, role, empresaId, empresa }) {
+export default function Directorio({ workers, setWorkers, role, empresaId, empresa, adminMode = false }) {
   const esComindustria = empresa?.nombre?.toLowerCase().includes('comindustria') || false;
+  const esMultisel = empresa?.nombre?.toLowerCase().includes('multisel') || false;
+  const AREAS_MULTISEL = ["SEGREGACION","MOLINO","OPERARIO","PLANTA","MANTENIMIENTO","CONDUCTOR","CONDUCTOR POR OCASIONES","PLANTA (POR OCASIONES)","VIGILANTE","GERENTE G.","ADMINSTRATIVO","LIMPIEZA","DIRECTOR TECNICO","S. PATRIMONIAL","SUPERVISOR"];
   const [vistaDir, setVistaDir] = useState("activos"); // "activos" | "cesados"
-  const [filter, setFilter] = useState({ text: "", estado: "", aptitud: [], cargo: "", epp: "", emo: "", lectura: "" });
+  const [filter, setFilter] = useState({ text: "", estado: "", aptitud: [], cargo: "", epp: "", emo: "", lectura: "", vinculacion: "" });
   const APTITUDES = ["Apto", "Apto con restricción", "Observado", "No apto", "No evaluado"];
   const MOTIVOS_CESE = ["Renuncia voluntaria","Término de contrato","Despido","Fallecimiento","Jubilación","Mutuo acuerdo","Otro"];
   const toggleAptitud = (a) => setFilter(f => ({
     ...f, aptitud: f.aptitud.includes(a) ? f.aptitud.filter(x => x !== a) : [...f.aptitud, a]
   }));
   const [sortAZ, setSortAZ] = useState(false);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 50;
+  const [tooltip, setTooltip] = useState(null);
+  // Scroll horizontal sincronizado (barra superior + tabla)
+  const tableScrollRef = useRef(null);
+  const topScrollRef = useRef(null);
+  const [tableW, setTableW] = useState(0);
+  const syncFrom = (src, dst) => { if (src.current && dst.current) dst.current.scrollLeft = src.current.scrollLeft; };
+  const [importPreview, setImportPreview] = useState(null); // { parsed, nuevos, existentes }
+  const [isImporting, setIsImporting] = useState(false);
   const [modal, setModal] = useState(null);
   const [showGuideCesados, setShowGuideCesados] = useState(false);
   const [importandoCesados, setImportandoCesados] = useState(false);
@@ -44,7 +56,8 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
   const [form, setForm] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(null);
-  const canSeeMedical = ["ADMIN", "MEDICO", "SUPERADMIN"].includes(role);
+  // En la plataforma Administrativo se ocultan los datos clínicos confidenciales (restricción médica)
+  const canSeeMedical = !adminMode && ["ADMIN", "MEDICO", "SUPERADMIN", "SEGURIDAD"].includes(role);
   const canEditEmo = role !== "SEGURIDAD";
   const cargos = [...new Set(workers.map(w => w.cargo).filter(Boolean))].sort();
 
@@ -68,11 +81,26 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
       && (!filter.cargo || w.cargo === filter.cargo)
       && (!filter.epp || (filter.epp === "si" ? w.epp_recibido : !w.epp_recibido))
       && (!filter.lectura || (filter.lectura === "si" ? !!w.lectura_emo : !w.lectura_emo))
+      && (!filter.vinculacion || (w.tipo_vinculacion || "").toLowerCase() === filter.vinculacion.toLowerCase())
       && emoOk;
   }).sort((a, b) => sortAZ ? a.nombre.localeCompare(b.nombre, "es") : 0);
 
+  // Paginación (escritorio y móvil) — evita recorrer cientos de filas de un tirón
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const pageSafe = Math.min(page, totalPages);
+  const paged = filtered.slice((pageSafe - 1) * PER_PAGE, pageSafe * PER_PAGE);
+  // Volver a la página 1 cuando cambian filtros, orden o vista
+  useEffect(() => { setPage(1); }, [filter, sortAZ, vistaDir]);
+  // Medir el ancho real de la tabla para dimensionar la barra de scroll superior
+  useEffect(() => {
+    const measure = () => { if (tableScrollRef.current) setTableW(tableScrollRef.current.scrollWidth); };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [paged.length, esMultisel, canSeeMedical, vistaDir, pageSafe]);
+
   const openModal = (worker = null) => {
-    setForm(worker || { nombre: "", dni: "", cargo: "", celular: "", sede: "Lima", estado: "Activo", fecha_nacimiento: "", ultima_emo: "", duracion_emo: "Anual", aptitud: "No evaluado", restriccion_medica: "Ninguna", lectura_emo: "", epp_recibido: false, epp_detalle: "", epp_fecha: "", fecha_cese: "", motivo_cese: "" });
+    setForm(worker || { nombre: "", dni: "", cargo: "", celular: "", email: "", sede: "Lima", estado: "Activo", fecha_nacimiento: "", ultima_emo: "", duracion_emo: "Anual", aptitud: "No evaluado", restriccion_medica: "Ninguna", lectura_emo: "", epp_recibido: false, epp_detalle: "", epp_fecha: "", fecha_cese: "", motivo_cese: "" });
     setModal(worker ? "edit" : "new");
   };
 
@@ -81,7 +109,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
     setIsSaving(true);
     const vigencia = calcularVigencia(form.ultima_emo, form.duracion_emo);
     const edad = calcularEdad(form.fecha_nacimiento);
-    const payload = { nombre: form.nombre, dni: form.dni, cargo: form.cargo || "", celular: form.celular || null, sede: "Lima", estado: form.estado || "Activo", fecha_nacimiento: form.fecha_nacimiento || null, edad, ultima_emo: form.ultima_emo || null, duracion_emo: form.duracion_emo || "Anual", vencimiento_emo: vigencia, lectura_emo: form.lectura_emo || null, aptitud: form.aptitud || "No evaluado", restriccion_medica: form.restriccion_medica || "Ninguna", epp_recibido: form.epp_recibido || false, epp_detalle: form.epp_detalle || null, epp_fecha: form.epp_fecha || null, fecha_cese: form.estado === "Cesado" ? (form.fecha_cese || null) : null, motivo_cese: form.estado === "Cesado" ? (form.motivo_cese || null) : null, empresa_id: empresaId };
+    const payload = { nombre: form.nombre, dni: form.dni, cargo: form.cargo || "", celular: form.celular || null, email: form.email || null, sede: "Lima", estado: form.estado || "Activo", fecha_nacimiento: form.fecha_nacimiento || null, edad, ultima_emo: form.ultima_emo || null, duracion_emo: form.duracion_emo || "Anual", vencimiento_emo: vigencia, lectura_emo: form.lectura_emo || null, aptitud: form.aptitud || "No evaluado", restriccion_medica: form.restriccion_medica || "Ninguna", epp_recibido: form.epp_recibido || false, epp_detalle: form.epp_detalle || null, epp_fecha: form.epp_fecha || null, fecha_cese: form.estado === "Cesado" ? (form.fecha_cese || null) : null, motivo_cese: form.estado === "Cesado" ? (form.motivo_cese || null) : null, empresa_id: empresaId };
     if (modal === "edit") {
       const { error } = await supabase.from("trabajadores").update(payload).eq("id", form.id);
       if (error) { showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
@@ -105,41 +133,163 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
     showToast("Trabajador eliminado", "success"); setIsDeleting(null);
   };
 
+  // Normaliza texto para comparación flexible de encabezados
+  const normCol = s => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+
+  const detectCol = (headers, ...aliases) => {
+    const normH = headers.map(h => ({ orig: h, n: normCol(h) }));
+    for (const alias of aliases) {
+      const na = normCol(alias);
+      const found = normH.find(h => h.n === na);
+      if (found) return found.orig;
+    }
+    // coincidencia parcial
+    for (const alias of aliases) {
+      const na = normCol(alias);
+      const found = normH.find(h => h.n.includes(na) || na.includes(h.n));
+      if (found) return found.orig;
+    }
+    return null;
+  };
+
+  const parseImportRows = (rows) => {
+    const valid = rows.filter(r => Object.values(r).some(v => String(v).trim()));
+    if (!valid.length) return null;
+    const headers = Object.keys(valid[0]);
+    const dc = (...aliases) => detectCol(headers, ...aliases);
+
+    const colNombre    = dc("APELLIDO Y NOMBRE","APELLIDOS Y NOMBRES","NOMBRE COMPLETO","NOMBRE Y APELLIDO","NOMBRES Y APELLIDOS");
+    const colApellido  = dc("APELLIDO","APELLIDOS","PRIMER APELLIDO");
+    const colNombreSolo= dc("NOMBRES","NOMBRE DE PILA","PRIMER NOMBRE");
+    const colDni       = dc("DOC. DE IDENTIDAD","DNI","DOCUMENTO DE IDENTIDAD","DOCUMENTO","N° DNI","N° DE IDENTIDAD","DOC IDENTIDAD","NUMERO DOCUMENTO","N DE IDENTIDAD");
+    const colCargo     = dc("PUESTO","CARGO","PUESTO DE TRABAJO","OCUPACION");
+    const colCelular   = dc("CELULAR","TELEFONO","MOVIL","CEL");
+    const colNac       = dc("FECHA DE NACIMIENTO","FECHA NAC","F. NACIMIENTO","NACIMIENTO","FECHA NACIMIENTO");
+    const colEmo       = dc("ULTIMA EMO","ULTIMO EMO","FECHA EMO","EMO");
+    const colDuracion  = dc("DURACION DE EMO","DURACION EMO","TIPO EMO","DURACION");
+    const colAptitud   = dc("APTITUD","APTITUD MEDICA");
+    const colRestriccion = dc("RESTRICCION","RESTRICCION MEDICA","RESTRICCIONES");
+    const colLectura   = dc("LECTURA 2026","LECTURA EMO","LECTURA","FECHA LECTURA");
+    const colEpp       = dc("EPP RECIBIDO","EPP");
+    const colEppDetalle= dc("EPP DETALLE","DETALLE EPP");
+    const colEppFecha  = dc("EPP FECHA","FECHA EPP");
+    const colVinculacion = dc("VINCULACION","TIPO VINCULACION","TIPO DE VINCULACION");
+    const colArea      = dc("AREA");
+    const colEstado    = dc("ESTADO");
+
+    return valid.map(r => {
+      let nombre = "";
+      if (colApellido) {
+        // Columnas separadas → formato "APELLIDOS, NOMBRES"
+        const ap = String(r[colApellido] || "").trim().toUpperCase();
+        const nm = colNombreSolo ? String(r[colNombreSolo] || "").trim().toUpperCase() : "";
+        nombre = ap && nm ? `${ap}, ${nm}` : (ap || nm);
+      } else if (colNombre) {
+        // Columna combinada → solo mayúsculas, respetar lo que viene
+        nombre = String(r[colNombre] || "").trim().toUpperCase();
+      }
+      const dni = (colDni ? String(r[colDni] || "") : "").replace(/\D/g, "").slice(0, 8);
+      if (!nombre || !dni) return null;
+
+      const ultimaEmo = excelDateToISO(colEmo ? r[colEmo] : "");
+      const duracion  = colDuracion ? String(r[colDuracion] || "").trim() || "Anual" : "Anual";
+      const fnac      = excelDateToISO(colNac ? r[colNac] : "");
+
+      return {
+        nombre, dni,
+        cargo:            colCargo      ? String(r[colCargo] || "").trim() : "",
+        celular:          colCelular    ? String(r[colCelular] || "").replace(/\D/g, "").slice(0, 12) || null : null,
+        sede: "Lima",
+        estado:           colEstado     ? String(r[colEstado] || "").trim() || "Activo" : "Activo",
+        fecha_nacimiento: fnac,
+        edad:             calcularEdad(fnac),
+        ultima_emo:       ultimaEmo,
+        duracion_emo:     duracion,
+        vencimiento_emo:  calcularVigencia(ultimaEmo, duracion),
+        lectura_emo:      excelDateToISO(colLectura ? r[colLectura] : ""),
+        aptitud:          colAptitud    ? String(r[colAptitud] || "").trim() || "No evaluado" : "No evaluado",
+        restriccion_medica: colRestriccion ? String(r[colRestriccion] || "").trim() || "Ninguna" : "Ninguna",
+        epp_recibido:     colEpp        ? String(r[colEpp] || "").toUpperCase() === "SI" : false,
+        epp_detalle:      colEppDetalle ? String(r[colEppDetalle] || "").trim() || null : null,
+        epp_fecha:        excelDateToISO(colEppFecha ? r[colEppFecha] : ""),
+        tipo_vinculacion: colVinculacion ? String(r[colVinculacion] || "").trim() || null : null,
+        area:             colArea       ? String(r[colArea] || "").trim() || null : null,
+        empresa_id:       empresaId,
+      };
+    }).filter(Boolean);
+  };
+
   const importCSV = (e) => {
     const file = e.target.files[0]; if (!file) return;
+    e.target.value = "";
     const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+    const handleRows = (rows) => {
+      const parsed = parseImportRows(rows);
+      if (!parsed || !parsed.length) { showToast("Archivo inválido o sin datos reconocibles.", "error"); return; }
+      const existingDnis = new Set(workers.map(w => w.dni));
+      const nuevos     = parsed.filter(r => !existingDnis.has(r.dni));
+      const existentes = parsed.filter(r =>  existingDnis.has(r.dni));
+      setImportPreview({ parsed, nuevos, existentes });
+    };
     if (isExcel) {
       const reader = new FileReader();
-      reader.onload = async (evt) => {
+      reader.onload = (evt) => {
         const wb = XLSX.read(evt.target.result, { type: "binary", cellDates: false });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
-        await processImportRows(rows);
+        handleRows(XLSX.utils.sheet_to_json(ws, { defval: "" }));
       };
       reader.readAsBinaryString(file);
     } else {
-      Papa.parse(file, { header: true, complete: async (results) => { await processImportRows(results.data); } });
+      Papa.parse(file, { header: true, complete: (res) => handleRows(res.data) });
     }
-    e.target.value = "";
   };
 
-  const processImportRows = async (rows) => {
-    const valid = rows.filter(r => r["APELLIDO Y NOMBRE"] && r["DOC. DE IDENTIDAD"]);
-    if (valid.length === 0) { showToast("Archivo inválido. Verifica los encabezados.", "error"); return; }
-    const inserts = valid.map(r => {
-      const ultimaEmo = excelDateToISO(r["ULTIMA EMO"]);
-      const duracion = r["DURACION DE EMO"] || "Anual";
-      return { nombre: r["APELLIDO Y NOMBRE"], dni: String(r["DOC. DE IDENTIDAD"]).replace(/\D/g, "").slice(0, 8), cargo: r["PUESTO"] || "", celular: String(r["CELULAR"] || "").replace(/\D/g, "").slice(0, 12) || null, sede: "Lima", estado: r["ESTADO"] || "Activo", fecha_nacimiento: excelDateToISO(r["FECHA DE NACIMIENTO"]), edad: calcularEdad(excelDateToISO(r["FECHA DE NACIMIENTO"])), ultima_emo: ultimaEmo, duracion_emo: duracion, vencimiento_emo: calcularVigencia(ultimaEmo, duracion), lectura_emo: excelDateToISO(r["LECTURA 2026"]), aptitud: r["APTITUD"] || "No evaluado", restriccion_medica: r["RESTRICCION"] || "Ninguna", epp_recibido: String(r["EPP RECIBIDO"] || "").toUpperCase() === "SI", epp_detalle: r["EPP DETALLE"] || null, epp_fecha: excelDateToISO(r["EPP FECHA"]), empresa_id: empresaId };
-    });
-    const { data, error } = await supabase.from("trabajadores").insert(inserts).select();
-    if (error) { showToast("Error al importar: " + error.message, "error"); return; }
-    setWorkers(prev => [...prev, ...data]);
-    showToast(`${data.length} trabajadores importados`, "success");
+  const executeImport = async (mode) => {
+    const { nuevos, existentes } = importPreview;
+    setIsImporting(true);
+    let importados = 0, actualizados = 0;
+
+    if (nuevos.length) {
+      const { data, error } = await supabase.from("trabajadores").insert(nuevos).select();
+      if (error) { showToast("Error al importar: " + error.message, "error"); setIsImporting(false); return; }
+      setWorkers(prev => [...prev, ...data]);
+      importados = data.length;
+    }
+
+    if (mode === "actualizar" && existentes.length) {
+      const estaVacio = v => v === null || v === undefined || String(v).trim() === "" || v === "No evaluado" || v === "Ninguna";
+      const CAMPOS = ['cargo','celular','fecha_nacimiento','ultima_emo','duracion_emo','vencimiento_emo','lectura_emo','aptitud','restriccion_medica','epp_detalle','epp_fecha','tipo_vinculacion','area'];
+
+      for (const nuevo of existentes) {
+        const existing = workers.find(x => x.dni === nuevo.dni);
+        if (!existing) continue;
+
+        // Solo parchar campos que estén vacíos en el existente y con valor en el Excel
+        const patch = {};
+        for (const field of CAMPOS) {
+          if (estaVacio(existing[field]) && !estaVacio(nuevo[field])) {
+            patch[field] = nuevo[field];
+          }
+        }
+        if (!existing.epp_recibido && nuevo.epp_recibido) patch.epp_recibido = true;
+
+        if (!Object.keys(patch).length) continue; // nada nuevo que agregar
+        const { error } = await supabase.from("trabajadores").update(patch).eq("id", existing.id);
+        if (!error) actualizados++;
+      }
+      const { data } = await supabase.from("trabajadores").select("*").eq("empresa_id", empresaId);
+      if (data) setWorkers(data);
+    }
+
+    setIsImporting(false);
+    setImportPreview(null);
+    const partes = [importados && `${importados} nuevos importados`, actualizados && `${actualizados} actualizados`].filter(Boolean);
+    showToast(partes.length ? partes.join(", ") : "Sin cambios", "success");
   };
 
   const exportExcel = () => {
-    const headers = ["APELLIDO Y NOMBRE", "FECHA DE NACIMIENTO", "EDAD", "DOC. DE IDENTIDAD", "PUESTO", "CELULAR", "ULTIMA EMO", "DURACION DE EMO", "VIGENTE HASTA", "ESTADO", "APTITUD", ...(canSeeMedical ? ["RESTRICCION"] : []), "LECTURA 2026", "EPP RECIBIDO", "EPP DETALLE", "EPP FECHA"];
-    const data = filtered.map(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return [w.nombre, w.fecha_nacimiento || "", calcularEdad(w.fecha_nacimiento) || "", w.dni, w.cargo || "", w.celular || "", w.ultima_emo || "", w.duracion_emo || "", v || "", w.estado, w.aptitud, ...(canSeeMedical ? [w.restriccion_medica || ""] : []), w.lectura_emo || "", w.epp_recibido ? "SI" : "NO", w.epp_detalle || "", w.epp_fecha || ""]; });
+    const headers = ["APELLIDO Y NOMBRE", "FECHA DE NACIMIENTO", "EDAD", "DOC. DE IDENTIDAD", "PUESTO", ...(esMultisel ? ["VINCULACION", "AREA"] : []), "CELULAR", "CORREO", "ULTIMA EMO", "DURACION DE EMO", "VIGENTE HASTA", "ESTADO", "APTITUD", ...(canSeeMedical ? ["RESTRICCION"] : []), "LECTURA 2026", "EPP RECIBIDO", "EPP DETALLE", "EPP FECHA"];
+    const data = filtered.map(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return [w.nombre, w.fecha_nacimiento || "", calcularEdad(w.fecha_nacimiento) || "", w.dni, w.cargo || "", ...(esMultisel ? [w.tipo_vinculacion || "", w.area || ""] : []), w.celular || "", w.email || "", w.ultima_emo || "", w.duracion_emo || "", v || "", w.estado, w.aptitud, ...(canSeeMedical ? [w.restriccion_medica || ""] : []), w.lectura_emo || "", w.epp_recibido ? "SI" : "NO", w.epp_detalle || "", w.epp_fecha || ""]; });
     const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
     ws["!cols"] = headers.map(() => ({ wch: 20 }));
     const wb = XLSX.utils.book_new();
@@ -191,8 +341,8 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
     <div>
       {showGuide && <ImportGuideModal onClose={() => setShowGuide(false)} />}
 
-      {/* Pestañas Activos / Cesados — solo Comindustria */}
-      {esComindustria && (
+      {/* Pestañas Activos / Cesados */}
+      {(
         <div className="flex gap-2 mb-4 bg-gray-900/50 border border-gray-800 rounded-xl p-1.5 w-fit">
           <button onClick={() => setVistaDir("activos")}
             className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${vistaDir === "activos" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-200"}`}>
@@ -205,8 +355,8 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
         </div>
       )}
 
-      {/* ── Vista Cesados (solo Comindustria) ── */}
-      {esComindustria && vistaDir === "cesados" && (
+      {/* ── Vista Cesados ── */}
+      {vistaDir === "cesados" && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -224,7 +374,33 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
               <Btn size="sm" variant="primary" onClick={() => openModal()}><Plus size={13} /> Registrar cesado</Btn>
             </div>
           </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+          {/* ── Cesados: tarjetas móvil ── */}
+          <div className="md:hidden space-y-2.5">
+            {workersCesados.map(w => (
+              <div key={w.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-white text-sm leading-tight">{w.nombre}</div>
+                    <div className="text-xs text-gray-500 font-mono mt-0.5">DNI {w.dni}</div>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button onClick={() => openModal(w)} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15} /></button>
+                    <button onClick={() => deleteWorker(w.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-400 mb-2">{w.cargo || "Sin cargo"}</div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs border-t border-gray-800 pt-2">
+                  <div><span className="text-gray-600">Cese:</span> <span className="text-gray-400 font-mono">{fmtFecha(w.fecha_cese)}</span></div>
+                  <div className="truncate"><span className="text-gray-600">Motivo:</span> <span className="text-gray-400">{w.motivo_cese || "—"}</span></div>
+                </div>
+                <div className="mt-2"><Badge color={aptitudColor[w.aptitud] || "gray"}>{w.aptitud || "—"}</Badge></div>
+              </div>
+            ))}
+            {!workersCesados.length && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Sin trabajadores cesados registrados.</div>}
+          </div>
+
+          {/* ── Cesados: tabla escritorio ── */}
+          <div className="hidden md:block bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-gray-800">
                 {["Apellido y Nombre","DNI","Cargo","Fecha de cese","Motivo","Aptitud",""].map(h => (
@@ -256,7 +432,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
       )}
 
       {/* ── Vista Activos ── */}
-      {(!esComindustria || vistaDir === "activos") && (
+      {vistaDir === "activos" && (
       <div>
       <div className="flex items-center justify-between mb-4">
         <div><div className="text-sm font-semibold text-white">Sábana de Personal</div><div className="text-xs text-gray-600">{filtered.length} de {workersActivos.length} trabajadores</div></div>
@@ -270,11 +446,11 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
           <Btn size="sm" variant="primary" onClick={() => openModal()}><Plus size={13} /> Registrar</Btn>
         </div>
       </div>
-      <div className="flex gap-2 flex-wrap mb-4">
-        <Input placeholder="Buscar nombre o DNI..." value={filter.text} onChange={e => setFilter(f => ({ ...f, text: e.target.value }))} style={{ flex: 1, minWidth: 160 }} />
-        <Select value={filter.cargo} onChange={e => setFilter(f => ({ ...f, cargo: e.target.value }))} style={{ width: 180 }}><option value="">Todos los puestos</option>{cargos.map(c => <option key={c}>{c}</option>)}</Select>
-        <Select value={filter.estado} onChange={e => setFilter(f => ({ ...f, estado: e.target.value }))} style={{ width: 150 }}><option value="">Todos los estados</option>{["Activo", "Vacaciones", "Inactivo"].map(s => <option key={s}>{s}</option>)}</Select>
-        <div className="flex flex-wrap gap-1 items-center">
+      <div className="grid grid-cols-2 gap-2 mb-4 md:flex md:flex-wrap md:items-center">
+        <Input placeholder="Buscar nombre o DNI..." value={filter.text} onChange={e => setFilter(f => ({ ...f, text: e.target.value }))} className="col-span-2 w-full md:w-auto md:flex-1 md:min-w-[160px]" />
+        <Select value={filter.cargo} onChange={e => setFilter(f => ({ ...f, cargo: e.target.value }))} className="md:w-[180px]"><option value="">Todos los puestos</option>{cargos.map(c => <option key={c}>{c}</option>)}</Select>
+        <Select value={filter.estado} onChange={e => setFilter(f => ({ ...f, estado: e.target.value }))} className="md:w-[150px]"><option value="">Todos los estados</option>{["Activo", "Vacaciones", "Inactivo"].map(s => <option key={s}>{s}</option>)}</Select>
+        <div className="flex flex-wrap gap-1 items-center col-span-2 md:col-span-1">
           {APTITUDES.map(a => {
             const on = filter.aptitud.includes(a);
             const col = { "Apto": "text-emerald-300 border-emerald-700 bg-emerald-900/40", "Apto con restricción": "text-amber-300 border-amber-700 bg-amber-900/30", "Observado": "text-blue-300 border-blue-700 bg-blue-900/30", "No apto": "text-red-300 border-red-700 bg-red-900/40", "No evaluado": "text-gray-400 border-gray-600 bg-gray-800" }[a];
@@ -287,32 +463,96 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
           })}
           {filter.aptitud.length > 0 && <button onClick={() => setFilter(f => ({ ...f, aptitud: [] }))} className="text-[11px] text-blue-400 hover:text-blue-300 ml-1">✕</button>}
         </div>
-        <Select value={filter.epp} onChange={e => setFilter(f => ({ ...f, epp: e.target.value }))} style={{ width: 140 }}><option value="">EPP: Todos</option><option value="si">Con EPP</option><option value="no">Sin EPP</option></Select>
-        <Select value={filter.lectura} onChange={e => setFilter(f => ({ ...f, lectura: e.target.value }))} style={{ width: 170 }}><option value="">Lectura EMO: Todos</option><option value="si">Con lectura</option><option value="no">Sin lectura</option></Select>
-        <Select value={filter.emo} onChange={e => setFilter(f => ({ ...f, emo: e.target.value }))} style={{ width: 190 }}><option value="">EMO: Todos</option><option value="alerta">⚠ En alerta (≤30d + vencidos)</option><option value="porvencer">Por vencer (≤30 días)</option><option value="vencido">Vencidos</option></Select>
+        <Select value={filter.epp} onChange={e => setFilter(f => ({ ...f, epp: e.target.value }))} className="md:w-[140px]"><option value="">EPP: Todos</option><option value="si">Con EPP</option><option value="no">Sin EPP</option></Select>
+        {esMultisel && <Select value={filter.vinculacion} onChange={e => setFilter(f => ({ ...f, vinculacion: e.target.value }))} className="md:w-[160px]"><option value="">Vinculación: Todos</option><option value="Planilla">Planilla</option><option value="Servicio">Servicio</option></Select>}
+        <Select value={filter.lectura} onChange={e => setFilter(f => ({ ...f, lectura: e.target.value }))} className="md:w-[170px]"><option value="">Lectura EMO: Todos</option><option value="si">Con lectura</option><option value="no">Sin lectura</option></Select>
+        <Select value={filter.emo} onChange={e => setFilter(f => ({ ...f, emo: e.target.value }))} className="col-span-2 md:col-span-1 md:w-[190px]"><option value="">EMO: Todos</option><option value="alerta">⚠ En alerta (≤30d + vencidos)</option><option value="porvencer">Por vencer (≤30 días)</option><option value="vencido">Vencidos</option></Select>
       </div>
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-        <div className="overflow-x-scroll overflow-y-auto max-h-[calc(100vh-200px)]">
-          <table className="w-full text-sm">
+      {/* ── Vista móvil: tarjetas ── */}
+      <div className="md:hidden space-y-2.5">
+        {paged.map(w => {
+          const vigencia = calcularVigencia(w.ultima_emo, w.duracion_emo);
+          const isVenc = vigencia && new Date(vigencia) < new Date();
+          const in30m = new Date(); in30m.setDate(in30m.getDate() + 30);
+          const soonVenc = !isVenc && vigencia && new Date(vigencia) <= in30m;
+          const edad = calcularEdad(w.fecha_nacimiento);
+          return (
+            <div key={w.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm leading-tight">{w.nombre}</div>
+                  <div className="text-xs text-gray-500 font-mono mt-0.5">DNI {w.dni}{edad ? ` · ${edad} años` : ""}</div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Btn size="sm" onClick={() => openModal(w)}>Editar</Btn>
+                  <Btn size="sm" variant="danger" disabled={isDeleting === w.id} onClick={() => deleteWorker(w.id)}><Trash2 size={12} /></Btn>
+                </div>
+              </div>
+              <div className="text-xs text-gray-400 mb-2">{w.cargo || "Sin puesto"}{esMultisel && w.area ? ` · ${w.area}` : ""}</div>
+              <div className="flex flex-wrap gap-1.5 mb-2.5">
+                <Badge color={w.estado === "Activo" ? "green" : "amber"}>{w.estado}</Badge>
+                <Badge color={aptitudColor[w.aptitud] || "gray"}>{w.aptitud}</Badge>
+                {esMultisel && w.tipo_vinculacion && <Badge color={w.tipo_vinculacion === "Planilla" ? "green" : "blue"}>{w.tipo_vinculacion}</Badge>}
+                <Badge color={w.epp_recibido ? "green" : "gray"}>{w.epp_recibido ? "EPP ✓" : "Sin EPP"}</Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                <div><span className="text-gray-600">Última EMO:</span> <span className="text-gray-400 font-mono">{fmtFecha(w.ultima_emo)}</span></div>
+                <div><span className="text-gray-600">Vigente:</span> <span className={`font-mono font-medium ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-400"}`}>{vigencia || "—"}</span></div>
+                {w.celular && <div><span className="text-gray-600">Cel:</span> <span className="text-gray-400 font-mono">{w.celular}</span></div>}
+                {w.email && <div className="truncate"><span className="text-gray-600">Correo:</span> <a href={`mailto:${w.email}`} className="text-blue-400">{w.email}</a></div>}
+              </div>
+              {canSeeMedical && w.restriccion_medica && w.restriccion_medica !== "Ninguna" && (
+                <div className="flex items-start gap-1.5 mt-2.5 text-xs text-amber-400 bg-amber-900/20 border border-amber-900/40 rounded-lg px-2.5 py-1.5">
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" /><span>{w.restriccion_medica}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {filtered.length === 0 && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">No se encontraron trabajadores</div>}
+      </div>
+
+      {/* ── Vista escritorio: tabla ── */}
+      <div className="hidden md:block">
+        {/* Barra de scroll horizontal superior (sincronizada) */}
+        <div ref={topScrollRef} onScroll={() => syncFrom(topScrollRef, tableScrollRef)}
+          className="overflow-x-auto overflow-y-hidden mb-1.5" style={{ height: 12 }}>
+          <div style={{ width: tableW, height: 1 }} />
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+          <div ref={tableScrollRef} onScroll={() => syncFrom(tableScrollRef, topScrollRef)}
+            className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
+            <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800">
-                {["Apellido y Nombre", "F. Nac / Edad", "DNI", "Puesto", "Celular", "Última EMO", "Duración", "Vigente Hasta", "Estado", "Aptitud", "EPP", "Lectura EMO", ...(canSeeMedical ? ["Restricción"] : []), ""].map(h => <th key={h} className="text-left text-xs text-gray-600 font-medium px-3 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>)}
+                {["Apellido y Nombre", "F. Nac / Edad", "DNI", "Puesto", ...(esMultisel ? ["Vinculación", "Área"] : []), "Celular", "Correo", "Última EMO", "Duración", "Vigente Hasta", "Estado", "Aptitud", "EPP", "Lectura EMO", ...(canSeeMedical ? ["Restricción"] : []), ""].map((h, i) => (
+                  <th key={h} className={`text-left text-xs text-gray-600 font-medium px-3 py-3 uppercase tracking-wide whitespace-nowrap sticky top-0 bg-gray-900 ${i === 0 ? "left-0 z-30 shadow-[2px_0_6px_rgba(0,0,0,0.4)]" : "z-20"}`}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map(w => {
+              {paged.map(w => {
                 const vigencia = calcularVigencia(w.ultima_emo, w.duracion_emo);
                 const isVenc = vigencia && new Date(vigencia) < new Date();
                 const in30 = new Date(); in30.setDate(in30.getDate() + 30);
                 const soonVenc = !isVenc && vigencia && new Date(vigencia) <= in30;
                 const edad = calcularEdad(w.fecha_nacimiento);
                 return (
-                  <tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                    <td className="px-3 py-3 font-medium text-white whitespace-nowrap">{w.nombre}</td>
+                  <tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors group">
+                    <td className="px-3 py-3 font-medium text-white whitespace-nowrap sticky left-0 z-10 bg-gray-900 group-hover:bg-gray-800/30 shadow-[2px_0_6px_rgba(0,0,0,0.4)]">{w.nombre}</td>
                     <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap font-mono">{fmtFecha(w.fecha_nacimiento)}{edad ? <div className="text-gray-600">{edad} años</div> : null}</td>
                     <td className="px-3 py-3 font-mono text-xs text-gray-500">{w.dni}</td>
                     <td className="px-3 py-3 text-gray-400 whitespace-nowrap">{w.cargo || "—"}</td>
+                    {esMultisel && <td className="px-3 py-3 whitespace-nowrap"><Badge color={w.tipo_vinculacion === "Planilla" ? "green" : w.tipo_vinculacion === "Servicio" ? "blue" : "gray"}>{w.tipo_vinculacion || "—"}</Badge></td>}
+                    {esMultisel && <td className="px-3 py-3 text-xs text-gray-400 whitespace-nowrap">{w.area || "—"}</td>}
                     <td className="px-3 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">{w.celular || "—"}</td>
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      {w.email
+                        ? <a href={`mailto:${w.email}`} className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors" title={w.email}>
+                            <Mail size={11} /><span className="truncate max-w-[140px]">{w.email}</span>
+                          </a>
+                        : <span className="text-gray-700">—</span>}
+                    </td>
                     <td className="px-3 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{fmtFecha(w.ultima_emo)}</td>
                     <td className="px-3 py-3"><Badge color={w.duracion_emo === "Bianual" ? "purple" : "blue"}>{w.duracion_emo || "Anual"}</Badge></td>
                     <td className={`px-3 py-3 font-mono text-xs whitespace-nowrap font-medium ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-400"}`}>{vigencia || "—"}</td>
@@ -320,7 +560,24 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                     <td className="px-3 py-3"><Badge color={aptitudColor[w.aptitud] || "gray"}>{w.aptitud}</Badge></td>
                     <td className="px-3 py-3">{w.epp_recibido ? <div><Badge color="green">✓ Sí</Badge>{w.epp_detalle && <div className="text-xs text-gray-600 mt-0.5 max-w-32 truncate">{w.epp_detalle}</div>}</div> : <Badge color="gray">No</Badge>}</td>
                     <td className="px-3 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{fmtFecha(w.lectura_emo)}</td>
-                    {canSeeMedical && <td className="px-3 py-3 text-xs max-w-32">{w.restriccion_medica && w.restriccion_medica !== "Ninguna" ? <span className="text-amber-400">{w.restriccion_medica}</span> : <span className="text-gray-700">—</span>}</td>}
+                    {canSeeMedical && (
+                      <td className="px-3 py-3 text-xs">
+                        {w.restriccion_medica && w.restriccion_medica !== "Ninguna" ? (
+                          <span
+                            className="inline-flex items-center text-amber-400 cursor-default"
+                            onMouseEnter={e => {
+                              const r = e.currentTarget.getBoundingClientRect();
+                              setTooltip({ text: w.restriccion_medica, x: r.left + r.width / 2, y: r.top });
+                            }}
+                            onMouseLeave={() => setTooltip(null)}
+                          >
+                            <AlertTriangle size={14} />
+                          </span>
+                        ) : (
+                          <span className="text-gray-700">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-3 py-3"><div className="flex gap-1"><Btn size="sm" onClick={() => openModal(w)}>Editar</Btn><Btn size="sm" variant="danger" disabled={isDeleting === w.id} onClick={() => deleteWorker(w.id)}><Trash2 size={12} /></Btn></div></td>
                   </tr>
                 );
@@ -328,29 +585,141 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
               {filtered.length === 0 && <tr><td colSpan={15} className="px-4 py-8 text-center text-gray-600 text-sm">No se encontraron trabajadores</td></tr>}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
-      {!canSeeMedical && <div className="flex items-center gap-2 mt-3 text-xs text-gray-600"><Lock size={12} className="text-red-500" /><span className="px-2 py-0.5 rounded bg-red-900/30 text-red-500 border border-red-900 font-mono text-xs">CONFIDENCIAL</span> Restricciones médicas visibles solo para MEDICO y ADMIN</div>}
+      {filtered.length > PER_PAGE && (
+        <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
+          <div className="text-xs text-gray-500">
+            Mostrando <span className="text-gray-300 font-medium">{(pageSafe - 1) * PER_PAGE + 1}–{Math.min(pageSafe * PER_PAGE, filtered.length)}</span> de <span className="text-gray-300 font-medium">{filtered.length}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={pageSafe <= 1}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1">
+              <ChevronLeft size={13} /> Anterior
+            </button>
+            <span className="text-xs text-gray-500 px-1.5">Pág. <span className="text-gray-300 font-medium">{pageSafe}</span> / {totalPages}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={pageSafe >= totalPages}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1">
+              Siguiente <ChevronRight size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+      {!canSeeMedical && <div className="flex items-center gap-2 mt-3 text-xs text-gray-600"><Lock size={12} className="text-red-500" /><span className="px-2 py-0.5 rounded bg-red-900/30 text-red-500 border border-red-900 font-mono text-xs">CONFIDENCIAL</span> Restricciones médicas visibles solo para MEDICO, ADMIN y SEGURIDAD</div>}
       </div>
       )}
 
       {showGuideCesados && <GuideCesadosModal onClose={() => setShowGuideCesados(false)} />}
 
+      {importPreview && (
+        <Modal title="Vista previa de importación" onClose={() => setImportPreview(null)} wide>
+          <div className="flex gap-3 mb-5">
+            <div className="flex-1 text-center bg-green-900/30 border border-green-800/50 rounded-xl px-4 py-3">
+              <div className="text-2xl font-bold text-green-400">{importPreview.nuevos.length}</div>
+              <div className="text-xs text-green-600 mt-0.5">Nuevos trabajadores</div>
+            </div>
+            <div className="flex-1 text-center bg-amber-900/20 border border-amber-800/40 rounded-xl px-4 py-3">
+              <div className="text-2xl font-bold text-amber-400">{importPreview.existentes.length}</div>
+              <div className="text-xs text-amber-600 mt-0.5">Ya registrados (mismo DNI)</div>
+            </div>
+            <div className="flex-1 text-center bg-gray-800 border border-gray-700 rounded-xl px-4 py-3">
+              <div className="text-2xl font-bold text-white">{importPreview.parsed.length}</div>
+              <div className="text-xs text-gray-500 mt-0.5">Total detectados</div>
+            </div>
+          </div>
+
+          <div className="text-xs text-gray-500 mb-2">Primeros 5 registros detectados:</div>
+          <div className="overflow-x-auto mb-5 rounded-lg border border-gray-800">
+            <table className="w-full text-xs">
+              <thead><tr className="border-b border-gray-800 bg-gray-900">
+                {["Nombre","DNI","Cargo","Estado"].map(h => <th key={h} className="text-left text-gray-600 font-medium px-3 py-2">{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {importPreview.parsed.slice(0, 5).map((r, i) => {
+                  const esExist = importPreview.existentes.some(x => x.dni === r.dni);
+                  return (
+                    <tr key={i} className="border-b border-gray-800/50">
+                      <td className="px-3 py-2 text-white">{r.nombre}</td>
+                      <td className="px-3 py-2 font-mono text-gray-400">{r.dni}</td>
+                      <td className="px-3 py-2 text-gray-400">{r.cargo || "—"}</td>
+                      <td className="px-3 py-2">
+                        {esExist
+                          ? <span className="px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-400 text-[11px]">Ya existe</span>
+                          : <span className="px-2 py-0.5 rounded-full bg-green-900/40 text-green-400 text-[11px]">Nuevo</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {importPreview.existentes.length > 0 && (
+            <div className="mb-4 px-3 py-2.5 rounded-lg bg-amber-900/20 border border-amber-800/40 text-xs text-amber-400">
+              <strong>{importPreview.existentes.length} trabajador(es)</strong> ya existen con ese DNI. Puedes importar solo los nuevos o actualizar también los existentes con los datos del archivo.
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end flex-wrap">
+            <Btn onClick={() => setImportPreview(null)}>Cancelar</Btn>
+            {importPreview.existentes.length > 0 && (
+              <Btn onClick={() => executeImport("solo_nuevos")} disabled={isImporting || importPreview.nuevos.length === 0}>
+                Solo importar nuevos ({importPreview.nuevos.length})
+              </Btn>
+            )}
+            <Btn variant="primary" onClick={() => executeImport(importPreview.existentes.length > 0 ? "actualizar" : "solo_nuevos")} disabled={isImporting}>
+              {isImporting ? "Importando..." : importPreview.existentes.length > 0
+                ? `Importar nuevos + completar campos vacíos en existentes`
+                : `Confirmar importación (${importPreview.nuevos.length})`}
+            </Btn>
+          </div>
+        </Modal>
+      )}
+
+      {tooltip && (
+        <div
+          className="fixed z-[9999] pointer-events-none max-w-xs bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-white shadow-2xl whitespace-pre-wrap"
+          style={{ left: tooltip.x, top: tooltip.y - 8, transform: 'translate(-50%, -100%)' }}
+        >
+          {tooltip.text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+        </div>
+      )}
+
       {modal && (
         <Modal title={modal === "edit" ? "Editar Trabajador" : "Registrar Trabajador"} onClose={() => setModal(null)} wide>
-          <div className="grid grid-cols-2 gap-x-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
             <div className="col-span-2"><FormField label="Apellido y Nombre"><Input value={form.nombre || ""} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="García López Juan Carlos" /></FormField></div>
             <FormField label="DNI (solo números)"><Input value={form.dni || ""} maxLength={8} onChange={e => { const val = e.target.value.replace(/\D/g, ""); setForm(f => ({ ...f, dni: val })); }} placeholder="12345678" /></FormField>
             <FormField label="Celular"><Input value={form.celular || ""} maxLength={12} onChange={e => { const val = e.target.value.replace(/\D/g, ""); setForm(f => ({ ...f, celular: val })); }} placeholder="999888777" /></FormField>
+            <FormField label="Correo electrónico"><Input type="email" value={form.email || ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="nombre@empresa.com" /></FormField>
             <FormField label="Puesto / Cargo"><Input value={form.cargo || ""} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))} /></FormField>
+            {esMultisel && (
+              <FormField label="Vinculación">
+                <Select value={form.tipo_vinculacion || ""} onChange={e => setForm(f => ({ ...f, tipo_vinculacion: e.target.value }))}>
+                  <option value="">Seleccionar...</option>
+                  <option>Planilla</option>
+                  <option>Servicio</option>
+                </Select>
+              </FormField>
+            )}
+            {esMultisel && (
+              <FormField label="Área">
+                <Select value={form.area || ""} onChange={e => setForm(f => ({ ...f, area: e.target.value }))}>
+                  <option value="">Seleccionar...</option>
+                  {AREAS_MULTISEL.map(a => <option key={a}>{a}</option>)}
+                </Select>
+              </FormField>
+            )}
             <FormField label="Fecha de Nacimiento"><Input type="date" value={form.fecha_nacimiento || ""} onChange={e => setForm(f => ({ ...f, fecha_nacimiento: e.target.value }))} /></FormField>
             <FormField label="Estado">
               <Select value={form.estado || "Activo"} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}>
                 <option>Activo</option><option>Vacaciones</option><option>Inactivo</option>
-                {esComindustria && <option>Cesado</option>}
+                <option>Cesado</option>
               </Select>
             </FormField>
-            {esComindustria && form.estado === "Cesado" && (<>
+            {form.estado === "Cesado" && (<>
               <FormField label="Fecha de cese"><Input type="date" value={form.fecha_cese || ""} onChange={e => setForm(f => ({ ...f, fecha_cese: e.target.value }))} /></FormField>
               <FormField label="Motivo de cese">
                 <Select value={form.motivo_cese || ""} onChange={e => setForm(f => ({ ...f, motivo_cese: e.target.value }))}>
@@ -364,7 +733,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
           <div className="border border-gray-800 rounded-xl p-3 mb-3">
             <div className="text-xs font-semibold text-gray-300 mb-3">Examen Médico Ocupacional (EMO)</div>
             {canEditEmo ? (
-              <div className="grid grid-cols-2 gap-x-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                 <FormField label="Última EMO"><Input type="date" value={form.ultima_emo || ""} onChange={e => setForm(f => ({ ...f, ultima_emo: e.target.value }))} /></FormField>
                 <FormField label="Duración EMO"><Select value={form.duracion_emo || "Anual"} onChange={e => setForm(f => ({ ...f, duracion_emo: e.target.value }))}><option>Anual</option><option>Bianual</option></Select></FormField>
                 <FormField label="Vigente Hasta (automático)"><Input value={calcularVigencia(form.ultima_emo, form.duracion_emo) || "—"} disabled className="opacity-60 bg-gray-700" /></FormField>
@@ -377,13 +746,18 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
           </div>
           <div className="border border-gray-800 rounded-xl p-3 mb-3">
             <div className="text-xs font-semibold text-gray-300 mb-3">Equipos de Protección Personal (EPP)</div>
-            <div className="grid grid-cols-2 gap-x-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <FormField label="¿Recibió EPP?"><Select value={form.epp_recibido ? "si" : "no"} onChange={e => setForm(f => ({ ...f, epp_recibido: e.target.value === "si" }))}><option value="no">No</option><option value="si">Sí</option></Select></FormField>
               <FormField label="Fecha de entrega EPP"><Input type="date" value={form.epp_fecha || ""} onChange={e => setForm(f => ({ ...f, epp_fecha: e.target.value }))} /></FormField>
               <div className="col-span-2"><FormField label="Detalle de EPP entregado"><Input value={form.epp_detalle || ""} onChange={e => setForm(f => ({ ...f, epp_detalle: e.target.value }))} placeholder="Ej. Casco, guantes, lentes, chaleco..." /></FormField></div>
             </div>
           </div>
-          {canSeeMedical && <FormField label="Detalle Restricción Médica" confidential><Input value={form.restriccion_medica || ""} onChange={e => setForm(f => ({ ...f, restriccion_medica: e.target.value }))} /></FormField>}
+          {canSeeMedical && (
+            <FormField label="Detalle Restricción Médica">
+              <Input value={form.restriccion_medica || ""} onChange={e => setForm(f => ({ ...f, restriccion_medica: e.target.value }))} disabled={role === "SEGURIDAD"} className={role === "SEGURIDAD" ? "opacity-60 bg-gray-700" : ""} />
+              {role === "SEGURIDAD" && <div className="text-xs text-gray-600 mt-1">Solo lectura para rol Seguridad</div>}
+            </FormField>
+          )}
           <div className="flex gap-2 justify-end mt-4"><Btn onClick={() => setModal(null)}>Cancelar</Btn><Btn variant="primary" disabled={isSaving} onClick={saveWorker}>{isSaving ? "Guardando..." : "Guardar"}</Btn></div>
         </Modal>
       )}

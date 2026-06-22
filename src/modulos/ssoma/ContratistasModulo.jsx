@@ -23,6 +23,7 @@ import {
   ChevronRight, ChevronLeft, Phone, QrCode, Eye, EyeOff, X, Copy, FileDown,
   Building2, Settings
 } from 'lucide-react';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 
 export default function ContratistasModulo({ empresaId }) {
   const [contratistas, setContratistas] = useState([]);
@@ -393,7 +394,58 @@ export default function ContratistasModulo({ empresaId }) {
                 <Btn size="sm" variant="primary" onClick={() => { setFormP(initP); setEditingP(null); setShowModalP(true); }}><Plus size={13}/> Agregar trabajador</Btn>
               </div>
             </div>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden overflow-x-auto">
+            {/* ── Vista móvil: tarjetas ── */}
+            <div className="md:hidden space-y-2.5">
+              {selPersonal.map(p => {
+                const pc = personalComp(p);
+                const edad = calcEdad(p.fecha_nacimiento);
+                const aptColor = p.aptitud_medica==="Apto" ? "green" : p.aptitud_medica==="Apto con restricciones" ? "amber" : p.aptitud_medica==="No apto" ? "red" : "gray";
+                return (
+                  <div key={p.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0 flex items-start gap-2">
+                        <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${dotCls[pc]}`} title={pc==="vigente"?"Cumple":pc==="por_vencer"?"Pendiente/Por vencer":"Vencido/No apto"} />
+                        <div className="min-w-0">
+                          <div className="font-semibold text-white text-sm leading-tight">{p.nombre}</div>
+                          <div className="text-xs text-gray-500 font-mono mt-0.5">{p.dni||"Sin DNI"}{edad ? ` · ${edad} años` : ""}{p.genero ? ` · ${p.genero}` : ""}</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        <button onClick={() => {
+                          const d={...initP,...p};
+                          ["sctr_venc","emo_venc","induccion_fecha","epp_fecha","fecha_nacimiento","fecha_ingreso_proyecto","fecha_emo","fecha_constancia_lectura"].forEach(k=>{d[k]=p[k]||"";});
+                          d.epp_entregado=p.epp_entregado||false; d.conduce_vehiculos=p.conduce_vehiculos||false;
+                          d.es_brigadista=p.es_brigadista||false; d.grupo_riesgo_covid=p.grupo_riesgo_covid||false;
+                          setFormP(d); setEditingP(p); setShowModalP(true);
+                        }} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15}/></button>
+                        <button onClick={async()=>{ if(!confirm("¿Eliminar?"))return; await supabase.from("contratista_personal").delete().eq("id",p.id); showToast("Eliminado","info"); load(); }} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15}/></button>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-400 mb-2">{p.perfil==="Operativo que maneja" ? "🚗 Maneja" : "🦺 No maneja"}{p.cargo ? ` · ${p.cargo}` : ""}{p.frente_trabajo ? ` · ${p.frente_trabajo}` : ""}</div>
+                    <div className="flex flex-wrap gap-1.5 mb-2.5">
+                      <Badge color={aptColor}>{p.aptitud_medica||"—"}</Badge>
+                      <Badge color={p.estado==="Activo"?"green":"gray"}>{p.estado}</Badge>
+                      {p.conduce_vehiculos && <Badge color="amber">🚗 Conduce</Badge>}
+                      {p.es_brigadista && <Badge color="blue">🛡 Brigada</Badge>}
+                    </div>
+                    {p.restriccion_medica && <div className="text-xs text-gray-500 mb-2">{p.restriccion_medica}</div>}
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                      <div className="flex items-center gap-1.5"><span className="text-gray-600">SCTR:</span> {p.sctr_venc ? <DateChip fecha={p.sctr_venc}/> : <span className="text-red-600">Sin fecha</span>}</div>
+                      <div><span className="text-gray-600">EMO:</span> <span className="text-gray-400">{p.fecha_emo ? `${p.tipo_emo||"—"} ${fmtFecha(p.fecha_emo)}` : "Pendiente"}</span></div>
+                      <div><span className="text-gray-600">Inducción:</span> <span className={p.induccion_fecha ? "text-green-400 font-mono" : "text-red-500"}>{p.induccion_fecha ? `✓ ${p.induccion_fecha}` : "Pendiente"}</span></div>
+                      <div><span className="text-gray-600">EPP:</span> <span className={p.epp_entregado ? "text-green-400" : "text-red-500"}>{p.epp_entregado ? "✓ OK" : "Pendiente"}</span></div>
+                      <div><span className="text-gray-600">Altura:</span> <span className="text-gray-400">{p.apto_altura||"—"}</span></div>
+                      <div><span className="text-gray-600">Conf.:</span> <span className="text-gray-400">{p.apto_espacio_confinado||"—"}</span></div>
+                    </div>
+                  </div>
+                );
+              })}
+              {!selPersonal.length && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Sin personal registrado. Usa "Agregar trabajador".</div>}
+            </div>
+
+            {/* ── Vista escritorio: tabla ── */}
+            <div className="hidden md:block">
+              <WideTableScroll>
               <table className="text-sm" style={{minWidth:"1100px"}}>
                 <thead><tr className="border-b border-gray-800">
                   {["","Apellidos y Nombre","DNI","Edad","G","Perfil","Frente","Aptitud médica","SCTR venc.","EMO (Tipo/Fecha)","Inducción SO","EPP","Altura","Conf.","Cond.","Brig.","Estado",""].map(h=>(
@@ -469,6 +521,7 @@ export default function ContratistasModulo({ empresaId }) {
                   {!selPersonal.length && <tr><td colSpan={18} className="px-4 py-10 text-center text-gray-600 text-sm">Sin personal registrado. Usa "Agregar trabajador".</td></tr>}
                 </tbody>
               </table>
+              </WideTableScroll>
             </div>
           </div>
         )}
@@ -527,15 +580,15 @@ export default function ContratistasModulo({ empresaId }) {
               {/* ── 1. Datos personales ── */}
               <div>
                 <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mb-3">1 — Datos personales</p>
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  <FormField label="Apellidos y Nombre *" className="col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                  <FormField label="Apellidos y Nombre *" className="sm:col-span-2">
                     <Input value={formP.nombre} onChange={e=>setFormP(p=>({...p,nombre:e.target.value}))} placeholder="Apellidos y nombres completos" />
                   </FormField>
                   <FormField label="DNI">
                     <Input value={formP.dni} onChange={e=>setFormP(p=>({...p,dni:e.target.value}))} placeholder="12345678" maxLength={8} />
                   </FormField>
                 </div>
-                <div className="grid grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                   <FormField label="Fecha de nacimiento">
                     <Input type="date" value={formP.fecha_nacimiento} onChange={e=>setFormP(p=>({...p,fecha_nacimiento:e.target.value}))} />
                   </FormField>
@@ -556,7 +609,7 @@ export default function ContratistasModulo({ empresaId }) {
                     </Select>
                   </FormField>
                 </div>
-                <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                   <FormField label="Puesto de trabajo">
                     <Input value={formP.cargo} onChange={e=>setFormP(p=>({...p,cargo:e.target.value}))} placeholder="Operario, Técnico, Electricista..." />
                   </FormField>
@@ -567,7 +620,7 @@ export default function ContratistasModulo({ empresaId }) {
                     <Input type="date" value={formP.fecha_ingreso_proyecto} onChange={e=>setFormP(p=>({...p,fecha_ingreso_proyecto:e.target.value}))} />
                   </FormField>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <FormField label="Frente de trabajo">
                     <Input value={formP.frente_trabajo} onChange={e=>setFormP(p=>({...p,frente_trabajo:e.target.value}))} placeholder="Frente A, Planta, Almacén Central..." />
                   </FormField>
@@ -583,7 +636,7 @@ export default function ContratistasModulo({ empresaId }) {
               {/* ── 2. Evaluación médica (EMO) ── */}
               <div className="border-t border-gray-800 pt-4">
                 <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mb-3">2 — Evaluación médica ocupacional (EMO)</p>
-                <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                   <FormField label="Tipo de EMO">
                     <Select value={formP.tipo_emo} onChange={e=>setFormP(p=>({...p,tipo_emo:e.target.value}))}>
                       <option>Preocupacional</option>
@@ -598,7 +651,7 @@ export default function ContratistasModulo({ empresaId }) {
                     <Input value={formP.clinica_ocupacional} onChange={e=>setFormP(p=>({...p,clinica_ocupacional:e.target.value}))} placeholder="Nombre de la clínica" />
                   </FormField>
                 </div>
-                <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                   <FormField label="Aptitud médica">
                     <Select value={formP.aptitud_medica} onChange={e=>setFormP(p=>({...p,aptitud_medica:e.target.value}))}>
                       <option>Apto</option>
@@ -606,11 +659,11 @@ export default function ContratistasModulo({ empresaId }) {
                       <option>No apto</option>
                     </Select>
                   </FormField>
-                  <FormField label="Restricción médica" className="col-span-2">
+                  <FormField label="Restricción médica" className="sm:col-span-2">
                     <Input value={formP.restriccion_medica} onChange={e=>setFormP(p=>({...p,restriccion_medica:e.target.value}))} placeholder="Descripción de la restricción (si aplica)" />
                   </FormField>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <FormField label="Fecha constancia de lectura">
                     <Input type="date" value={formP.fecha_constancia_lectura} onChange={e=>setFormP(p=>({...p,fecha_constancia_lectura:e.target.value}))} />
                   </FormField>
@@ -626,7 +679,7 @@ export default function ContratistasModulo({ empresaId }) {
               {/* ── 3. Aptitudes especiales y roles ── */}
               <div className="border-t border-gray-800 pt-4">
                 <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mb-3">3 — Aptitudes especiales y roles</p>
-                <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <FormField label="Aptitud — Trabajos en Altura Estructural">
                     <Select value={formP.apto_altura} onChange={e=>setFormP(p=>({...p,apto_altura:e.target.value}))}>
                       <option>No aplica</option><option>Sí</option><option>No</option>
@@ -638,7 +691,7 @@ export default function ContratistasModulo({ empresaId }) {
                     </Select>
                   </FormField>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <FormField label="Realiza conducción vehicular">
                     <Select value={formP.conduce_vehiculos?"si":"no"} onChange={e=>setFormP(p=>({...p,conduce_vehiculos:e.target.value==="si"}))}>
                       <option value="no">No</option><option value="si">Sí</option>
@@ -660,7 +713,7 @@ export default function ContratistasModulo({ empresaId }) {
               {/* ── 4. Inducción y EPP ── */}
               <div className="border-t border-gray-800 pt-4">
                 <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mb-3">4 — Inducción SST y EPP</p>
-                <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <FormField label="Inducción SST — Fecha de realización">
                     <Input type="date" value={formP.induccion_fecha} onChange={e=>setFormP(p=>({...p,induccion_fecha:e.target.value}))} />
                   </FormField>
@@ -672,7 +725,7 @@ export default function ContratistasModulo({ empresaId }) {
                   </FormField>
                 </div>
                 {formP.epp_entregado && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <FormField label="Fecha de entrega EPP">
                       <Input type="date" value={formP.epp_fecha} onChange={e=>setFormP(p=>({...p,epp_fecha:e.target.value}))} />
                     </FormField>
@@ -698,7 +751,7 @@ export default function ContratistasModulo({ empresaId }) {
               <FormField label="Descripción del trabajo *">
                 <Input value={formT.descripcion} onChange={e=>setFormT(p=>({...p,descripcion:e.target.value}))} placeholder="Ej: Instalación de sistema contra incendios en almacén principal" />
               </FormField>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Área / Ubicación"><Input value={formT.area} onChange={e=>setFormT(p=>({...p,area:e.target.value}))} placeholder="Planta, Almacén, Oficinas..." /></FormField>
                 <FormField label="Nivel de riesgo">
                   <Select value={formT.nivel_riesgo} onChange={e=>setFormT(p=>({...p,nivel_riesgo:e.target.value}))}>
@@ -706,7 +759,7 @@ export default function ContratistasModulo({ empresaId }) {
                   </Select>
                 </FormField>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <FormField label="Fecha inicio"><Input type="date" value={formT.fecha_inicio} onChange={e=>setFormT(p=>({...p,fecha_inicio:e.target.value}))} /></FormField>
                 <FormField label="Fecha fin estimada"><Input type="date" value={formT.fecha_fin} onChange={e=>setFormT(p=>({...p,fecha_fin:e.target.value}))} /></FormField>
                 <FormField label="Estado">
@@ -832,7 +885,44 @@ export default function ContratistasModulo({ empresaId }) {
           {contratistas.length === 0 ? "Aún no hay contratistas registrados. Usa \"Nuevo contratista\"." : "Sin resultados para los filtros aplicados."}
         </div>
       ) : (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <>
+        {/* ── Vista móvil: tarjetas ── */}
+        <div className="md:hidden space-y-2.5">
+          {filtered.map(c => {
+            const comp = contratistaComp(c);
+            const ps = personal.filter(p=>p.contratista_id===c.id);
+            const ts = trabajos.filter(t=>t.contratista_id===c.id&&t.estado==="En ejecución");
+            const compLabel = { vencido:"✗ Vencido", por_vencer:"⚠ Por vencer", vigente:"✓ Al día", sin_fecha:"Sin datos" }[comp];
+            const compBadge = { vencido:"red", por_vencer:"amber", vigente:"green", sin_fecha:"gray" }[comp];
+            return (
+              <div key={c.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5" onClick={()=>{setSelected(c);setActiveTab("docs");}}>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0 flex items-start gap-2">
+                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1 ${dotCls[comp]}`} />
+                    <div className="min-w-0">
+                      <div className="font-semibold text-white text-sm leading-tight">{c.nombre}</div>
+                      {c.ruc && <div className="text-xs text-gray-500 font-mono mt-0.5">RUC {c.ruc}</div>}
+                      {c.rubro && <div className="text-xs text-gray-600 mt-0.5">{c.rubro}</div>}
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-gray-700 shrink-0" />
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-2.5">
+                  <Badge color={compBadge}>{compLabel}</Badge>
+                  <Badge color={c.estado==="Activo"?"green":c.estado==="Suspendido"?"amber":"red"}>{c.estado}</Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                  <div><span className="text-gray-600">Personal:</span> <span className={ps.length>0?"text-blue-400 font-bold":"text-gray-500"}>{ps.length}</span></div>
+                  <div><span className="text-gray-600">Trabajos activos:</span> <span className={ts.length>0?"text-amber-400 font-bold":"text-gray-500"}>{ts.length}</span></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Vista escritorio: tabla ── */}
+        <div className="hidden md:block">
+          <WideTableScroll>
           <table className="w-full text-sm">
             <thead><tr className="border-b border-gray-800">{["","Contratista","Rubro","Personal","Trabajos activos","Docs empresa","Estado",""].map(h=>(
               <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
@@ -866,29 +956,31 @@ export default function ContratistasModulo({ empresaId }) {
               })}
             </tbody>
           </table>
+          </WideTableScroll>
         </div>
+        </>
       )}
 
       {/* Modal Contratista */}
       {showModalC && (
         <Modal title={editingC?"Editar contratista":"Nuevo contratista"} onClose={()=>setShowModalC(false)} wide>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Nombre de empresa *"><Input value={formC.nombre} onChange={e=>setFormC(p=>({...p,nombre:e.target.value}))} placeholder="Razón social" /></FormField>
               <FormField label="RUC"><Input value={formC.ruc} onChange={e=>setFormC(p=>({...p,ruc:e.target.value}))} placeholder="20XXXXXXXXX" maxLength={11} /></FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Rubro / Actividad"><Input value={formC.rubro} onChange={e=>setFormC(p=>({...p,rubro:e.target.value}))} placeholder="Construcción, Mantenimiento, Limpieza..." /></FormField>
               <FormField label="Estado"><Select value={formC.estado} onChange={e=>setFormC(p=>({...p,estado:e.target.value}))}><option>Activo</option><option>Suspendido</option><option>Inactivo</option></Select></FormField>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <FormField label="Representante legal"><Input value={formC.representante} onChange={e=>setFormC(p=>({...p,representante:e.target.value}))} placeholder="Nombre completo" /></FormField>
               <FormField label="Teléfono"><Input value={formC.telefono} onChange={e=>setFormC(p=>({...p,telefono:e.target.value}))} placeholder="+51 999 000 000" /></FormField>
               <FormField label="Email"><Input value={formC.email} onChange={e=>setFormC(p=>({...p,email:e.target.value}))} placeholder="correo@empresa.com" /></FormField>
             </div>
             <div className="pt-2 border-t border-gray-800">
               <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-3">Vencimientos de documentos de empresa</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="SCTR Pensión + Salud — Venc."><Input type="date" value={formC.sctr_empresa_venc} onChange={e=>setFormC(p=>({...p,sctr_empresa_venc:e.target.value}))} /></FormField>
                 <FormField label="Póliza Responsabilidad Civil — Venc."><Input type="date" value={formC.poliza_rc_venc} onChange={e=>setFormC(p=>({...p,poliza_rc_venc:e.target.value}))} /></FormField>
                 <FormField label="Póliza Seguro de Vida — Venc."><Input type="date" value={formC.poliza_vida_venc} onChange={e=>setFormC(p=>({...p,poliza_vida_venc:e.target.value}))} /></FormField>

@@ -9,12 +9,15 @@ import {
 
 export default function HomeModulo({ profile, role, platform, setPlatform, navigate, setPage, empresa }) {
   const isSuperAdmin = role === "SUPERADMIN";
+  const isAdministrativo = role === "ADMINISTRATIVO";
   const canMedico = ["SUPERADMIN", "ADMIN", "MEDICO"].includes(role);
   const today = new Date().toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-  const esMultisel = empresa?.nombre?.toLowerCase().includes("multisel") || false;
-  const esHydroGlobal = empresa?.nombre?.toLowerCase().includes("hydro") || false;
+  const esMultisel     = empresa?.nombre?.toLowerCase().includes("multisel")     || false;
+  const esHydroGlobal  = empresa?.nombre?.toLowerCase().includes("hydro")        || false;
   const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria") || false;
+  const esEntregaEmo   = (() => { const n = empresa?.nombre?.toLowerCase() || ""; return n.includes("expertos en cafe") || n.includes("expertos en café") || n.includes("franquicias unidas"); })();
+  const esOilGas       = empresa?.nombre?.toLowerCase().includes("oil")          || false;
   const HYDRO_SALUD_PERMITIDOS = new Set(["dashboard", "directorio", "capacitaciones", "documentos", "accidentes", "epps", "monitoreo", "reportes"]);
   const hydroBloqueado = (id) => esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
   const moduloOcultoHome = (id) => {
@@ -38,6 +41,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     { id: "topico",          label: "Tópico",                    desc: "Atenciones médicas del tópico",           Icon: HeartPulse,      color: "rose" },
     { id: "reportes",        label: "Reportes PDF",              desc: "Generación de informes y reportes",       Icon: FileDown,        color: "gray" },
     ...(esMultisel ? [{ id: "plan_so", label: "Plan SO Anual", desc: "Programa Anual de Salud Ocupacional 2026", Icon: ClipboardList, color: "blue" }] : []),
+    ...(esEntregaEmo ? [{ id: "emo_entregas", label: "Entrega de EMO", desc: "Entrega y firma digital de exámenes médicos", Icon: FileText, color: "blue" }] : []),
   ];
 
   const SSOMA_CARDS = [
@@ -55,7 +59,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     { id: "inversion",        label: "Inversión SST",       desc: "Costos de seguridad y plan vs real",  Icon: DollarSign,      color: "emerald" },
     { id: "indicadores",      label: "Indicadores SST",     desc: "IF, IG, IA — estadística de accidentabilidad", Icon: TrendingUp, color: "blue" },
     { id: "reportes_ssoma",   label: "Reportes PDF",        desc: "Generación de informes SSOMA",        Icon: FileDown,        color: "gray" },
-    ...(esHydroGlobal ? [{ id: "hallazgos_hgp", label: "Reporte de Hallazgos", desc: "Seguimiento de hallazgos FR-039", Icon: AlertTriangle, color: "orange" }] : []),
+    ...(esHydroGlobal ? [{ id: "hallazgos_hgp", label: "Reporte de Hallazgos",  desc: "Seguimiento de hallazgos FR-039", Icon: AlertTriangle, color: "orange" }] : []),
   ];
 
   const CM = {
@@ -71,9 +75,26 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     green:   { border: "border-l-green-500",   text: "text-green-400",   glow: "hover:border-green-600 hover:shadow-green-500/20",   bg: "bg-green-500/10" },
     cyan:    { border: "border-l-cyan-500",    text: "text-cyan-400",    glow: "hover:border-cyan-600 hover:shadow-cyan-500/20",      bg: "bg-cyan-500/10" },
     teal:    { border: "border-l-teal-500",    text: "text-teal-400",    glow: "hover:border-teal-600 hover:shadow-teal-500/20",      bg: "bg-teal-500/10" },
+    violet:  { border: "border-l-violet-500", text: "text-violet-400",  glow: "hover:border-violet-600 hover:shadow-violet-500/20",  bg: "bg-violet-500/10" },
   };
 
-  const cards = (platform === "salud" ? SALUD_CARDS : SSOMA_CARDS).filter(c => !moduloOcultoHome(c.id));
+  const SIG_CARDS = [
+    { id: "sig",          label: "SIG Documental",   desc: "Control de documentos del sistema de gestión", Icon: FileDown,    color: "violet" },
+    { id: "homologacion", label: "Homologación SGS",  desc: "Cuestionario UNNA Energía — 129 ítems",        Icon: CheckCircle, color: "amber"  },
+  ];
+
+  const ADMIN_CARDS = [
+    { id: "dashboard",       label: "Dashboard",         desc: "Métricas y resumen general",            Icon: LayoutDashboard, color: "emerald" },
+    { id: "directorio",      label: "Directorio",        desc: "Sábana de personal",                    Icon: Users,           color: "emerald" },
+    { id: "admin_descansos", label: "Descansos Médicos", desc: "Registro e importación de descansos",   Icon: HeartPulse,      color: "rose" },
+  ];
+
+  const cards = (
+    platform === "administrativo" ? ADMIN_CARDS :
+    platform === "salud" ? SALUD_CARDS :
+    platform === "sig" && esOilGas ? SIG_CARDS :
+    SSOMA_CARDS
+  ).filter(c => !moduloOcultoHome(c.id));
 
   const handleCard = (card) => {
     if (hydroBloqueado(card.id)) {
@@ -106,7 +127,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
             <p className="text-gray-400 text-base mt-1">¿A dónde quieres ir hoy?</p>
             <div className="text-sm text-gray-600 mt-2 capitalize">{today}</div>
           </div>
-          <div className="flex gap-3 shrink-0 flex-wrap">
+          <div className={`flex gap-3 shrink-0 flex-wrap ${isAdministrativo ? "hidden" : ""}`}>
             <button onClick={() => setPlatform("salud")}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
                 platform === "salud"
@@ -123,16 +144,36 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
               }`}>
               <ShieldAlert size={16} /> SSOMA
             </button>
+            {esOilGas && (
+              <button onClick={() => setPlatform("sig")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+                  platform === "sig"
+                    ? "bg-violet-600 text-white border-violet-500 shadow-lg shadow-violet-500/25"
+                    : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
+                }`}>
+                <FileDown size={16} /> SIG
+              </button>
+            )}
+            {esComindustria && (
+              <button onClick={() => setPlatform("administrativo")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+                  platform === "administrativo"
+                    ? "bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-500/25"
+                    : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
+                }`}>
+                <FileText size={16} /> Administrativo
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* ── Section ── */}
       <div>
-        <div className={`flex items-center gap-3 pl-3 border-l-2 mb-5 ${platform === "salud" ? "border-blue-500" : "border-amber-500"}`}>
+        <div className={`flex items-center gap-3 pl-3 border-l-2 mb-5 ${platform === "salud" ? "border-blue-500" : platform === "sig" ? "border-violet-500" : platform === "administrativo" ? "border-emerald-500" : "border-amber-500"}`}>
           <div>
-            <div className={`text-sm font-bold uppercase tracking-widest ${platform === "salud" ? "text-blue-400" : "text-amber-400"}`}>
-              {platform === "salud" ? "Salud Ocupacional" : "Seguridad y Medio Ambiente"}
+            <div className={`text-sm font-bold uppercase tracking-widest ${platform === "salud" ? "text-blue-400" : platform === "sig" ? "text-violet-400" : platform === "administrativo" ? "text-emerald-400" : "text-amber-400"}`}>
+              {platform === "salud" ? "Salud Ocupacional" : platform === "sig" ? "Sistema Integrado de Gestión" : platform === "administrativo" ? "Administrativo" : "Seguridad y Medio Ambiente"}
             </div>
             <div className="text-sm text-gray-500 mt-0.5">Selecciona un módulo para comenzar</div>
           </div>

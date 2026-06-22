@@ -16,6 +16,7 @@ import { Select } from '../../components/ui/Select.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 import {
   Plus, Upload, Download, Trash2, Pencil, AlertTriangle, CheckCircle,
   Filter, HelpCircle, Lock, Shield, ClipboardList, ShieldAlert,
@@ -100,7 +101,42 @@ export default function IpercModulo({ empresaId }) {
         </div>
       )}
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* Vista móvil: tarjetas */}
+      <div className="md:hidden space-y-2.5">
+        {loading && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Cargando...</div>}
+        {!loading && records.map(r => {
+          const estado = getEstado(r);
+          return (
+            <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm leading-tight">{r.area_proceso}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{r.proceso_actividad || "—"} · <span className="font-mono">{r.version}</span></div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15} /></button>
+                  <button onClick={() => handleDelete(r.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <Badge color={estadoColor(estado)}>{estado}</Badge>
+                {r.url_documento
+                  ? <a href={r.url_documento} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"><Download size={12} />Abrir documento</a>
+                  : <span className="text-gray-700 text-xs">Sin link</span>}
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                <div><span className="text-gray-600">Elaboración:</span> <span className="text-gray-400 font-mono">{r.fecha_elaboracion || "—"}</span></div>
+                <div><span className="text-gray-600">Próx. revisión:</span> <span className="text-gray-400 font-mono">{r.fecha_revision || "—"}</span></div>
+                <div className="truncate"><span className="text-gray-600">Responsable:</span> <span className="text-gray-400">{r.responsable || "—"}</span></div>
+              </div>
+            </div>
+          );
+        })}
+        {!loading && !records.length && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Sin IPERCs registrados. Usa "Nuevo IPERC" para comenzar.</div>}
+      </div>
+
+      <div className="hidden md:block">
+        <WideTableScroll maxH="max-h-[calc(100vh-200px)]">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-gray-800">
             {["Área / Proceso","Actividad","Versión","Elaboración","Próx. Revisión","Responsable","Estado","Documento",""].map(h => (
@@ -137,12 +173,13 @@ export default function IpercModulo({ empresaId }) {
             )}
           </tbody>
         </table>
+        </WideTableScroll>
       </div>
 
       {showModal && (
         <Modal title={editing ? "Editar IPERC" : "Registrar IPERC"} onClose={closeModal} wide>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Área / Proceso *"><Input value={form.area_proceso} onChange={e => setForm(f=>({...f,area_proceso:e.target.value}))} placeholder="Ej: Almacén, Taller, Operaciones..." /></FormField>
               <FormField label="Actividad / Sub-proceso"><Input value={form.proceso_actividad} onChange={e => setForm(f=>({...f,proceso_actividad:e.target.value}))} placeholder="Ej: Descarga de materiales..." /></FormField>
               <FormField label="Versión"><Input value={form.version} onChange={e => setForm(f=>({...f,version:e.target.value}))} placeholder="v1.0" /></FormField>

@@ -17,6 +17,7 @@ import { Select } from '../../components/ui/Select.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 import {
   Plus, Upload, Download, ChevronRight, ChevronLeft, Lock,
   Trash2, Filter, HelpCircle, Pencil, FileDown, AlertTriangle,
@@ -129,7 +130,39 @@ export default function MonitoreoModulo({ empresaId }) {
         {(fTipo || fSupera) && <button onClick={() => { setFTipo(""); setFSupera(""); }} className="text-xs text-blue-400 hover:text-blue-300 ml-1">✕ Limpiar</button>}
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* ── Vista móvil: tarjetas ── */}
+      <div className="md:hidden space-y-2.5">
+        {loading && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Cargando...</div>}
+        {!loading && filtered.map(r => (
+          <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+            <div className="flex items-start justify-between gap-2 mb-1.5">
+              <div className="min-w-0">
+                <div className="font-semibold text-white text-sm leading-tight">{r.tipo_agente}</div>
+                <div className="text-xs text-gray-500 mt-0.5">{r.area_monitoreada}</div>
+              </div>
+              <div className="flex gap-1.5 shrink-0">
+                <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15} /></button>
+                <button onClick={() => handleDelete(r.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+              </div>
+            </div>
+            <div className="mb-2.5">{r.supera_limite ? <Badge color="red">⚠ Supera límite</Badge> : <Badge color="green">✓ Dentro del límite</Badge>}</div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div><span className="text-gray-600">Fecha:</span> <span className="text-gray-400 font-mono">{r.fecha_monitoreo}</span></div>
+              <div className="truncate"><span className="text-gray-600">Laboratorio:</span> <span className="text-gray-400">{r.empresa_laboratorio || "—"}</span></div>
+              <div><span className="text-gray-600">Resultado:</span> {r.resultado_valor != null ? <span className={`font-mono font-bold ${r.supera_limite ? "text-red-400" : "text-emerald-400"}`}>{r.resultado_valor} {r.unidad}</span> : <span className="text-gray-500">—</span>}</div>
+              <div><span className="text-gray-600">Límite:</span> <span className="text-gray-400 font-mono">{r.limite_permisible != null ? `${r.limite_permisible} ${r.unidad || ""}` : "—"}</span></div>
+              <div><span className="text-gray-600">Próx. monitoreo:</span> <span className="text-gray-400 font-mono">{r.proxima_fecha || "—"}</span></div>
+            </div>
+          </div>
+        ))}
+        {!loading && !filtered.length && (
+          <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">{records.length ? "Sin resultados para el filtro." : "Sin monitoreos registrados. Usa \"Nuevo monitoreo\" para comenzar."}</div>
+        )}
+      </div>
+
+      {/* ── Vista escritorio: tabla ── */}
+      <div className="hidden md:block">
+        <WideTableScroll>
         <table className="w-full text-sm">
           <thead><tr className="border-b border-gray-800">
             {["Agente", "Área monitoreada", "Fecha", "Laboratorio", "Resultado", "Límite", "¿Supera?", "Próx. Monitoreo", ""].map(h => (
@@ -163,12 +196,13 @@ export default function MonitoreoModulo({ empresaId }) {
             )}
           </tbody>
         </table>
+        </WideTableScroll>
       </div>
 
       {showModal && (
         <Modal title={editing ? "Editar monitoreo" : "Registrar monitoreo"} onClose={closeModal} wide>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Tipo de agente *">
                 <Select value={form.tipo_agente} onChange={e => {
                   const t = e.target.value;

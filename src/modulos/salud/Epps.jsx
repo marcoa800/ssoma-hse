@@ -17,6 +17,7 @@ import { Select } from '../../components/ui/Select.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 import {
   Plus, Upload, Download, ChevronRight, ChevronLeft, Lock,
   Trash2, Filter, HelpCircle, Pencil, FileDown, AlertTriangle,
@@ -134,7 +135,47 @@ export default function EppModulo({ workers, empresaId }) {
         {(fWorker || fTipo || fEstado) && <button onClick={() => { setFWorker(""); setFTipo(""); setFEstado(""); }} className="text-xs text-blue-400 hover:text-blue-300 ml-1">✕ Limpiar</button>}
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* ── Vista móvil: tarjetas ── */}
+      <div className="md:hidden space-y-2.5">
+        {loading && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Cargando...</div>}
+        {!loading && filtered.map(r => {
+          const isVenc = r.proxima_reposicion && new Date(r.proxima_reposicion + "T00:00:00") < now;
+          const isPorV = !isVenc && r.proxima_reposicion && new Date(r.proxima_reposicion + "T00:00:00") <= in30;
+          const estadoReal = isVenc ? "Vencido" : isPorV ? "Por vencer" : r.estado;
+          return (
+            <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm leading-tight">{r.trabajadores?.nombre || "—"}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{r.trabajadores?.cargo || "Sin cargo"}</div>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15} /></button>
+                  <button onClick={() => handleDelete(r.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                <span className="text-xs text-gray-300 font-medium">{r.tipo_epp}</span>
+                <Badge color={estadoColor(estadoReal)}>{estadoReal}</Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                {r.descripcion && <div className="col-span-2"><span className="text-gray-600">Descripción:</span> <span className="text-gray-400">{r.descripcion}</span></div>}
+                <div><span className="text-gray-600">Talla:</span> <span className="text-gray-400 font-mono">{r.talla || "—"}</span></div>
+                <div><span className="text-gray-600">Cantidad:</span> <span className="text-gray-400 font-mono">{r.cantidad}</span></div>
+                <div><span className="text-gray-600">Entrega:</span> <span className="text-gray-400 font-mono">{r.fecha_entrega}</span></div>
+                <div><span className="text-gray-600">Próx. rep.:</span> <span className={`font-mono ${isVenc ? "text-red-400 font-semibold" : isPorV ? "text-amber-400 font-semibold" : "text-gray-400"}`}>{r.proxima_reposicion || "—"}</span></div>
+              </div>
+            </div>
+          );
+        })}
+        {!loading && !filtered.length && (
+          <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">{records.length ? "Sin resultados para el filtro aplicado." : "Sin registros. Usa \"Registrar entrega\" para comenzar."}</div>
+        )}
+      </div>
+
+      {/* ── Vista escritorio: tabla ── */}
+      <div className="hidden md:block">
+        <WideTableScroll>
         <table className="w-full text-sm">
           <thead><tr className="border-b border-gray-800">
             {["Trabajador", "Tipo EPP", "Descripción / Marca", "Talla", "Cant.", "F. Entrega", "Próx. Reposición", "Estado", ""].map(h => (
@@ -172,12 +213,13 @@ export default function EppModulo({ workers, empresaId }) {
             )}
           </tbody>
         </table>
+        </WideTableScroll>
       </div>
 
       {showModal && (
         <Modal title={editing ? "Editar registro EPP" : "Registrar entrega de EPP"} onClose={closeModal} wide>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Trabajador *">
                 <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
                   <option value="">Seleccionar trabajador...</option>

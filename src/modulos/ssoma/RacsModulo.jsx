@@ -23,6 +23,7 @@ import {
   ChevronRight, ChevronLeft, Phone, Eye, EyeOff, X, Copy, FileDown,
   Building2, Settings
 } from 'lucide-react';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 
 export default function RacsModulo({ empresaId, empresa }) {
   const [records, setRecords] = useState([]);
@@ -139,7 +140,39 @@ export default function RacsModulo({ empresaId, empresa }) {
         {(fSistema||fNivel||fEstado) && <button onClick={()=>{setFSistema("");setFNivel("");setFEstado("");}} className="text-xs text-blue-400 hover:text-blue-300 ml-1">✕ Limpiar</button>}
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* ── Vista móvil: tarjetas ── */}
+      <div className="md:hidden space-y-2.5">
+        {loading && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Cargando...</div>}
+        {!loading && filtered.map(r=>(
+          <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5" onClick={()=>openMgmt(r)}>
+            <div className="flex items-start justify-between gap-2 mb-1.5">
+              <div className="min-w-0">
+                <div className="font-semibold text-white text-sm leading-tight">{r.sistema} — {r.naturaleza}</div>
+                <div className="text-xs text-gray-500 font-mono mt-0.5">{r.created_at?.split("T")[0]}</div>
+              </div>
+              <div className="flex gap-1.5 shrink-0">
+                <button onClick={e=>{e.stopPropagation();openMgmt(r);}} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15} /></button>
+                <button onClick={e=>{e.stopPropagation();handleDelete(r.id);}} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+              </div>
+            </div>
+            <div className="text-xs text-gray-400 mb-2">{r.ubicacion||"Sin ubicación"}</div>
+            <div className="flex flex-wrap gap-1.5 mb-2.5">
+              <Badge color={nivelColor(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge>
+              <Badge color={estadoColor(r.estado)}>{r.estado}</Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div className="truncate"><span className="text-gray-600">Reportante:</span> <span className="text-gray-400">{r.nombre_reportante||"Anónimo"}</span></div>
+            </div>
+          </div>
+        ))}
+        {!loading && !filtered.length && (
+          <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">{records.length?"Sin resultados para el filtro.":"Aún no hay RACs. Comparte el código QR con tus trabajadores para que reporten."}</div>
+        )}
+      </div>
+
+      {/* ── Vista escritorio: tabla ── */}
+      <div className="hidden md:block">
+        <WideTableScroll maxH="max-h-[calc(100vh-200px)]">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-gray-800">
             {["Fecha","Sistema","Naturaleza","Ubicación","Reportante","Nivel","Estado",""].map(h=>(
@@ -170,6 +203,7 @@ export default function RacsModulo({ empresaId, empresa }) {
             )}
           </tbody>
         </table>
+        </WideTableScroll>
       </div>
 
       {/* Modal crear RAC */}
@@ -177,7 +211,7 @@ export default function RacsModulo({ empresaId, empresa }) {
         <Modal title="Nuevo RAC" onClose={()=>setShowCreate(false)} wide>
           <div className="space-y-4">
             {/* Sistema + Naturaleza */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Sistema">
                 <Select value={racForm.sistema} onChange={e=>setRacForm(p=>({...p,sistema:e.target.value,detalle_especifico:""}))}>
                   <option>SST</option><option>M. Ambiente</option>
@@ -257,7 +291,7 @@ export default function RacsModulo({ empresaId, empresa }) {
       {showModal && selected && (
         <Modal title={`RAC — ${selected.naturaleza} ${selected.sistema}`} onClose={()=>setShowModal(false)} wide>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 p-3 bg-gray-800/50 rounded-xl border border-gray-700/50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-gray-800/50 rounded-xl border border-gray-700/50">
               <div><p className="text-xs text-gray-600 mb-1">Sistema / Naturaleza</p><p className="text-sm text-white">{selected.sistema} — {selected.naturaleza}</p></div>
               <div><p className="text-xs text-gray-600 mb-1">Nivel de riesgo</p><Badge color={nivelColor(selected.nivel_riesgo)}>{selected.nivel_riesgo}</Badge></div>
               <div><p className="text-xs text-gray-600 mb-1">Ubicación</p><p className="text-sm text-gray-300">{selected.ubicacion||"—"}</p></div>
@@ -268,7 +302,7 @@ export default function RacsModulo({ empresaId, empresa }) {
               {selected.categorizacion?.length>0 && <div className="col-span-2"><p className="text-xs text-gray-600 mb-2">Categorías de riesgo</p><div className="flex flex-wrap gap-1">{selected.categorizacion.map(c=><Badge key={c} color="blue">{c}</Badge>)}</div></div>}
               {(selected.foto_url_1||selected.foto_url_2) && <div className="col-span-2"><p className="text-xs text-gray-600 mb-2">Evidencia fotográfica</p><div className="flex gap-2">{[selected.foto_url_1,selected.foto_url_2].filter(Boolean).map((url,i)=><a key={i} href={url} target="_blank" rel="noreferrer"><img src={url} alt="" className="w-24 h-24 object-cover rounded-xl border border-gray-700 hover:border-blue-500 transition-colors" /></a>)}</div></div>}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Estado">
                 <Select value={mgmt.estado} onChange={e=>setMgmt(m=>({...m,estado:e.target.value}))}>
                   {["Abierto","En proceso","Cerrado"].map(e=><option key={e}>{e}</option>)}

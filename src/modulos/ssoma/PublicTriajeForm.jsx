@@ -1,27 +1,9 @@
 import { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { supabase } from '../../lib/supabase.js';
-import { showToast } from '../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia } from '../../lib/helpers.js';
-import { TRIAJE_CATS, CATEGORIAS_RIESGO, DETALLES_ESPECIFICOS, RED_FLAGS_TRIAJE } from '../../constants/triaje.js';
-import { Badge } from '../../components/ui/Badge.jsx';
-import { KpiCard } from '../../components/ui/KpiCard.jsx';
-import { Modal } from '../../components/ui/Modal.jsx';
-import { FormField } from '../../components/ui/FormField.jsx';
-import { Input } from '../../components/ui/Input.jsx';
-import { Select } from '../../components/ui/Select.jsx';
-import { Btn } from '../../components/ui/Btn.jsx';
-import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
-import { FilterBar } from '../../components/ui/FilterBar.jsx';
+import { TRIAJE_CATS, RED_FLAGS_TRIAJE } from '../../constants/triaje.js';
 import {
-  Plus, Upload, Download, Trash2, Pencil, AlertTriangle, CheckCircle,
-  Filter, HelpCircle, Lock, Shield, ClipboardList, ShieldAlert,
-  Activity, FileText, Users, LayoutDashboard, Stethoscope, Search,
-  ChevronRight, ChevronLeft, Phone, QrCode, Eye, EyeOff, X, Copy, FileDown,
-  Building2, Settings
+  AlertTriangle, CheckCircle, ClipboardList, Activity, Stethoscope,
+  Search, ChevronRight, Phone, Building2,
 } from 'lucide-react';
 
 export default function PublicTriajeForm({ empresaId }) {
@@ -32,6 +14,7 @@ export default function PublicTriajeForm({ empresaId }) {
   const [dniInput, setDniInput] = useState("");
   const [lookingUp, setLookingUp] = useState(false);
   const [dniFound, setDniFound] = useState(null); // null | true | false
+  const [empresaNombre, setEmpresaNombre] = useState("");
   const [form, setForm] = useState({
     nombre: "", puesto: "",
     temperatura: "", presionArterial: "", saturacion: "", frecuenciaCardiaca: "",
@@ -42,6 +25,17 @@ export default function PublicTriajeForm({ empresaId }) {
   const fd = (k, v) => setForm(f => ({ ...f, detallesCategoria: { ...f.detallesCategoria, [k]: v } }));
   const toggleCat = (k) => setForm(f => ({ ...f, categorias: f.categorias.includes(k) ? f.categorias.filter(c => c !== k) : [...f.categorias, k] }));
   const toggleFlag = (b) => setForm(f => ({ ...f, banderasRojas: f.banderasRojas.includes(b) ? f.banderasRojas.filter(x => x !== b) : [...f.banderasRojas, b] }));
+
+  useEffect(() => {
+    if (!empresaId) return;
+    supabase.from("empresas").select("nombre").eq("id", empresaId).single()
+      .then(({ data }) => { if (data) setEmpresaNombre(data.nombre); });
+  }, [empresaId]);
+
+  const goToStep = (n) => {
+    setStep(n);
+    window.scrollTo(0, 0);
+  };
 
   const lookupDni = async () => {
     if (dniInput.length < 7) return;
@@ -74,6 +68,7 @@ export default function PublicTriajeForm({ empresaId }) {
     const reporte = generateReport();
     const { error } = await supabase.from("triajes").insert({
       empresa_id: empresaId, nombre: form.nombre, puesto: form.puesto,
+      dni: dniInput.trim() || null,
       temperatura: form.temperatura ? parseFloat(form.temperatura) : null,
       presion_arterial: form.presionArterial || null,
       saturacion: form.saturacion ? parseFloat(form.saturacion) : null,
@@ -92,6 +87,12 @@ export default function PublicTriajeForm({ empresaId }) {
 
   const colorMap = { orange:"bg-orange-100 border-orange-300 text-orange-800", blue:"bg-blue-100 border-blue-300 text-blue-800", green:"bg-green-100 border-green-300 text-green-800", purple:"bg-purple-100 border-purple-300 text-purple-800", yellow:"bg-yellow-100 border-yellow-300 text-yellow-800", red:"bg-red-100 border-red-300 text-red-800", pink:"bg-pink-100 border-pink-300 text-pink-800" };
 
+  const resetForm = () => {
+    setSubmitted(false); setStep(1);
+    setForm({ nombre:"", puesto:"", temperatura:"", presionArterial:"", saturacion:"", frecuenciaCardiaca:"", alergias:"No", alergiasDetalle:"", categorias:[], detallesCategoria:{}, banderasRojas:[] });
+    setDniInput(""); setDniFound(null);
+  };
+
   if (submitted) {
     const reporteWsp = generateReport();
     const wspUrl = `https://wa.me/51982762455?text=${encodeURIComponent(reporteWsp)}`;
@@ -100,20 +101,20 @@ export default function PublicTriajeForm({ empresaId }) {
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle size={32} className="text-green-500" /></div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">Reporte enviado</h2>
+          {empresaNombre && <p className="text-blue-600 text-xs font-semibold mb-1 flex items-center justify-center gap-1"><Building2 size={12}/>{empresaNombre}</p>}
           <p className="text-gray-500 text-sm mb-4">Triaje de <strong>{form.nombre}</strong> registrado correctamente.</p>
           {form.banderasRojas.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
               <p className="text-red-700 font-bold text-sm">⚠ EMERGENCIA — Activa los protocolos inmediatamente</p>
             </div>
           )}
-          {/* Botón WhatsApp principal */}
           <a href={wspUrl} target="_blank" rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold text-base mb-3 transition-colors shadow-md">
             <Phone size={20} />
             Enviar al médico por WhatsApp
           </a>
           <p className="text-gray-400 text-xs mb-5">Toca el botón para enviar el reporte directamente al Dr. Marco Melgarejo</p>
-          <button onClick={() => { setSubmitted(false); setStep(1); setForm({ nombre:"", puesto:"", temperatura:"", presionArterial:"", saturacion:"", frecuenciaCardiaca:"", alergias:"No", alergiasDetalle:"", categorias:[], detallesCategoria:{}, banderasRojas:[] }); setDniInput(""); setDniFound(null); }}
+          <button onClick={resetForm}
             className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-colors">
             Nuevo Caso
           </button>
@@ -126,11 +127,16 @@ export default function PublicTriajeForm({ empresaId }) {
   const hasEmergency = form.banderasRojas.length > 0;
 
   return (
-    <div className="min-h-screen bg-slate-100" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    <div className="min-h-screen bg-slate-100" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", touchAction: 'manipulation' }}>
       {/* Header */}
       <div className="bg-blue-800 text-white px-5 py-4 sticky top-0 z-10 shadow-lg">
         <div className="flex justify-between items-center mb-3">
-          <div><h1 className="text-lg font-bold leading-tight">Asistente SSOMA</h1><p className="text-blue-200 text-xs">Triaje y Reporte Médico</p></div>
+          <div>
+            <h1 className="text-lg font-bold leading-tight">Asistente SSOMA</h1>
+            {empresaNombre
+              ? <p className="text-blue-200 text-xs flex items-center gap-1"><Building2 size={11}/>{empresaNombre}</p>
+              : <p className="text-blue-200 text-xs">Triaje y Reporte Médico</p>}
+          </div>
           <div className="w-10 h-10 bg-blue-700 rounded-full flex items-center justify-center"><Stethoscope size={20} /></div>
         </div>
         <div className="flex gap-1.5">
@@ -177,7 +183,7 @@ export default function PublicTriajeForm({ empresaId }) {
               {form.alergias === "Si" && <input type="text" value={form.alergiasDetalle} onChange={e => fi("alergiasDetalle", e.target.value)} placeholder="¿A qué medicamento?" className="w-full border border-red-300 bg-red-50 rounded-xl px-3 py-3 text-base focus:outline-none" style={{fontSize:"16px"}} />}
             </div>
 
-            <button onClick={() => { if (!form.nombre.trim()) { setErr("Ingresa el nombre."); return; } setErr(""); setStep(2); }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-2">Siguiente <ChevronRight size={20} /></button>
+            <button type="button" onPointerDown={() => { if (!form.nombre.trim()) { setErr("Ingresa el nombre."); return; } setErr(""); goToStep(2); }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-2 active:opacity-80 select-none touch-manipulation">Siguiente <ChevronRight size={20} /></button>
             {err && <p className="text-red-500 text-sm text-center">{err}</p>}
           </div>
         )}
@@ -185,7 +191,7 @@ export default function PublicTriajeForm({ empresaId }) {
         {/* PASO 2 — Categorías (múltiple) */}
         {step === 2 && (
           <div className="space-y-3">
-            <div className="flex justify-between items-center"><h3 className="font-bold text-gray-800 text-lg">¿Qué le ocurre?</h3><button onClick={() => setStep(1)} className="text-blue-500 text-sm font-medium">Atrás</button></div>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-gray-800 text-lg">¿Qué le ocurre?</h3><button type="button" onPointerDown={() => goToStep(1)} className="text-blue-500 text-sm font-medium touch-manipulation">Atrás</button></div>
             <p className="text-gray-500 text-sm">Puedes seleccionar <strong>más de una opción</strong>.</p>
             {Object.entries(TRIAJE_CATS).map(([k, cat]) => {
               const sel = form.categorias.includes(k);
@@ -197,7 +203,7 @@ export default function PublicTriajeForm({ empresaId }) {
                 </button>
               );
             })}
-            <button onClick={() => { if (form.categorias.length === 0) { setErr("Selecciona al menos una categoría."); return; } setErr(""); setStep(3); }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-2 mt-2">Siguiente <ChevronRight size={20} /></button>
+            <button type="button" onPointerDown={() => { if (form.categorias.length === 0) { setErr("Selecciona al menos una categoría."); return; } setErr(""); goToStep(3); }} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-2 mt-2 active:opacity-75 select-none touch-manipulation">Siguiente <ChevronRight size={20} /></button>
             {err && <p className="text-red-500 text-sm text-center">{err}</p>}
           </div>
         )}
@@ -205,7 +211,7 @@ export default function PublicTriajeForm({ empresaId }) {
         {/* PASO 3 — Detalles + Banderas rojas */}
         {step === 3 && (
           <div className="space-y-4">
-            <div className="flex justify-between items-center"><h3 className="font-bold text-gray-800 text-lg">Detalles del Caso</h3><button onClick={() => setStep(2)} className="text-blue-500 text-sm font-medium">Atrás</button></div>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-gray-800 text-lg">Detalles del Caso</h3><button type="button" onPointerDown={() => goToStep(2)} className="text-blue-500 text-sm font-medium touch-manipulation">Atrás</button></div>
             {form.categorias.map(k => {
               const cat = TRIAJE_CATS[k];
               return (
@@ -246,14 +252,14 @@ export default function PublicTriajeForm({ empresaId }) {
             </div>
 
             {err && <p className="text-red-500 text-sm text-center">{err}</p>}
-            <button onClick={() => { setErr(""); setStep(4); }} className="w-full py-4 bg-green-600 text-white rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-2">Ver Resumen <ChevronRight size={20} /></button>
+            <button type="button" onPointerDown={() => { setErr(""); goToStep(4); }} className="w-full py-4 bg-green-600 text-white rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-2 active:opacity-75 select-none touch-manipulation">Ver Resumen <ChevronRight size={20} /></button>
           </div>
         )}
 
         {/* PASO 4 — Resumen + Envío */}
         {step === 4 && (
           <div className="space-y-4">
-            <div className="flex justify-between items-center"><h3 className="font-bold text-gray-800 text-lg">Resumen del Triaje</h3><button onClick={() => setStep(3)} className="text-blue-500 text-sm font-medium">Atrás</button></div>
+            <div className="flex justify-between items-center"><h3 className="font-bold text-gray-800 text-lg">Resumen del Triaje</h3><button type="button" onPointerDown={() => goToStep(3)} className="text-blue-500 text-sm font-medium touch-manipulation">Atrás</button></div>
 
             {hasEmergency && (
               <div className="bg-red-600 text-white rounded-2xl p-5 shadow-xl">
@@ -279,7 +285,7 @@ export default function PublicTriajeForm({ empresaId }) {
             </div>
 
             {err && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-600 text-sm">{err}</div>}
-            <button onClick={handleSubmit} disabled={submitting} className={`w-full py-4 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-2 ${hasEmergency ? "bg-red-600 text-white" : "bg-green-600 text-white"} disabled:opacity-50`}>
+            <button onClick={handleSubmit} disabled={submitting} className={`w-full py-4 rounded-2xl font-bold text-base shadow-lg flex items-center justify-center gap-2 active:opacity-75 select-none touch-manipulation ${hasEmergency ? "bg-red-600 text-white" : "bg-green-600 text-white"} disabled:opacity-50`}>
               {submitting ? "Enviando..." : hasEmergency ? "🚨 Enviar Emergencia" : "✓ Enviar Reporte"}
             </button>
           </div>

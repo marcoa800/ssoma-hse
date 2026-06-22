@@ -1,42 +1,50 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { supabase } from "./lib/supabase.js";
 import { ToastContainer, showToast } from "./lib/toast.jsx";
 import { applyThemeCSS } from "./lib/helpers.js";
 import { NAV, SSOMA_NAV, THEMES } from "./constants/nav.js";
 import Login from "./auth/Login.jsx";
-import SuperAdmin from "./auth/SuperAdmin.jsx";
-import HomeModulo from "./modulos/salud/Home.jsx";
-import Dashboard from "./modulos/salud/Dashboard.jsx";
-import Directorio from "./modulos/salud/Directorio.jsx";
-import Capacitaciones from "./modulos/salud/Capacitaciones.jsx";
-import Documentos from "./modulos/salud/Documentos.jsx";
-import KPIs from "./modulos/salud/KPIs.jsx";
-import ReportesModulo from "./modulos/salud/Reportes.jsx";
-import AccidentesModulo from "./modulos/salud/Accidentes.jsx";
-import SeguimientoModulo from "./modulos/salud/Seguimiento.jsx";
-import EppModulo from "./modulos/salud/Epps.jsx";
-import EppInventario from "./modulos/salud/EppInventario.jsx";
-import MonitoreoModulo from "./modulos/salud/Monitoreo.jsx";
-import MonitoreoComind from "./modulos/salud/MonitoreoComind.jsx";
-import Vigilancia from "./modulos/salud/vigilancia/Vigilancia.jsx";
-import CaracterizacionRiesgoModulo from "./modulos/salud/Caracterizacion.jsx";
-import PlanSOModulo from "./modulos/salud/PlanSO.jsx";
-import TopicoModulo from "./modulos/salud/TopicoModulo.jsx";
-import SSOMADashboard from "./modulos/ssoma/SSOMADashboard.jsx";
-import TriajeModulo from "./modulos/ssoma/TriajeModulo.jsx";
-import PublicTriajeForm from "./modulos/ssoma/PublicTriajeForm.jsx";
-import ExamenModulo from "./modulos/salud/ExamenModulo.jsx";
-import PublicExamenForm from "./modulos/salud/PublicExamenForm.jsx";
-import RacsModulo from "./modulos/ssoma/RacsModulo.jsx";
-import PublicRacForm from "./modulos/ssoma/PublicRacForm.jsx";
-import IpercModulo from "./modulos/ssoma/IpercModulo.jsx";
-import InspeccionesModulo from "./modulos/ssoma/InspeccionesModulo.jsx";
-import InversionSST from "./modulos/ssoma/InversionSST.jsx";
-import IndicadoresComind from "./modulos/ssoma/IndicadoresComind.jsx";
-import ATSPetarModulo from "./modulos/ssoma/AtsPetarModulo.jsx";
-import ReportesSSOMAModulo from "./modulos/ssoma/ReportesSSOMA.jsx";
-import ContratistasModulo from "./modulos/ssoma/ContratistasModulo.jsx";
-import HallazgosHGP from "./modulos/ssoma/HallazgosHGP.jsx";
+// Formularios públicos (QR sin login) — chunks ligeros, cargados solo cuando se necesitan
+const PublicTriajeForm = lazy(() => import("./modulos/ssoma/PublicTriajeForm.jsx"));
+const PublicExamenForm = lazy(() => import("./modulos/salud/PublicExamenForm.jsx"));
+const PublicRacForm = lazy(() => import("./modulos/ssoma/PublicRacForm.jsx"));
+// Módulos internos (post-login) — diferidos para aligerar la carga inicial
+const SuperAdmin = lazy(() => import("./auth/SuperAdmin.jsx"));
+const HomeModulo = lazy(() => import("./modulos/salud/Home.jsx"));
+const Dashboard = lazy(() => import("./modulos/salud/Dashboard.jsx"));
+const Directorio = lazy(() => import("./modulos/salud/Directorio.jsx"));
+const Capacitaciones = lazy(() => import("./modulos/salud/Capacitaciones.jsx"));
+const Documentos = lazy(() => import("./modulos/salud/Documentos.jsx"));
+const KPIs = lazy(() => import("./modulos/salud/KPIs.jsx"));
+const ReportesModulo = lazy(() => import("./modulos/salud/Reportes.jsx"));
+const AccidentesModulo = lazy(() => import("./modulos/salud/Accidentes.jsx"));
+const SeguimientoModulo = lazy(() => import("./modulos/salud/Seguimiento.jsx"));
+const EppModulo = lazy(() => import("./modulos/salud/Epps.jsx"));
+const EppInventario = lazy(() => import("./modulos/salud/EppInventario.jsx"));
+const MonitoreoModulo = lazy(() => import("./modulos/salud/Monitoreo.jsx"));
+const MonitoreoComind = lazy(() => import("./modulos/salud/MonitoreoComind.jsx"));
+const Vigilancia = lazy(() => import("./modulos/salud/vigilancia/Vigilancia.jsx"));
+const DescansosMedicosModulo = lazy(() => import("./modulos/salud/vigilancia/DescansosMedicos.jsx"));
+const AdminDashboard = lazy(() => import("./modulos/admin/AdminDashboard.jsx"));
+const EmoDeliveryFlow = lazy(() => import("./modulos/salud/EmoDeliveryFlow.jsx"));
+const EmoEntregasModulo = lazy(() => import("./modulos/salud/EmoEntregasModulo.jsx"));
+const CaracterizacionRiesgoModulo = lazy(() => import("./modulos/salud/Caracterizacion.jsx"));
+const PlanSOModulo = lazy(() => import("./modulos/salud/PlanSO.jsx"));
+const TopicoModulo = lazy(() => import("./modulos/salud/TopicoModulo.jsx"));
+const SSOMADashboard = lazy(() => import("./modulos/ssoma/SSOMADashboard.jsx"));
+const TriajeModulo = lazy(() => import("./modulos/ssoma/TriajeModulo.jsx"));
+const ExamenModulo = lazy(() => import("./modulos/salud/ExamenModulo.jsx"));
+const RacsModulo = lazy(() => import("./modulos/ssoma/RacsModulo.jsx"));
+const IpercModulo = lazy(() => import("./modulos/ssoma/IpercModulo.jsx"));
+const InspeccionesModulo = lazy(() => import("./modulos/ssoma/InspeccionesModulo.jsx"));
+const InversionSST = lazy(() => import("./modulos/ssoma/InversionSST.jsx"));
+const IndicadoresComind = lazy(() => import("./modulos/ssoma/IndicadoresComind.jsx"));
+const ATSPetarModulo = lazy(() => import("./modulos/ssoma/AtsPetarModulo.jsx"));
+const ReportesSSOMAModulo = lazy(() => import("./modulos/ssoma/ReportesSSOMA.jsx"));
+const ContratistasModulo = lazy(() => import("./modulos/ssoma/ContratistasModulo.jsx"));
+const HallazgosHGP = lazy(() => import("./modulos/ssoma/HallazgosHGP.jsx"));
+const HomologacionModulo = lazy(() => import("./modulos/ssoma/HomologacionModulo.jsx"));
+const SIGModulo = lazy(() => import("./modulos/ssoma/SIGModulo.jsx"));
 import {
   LayoutDashboard, Users, BookOpen, FileText,
   BarChart2, Stethoscope, AlertTriangle,
@@ -69,8 +77,10 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [empresa, setEmpresa] = useState(null);
   const [allEmpresas, setAllEmpresas] = useState([]);
+  const [misEmpresas, setMisEmpresas] = useState([]); // empresas a las que el usuario tiene acceso
   const [switching, setSwitching] = useState(false);
   const [platform, setPlatform] = useState(() => localStorage.getItem("ssoma-platform") || "salud");
   const [theme, setTheme] = useState(() => localStorage.getItem("ssoma-theme") || "obsidian");
@@ -103,7 +113,19 @@ export default function App() {
   }, [session]);
 
   const loadProfile = async () => {
-    const { data: prof } = await supabase.from("profiles").select("*, empresas(*)").eq("id", session.user.id).single();
+    // empresas!empresa_id desambigua la relación (existe también el vínculo vía profile_empresas)
+    let { data: prof, error } = await supabase.from("profiles").select("*, empresas!empresa_id(*)").eq("id", session.user.id).single();
+    if (error) {
+      // Fallback de seguridad: sin embed, y se carga la empresa por separado
+      const r2 = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+      if (!r2.error) {
+        prof = r2.data;
+        if (prof?.empresa_id && !prof.empresas) {
+          const { data: emp } = await supabase.from("empresas").select("*").eq("id", prof.empresa_id).single();
+          prof.empresas = emp || null;
+        }
+      }
+    }
     if (prof) {
       setProfile(prof);
       setEmpresa(prof.empresas);
@@ -115,19 +137,27 @@ export default function App() {
         loadData(prof.empresa_id);
       }
       if (prof.rol === "SUPERADMIN") {
-        supabase.from("empresas").select("id, nombre").order("nombre")
-          .then(({ data }) => setAllEmpresas(data || []));
+        const { data } = await supabase.from("empresas").select("id, nombre").order("nombre");
+        setAllEmpresas(data || []);
+        setMisEmpresas(data || []);
+      } else {
+        // empresas asignadas al usuario (acceso multi-empresa)
+        const { data: pe } = await supabase.from("profile_empresas").select("empresas(id, nombre)").eq("profile_id", session.user.id);
+        let lista = (pe || []).map(x => x.empresas).filter(Boolean);
+        if (prof.empresas && !lista.some(e => e.id === prof.empresas.id)) lista = [{ id: prof.empresas.id, nombre: prof.empresas.nombre }, ...lista];
+        lista.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
+        setMisEmpresas(lista);
       }
     }
+    setProfileLoaded(true);
   };
 
   const switchEmpresa = async (newId) => {
     if (!newId || newId === profile?.empresa_id || switching) return;
-    if (profile?.rol !== "SUPERADMIN") { showToast("No tienes permisos para cambiar de empresa", "error"); return; }
     setSwitching(true);
-    const { error } = await supabase.from("profiles").update({ empresa_id: newId }).eq("id", session.user.id);
-    if (error) { showToast("Error al cambiar empresa: " + error.message, "error"); setSwitching(false); return; }
-    const nueva = allEmpresas.find(e => e.id === newId);
+    const { data, error } = await supabase.rpc("cambiar_empresa_activa", { p_empresa_id: newId });
+    if (error || data === false) { showToast("No tienes acceso a esa empresa", "error"); setSwitching(false); return; }
+    const nueva = misEmpresas.find(e => e.id === newId) || allEmpresas.find(e => e.id === newId);
     setProfile(p => ({ ...p, empresa_id: newId, empresas: nueva }));
     setEmpresa(nueva);
     setWorkers([]); setTrainings([]); setDocs([]); setKpis([]);
@@ -146,7 +176,7 @@ export default function App() {
 
   const switchPlatform = (p) => {
     setPlatform(p);
-    setPage(p === "salud" ? "dashboard" : "ssoma_dashboard");
+    setPage(p === "salud" ? "dashboard" : p === "sig" ? "sig" : p === "administrativo" ? "dashboard" : "ssoma_dashboard");
   };
 
   const go = (id) => { setPage(id); setSidebarOpen(false); };
@@ -157,18 +187,31 @@ export default function App() {
     setSidebarOpen(false);
   };
 
-  const logout = async () => { await supabase.auth.signOut(); setSession(null); setProfile(null); };
+  const logout = async () => { await supabase.auth.signOut(); setSession(null); setProfile(null); setProfileLoaded(false); };
 
   const role = profile?.rol || "SEGURIDAD";
   const empresaId = profile?.empresa_id;
   const isSuperAdmin = role === "SUPERADMIN";
+  const isAdministrativo = role === "ADMINISTRATIVO";
+
+  // Perfil ADMINISTRATIVO: queda confinado a la plataforma Administrativo (Salud y SSOMA bloqueados)
+  useEffect(() => {
+    if (isAdministrativo && platform !== "administrativo") setPlatform("administrativo");
+  }, [isAdministrativo, platform]);
+  useEffect(() => {
+    const adminPages = ["home", "dashboard", "directorio", "admin_descansos"];
+    if (isAdministrativo && !adminPages.includes(page)) setPage("dashboard");
+  }, [isAdministrativo, page]);
 
   // Módulos de Salud permitidos para Hydro Global (el resto queda bloqueado)
   const HYDRO_SALUD_PERMITIDOS = new Set(["dashboard", "directorio", "capacitaciones", "documentos", "accidentes", "epps", "monitoreo", "reportes"]);
-  const saludBloqueado = (id) => esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
-  const esMultisel = empresa?.nombre?.toLowerCase().includes("multisel") || false;
-  const esHydroGlobal = empresa?.nombre?.toLowerCase().includes("hydro") || false;
-  const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria") || false;
+  const saludBloqueado = (id) => !isSuperAdmin && esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
+  const esMultisel     = empresa?.nombre?.toLowerCase().includes("multisel")    || false;
+  const esHydroGlobal  = empresa?.nombre?.toLowerCase().includes("hydro")       || false;
+  const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria")|| false;
+  const esOilGas       = empresa?.nombre?.toLowerCase().includes("oil")         || false;
+  // Entrega y Firma de EMO — solo Expertos en Café y Franquicias Unidas (mismo dueño)
+  const esEntregaEmo   = (() => { const n = empresa?.nombre?.toLowerCase() || ""; return n.includes("expertos en cafe") || n.includes("expertos en café") || n.includes("franquicias unidas"); })();
   // Módulos ocultos por empresa
   const moduloOculto = (id) => {
     if (esComindustria && ["ats"].includes(id)) return true;
@@ -189,19 +232,27 @@ export default function App() {
     contratistas: "Gestión de Contratistas", inversion: "Inversión en Costos de Seguridad",
     examenes: "Exámenes de Capacitación",
     hallazgos_hgp: "Reporte de Hallazgos — HGP",
+    homologacion: "Homologación de Proveedores — SGS",
+    sig: "SIG — Control Documental",
+    admin_descansos: "Descansos Médicos — Administrativo",
+    emo_entregas: "Entrega y Firma de EMO",
   };
-  const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800" };
+  const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800", ADMINISTRATIVO: "text-emerald-400 bg-emerald-900/40 border-emerald-800" };
 
   // Formulario público RAC (accesible via QR sin login)
+  const cargandoPublico = <div className="min-h-screen bg-slate-100 flex items-center justify-center text-gray-400 text-sm">Cargando...</div>;
   const publicTriajeId = new URLSearchParams(window.location.search).get("triaje");
-  if (publicTriajeId) return <PublicTriajeForm empresaId={publicTriajeId} />;
+  if (publicTriajeId) return <Suspense fallback={cargandoPublico}><PublicTriajeForm empresaId={publicTriajeId} /></Suspense>;
   const publicRacId = new URLSearchParams(window.location.search).get("rac");
-  if (publicRacId) return <PublicRacForm empresaId={publicRacId} />;
+  if (publicRacId) return <Suspense fallback={cargandoPublico}><PublicRacForm empresaId={publicRacId} /></Suspense>;
   const publicExamenId = new URLSearchParams(window.location.search).get("examen");
-  if (publicExamenId) return <PublicExamenForm empresaId={publicExamenId} />;
+  if (publicExamenId) return <Suspense fallback={cargandoPublico}><PublicExamenForm empresaId={publicExamenId} /></Suspense>;
+  const emoToken = new URLSearchParams(window.location.search).get("entrega");
+  if (emoToken) return <Suspense fallback={cargandoPublico}><EmoDeliveryFlow token={emoToken} /></Suspense>;
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando...</div>;
   if (!session) return <><Login /><ToastContainer /></>;
+  if (!profileLoaded) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando perfil...</div>;
 
   // Contenido del sidebar (compartido entre desktop y mobile)
   const SidebarContent = () => (
@@ -228,7 +279,26 @@ export default function App() {
 
         {/* Plataforma toggle */}
         <div className="flex bg-gray-800/60 rounded-lg p-0.5 mb-3 border border-gray-700/50">
-          {esHydroGlobal ? (
+          {isAdministrativo ? (
+            <button className="flex-1 flex items-center justify-center gap-1 text-[10px] py-1.5 rounded-md font-medium bg-emerald-600 text-white shadow cursor-default">
+              <FileText size={10} /> Administrativo
+            </button>
+          ) : esOilGas ? (
+            <>
+              <button onClick={() => switchPlatform("salud")}
+                className={`flex-1 flex items-center justify-center gap-1 text-[10px] py-1.5 rounded-md transition-all font-medium ${platform === "salud" ? "bg-blue-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+                <Stethoscope size={10} /> Salud
+              </button>
+              <button onClick={() => switchPlatform("ssoma")}
+                className={`flex-1 flex items-center justify-center gap-1 text-[10px] py-1.5 rounded-md transition-all font-medium ${platform === "ssoma" ? "bg-amber-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+                <ShieldAlert size={10} /> SSOMA
+              </button>
+              <button onClick={() => switchPlatform("sig")}
+                className={`flex-1 flex items-center justify-center gap-1 text-[10px] py-1.5 rounded-md transition-all font-medium ${platform === "sig" ? "bg-violet-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+                <FileText size={10} /> SIG
+              </button>
+            </>
+          ) : esHydroGlobal ? (
             <>
               <button onClick={() => switchPlatform("ssoma")}
                 className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "ssoma" ? "bg-amber-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
@@ -237,6 +307,21 @@ export default function App() {
               <button onClick={() => switchPlatform("salud")}
                 className={`flex-1 flex items-center justify-center gap-1 text-xs py-1.5 rounded-md transition-all font-medium ${platform === "salud" ? "bg-blue-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
                 <Stethoscope size={11} /> Salud
+              </button>
+            </>
+          ) : esComindustria ? (
+            <>
+              <button onClick={() => switchPlatform("salud")}
+                className={`flex-1 flex items-center justify-center gap-1 text-[10px] py-1.5 rounded-md transition-all font-medium ${platform === "salud" ? "bg-blue-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+                <Stethoscope size={10} /> Salud
+              </button>
+              <button onClick={() => switchPlatform("ssoma")}
+                className={`flex-1 flex items-center justify-center gap-1 text-[10px] py-1.5 rounded-md transition-all font-medium ${platform === "ssoma" ? "bg-amber-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+                <ShieldAlert size={10} /> SSOMA
+              </button>
+              <button onClick={() => switchPlatform("administrativo")}
+                className={`flex-1 flex items-center justify-center gap-1 text-[10px] py-1.5 rounded-md transition-all font-medium ${platform === "administrativo" ? "bg-emerald-600 text-white shadow" : "text-gray-500 hover:text-gray-300"}`}>
+                <FileText size={10} /> Admin
               </button>
             </>
           ) : (
@@ -297,6 +382,11 @@ export default function App() {
                 </button>
               );
             })}
+            {esEntregaEmo && (
+              <button onClick={() => go("emo_entregas")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "emo_entregas" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                <FileText size={16} />Entrega de EMO
+              </button>
+            )}
             <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Seguridad</div>
             {[
               { id: "accidentes", label: "Accidentes", icon: ShieldAlert },
@@ -313,6 +403,29 @@ export default function App() {
                 </button>
               );
             })}
+          </>
+        ) : platform === "sig" && esOilGas ? (
+          <>
+            <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">Sistema Integrado de Gestión</div>
+            <button onClick={() => go("sig")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "sig" ? "bg-violet-900/40 text-violet-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+              <FileDown size={16} />SIG Documental
+            </button>
+            <button onClick={() => go("homologacion")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "homologacion" ? "bg-violet-900/40 text-violet-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+              <CheckCircle size={16} />Homologación SGS
+            </button>
+          </>
+        ) : platform === "administrativo" && (esComindustria || isAdministrativo) ? (
+          <>
+            <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">Administrativo</div>
+            {[
+              { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+              { id: "directorio", label: "Directorio", icon: Users },
+              { id: "admin_descansos", label: "Descansos Médicos", icon: HeartPulse },
+            ].map(({ id, label, icon: Icon }) => (
+              <button key={id} onClick={() => go(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-emerald-900/40 text-emerald-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                <Icon size={16} />{label}
+              </button>
+            ))}
           </>
         ) : (
           <>
@@ -389,16 +502,16 @@ export default function App() {
           {/* ── Izquierda: hamburger + título ── */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <button onClick={() => setSidebarOpen(v => !v)}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors shrink-0">
+              className={`p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-gray-800 transition-colors shrink-0 ${sidebarOpen ? "hidden" : ""}`}>
               {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <div className="text-sm font-semibold truncate text-gray-300 hidden sm:block">{pageTitles[page] || page}</div>
           </div>
 
-          {/* ── Centro: botón Home ── */}
+          {/* ── Centro: botón Home (oculto en móvil, ya está en el menú) ── */}
           <button
             onClick={() => setPage("home")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border shrink-0 ${
+            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border shrink-0 ${
               page === "home"
                 ? "bg-blue-600 text-white border-blue-500 shadow shadow-blue-500/30"
                 : "text-gray-400 border-gray-700 hover:border-gray-600 hover:text-gray-200 hover:bg-gray-800"
@@ -410,23 +523,23 @@ export default function App() {
 
           {/* ── Derecha: empresa + rol ── */}
           <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-            {/* Selector de empresa: SOLO visible para SUPERADMIN */}
-            {isSuperAdmin && allEmpresas.length > 1 && (
-              <div className="flex items-center gap-1.5 shrink-0">
+            {/* Selector de empresa: superadmin (todas) o usuario con acceso a varias */}
+            {misEmpresas.length > 1 && (
+              <div className="flex items-center gap-1.5 min-w-0">
                 <Building2 size={12} className="text-gray-600 shrink-0" />
                 <select
                   value={profile?.empresa_id || ""}
                   onChange={e => switchEmpresa(e.target.value)}
                   disabled={switching}
-                  className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 max-w-[140px]"
+                  className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 max-w-[120px] sm:max-w-[140px] min-w-0"
                 >
-                  {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                  {misEmpresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                 </select>
                 {switching && <span className="text-xs text-blue-400 animate-pulse">...</span>}
               </div>
             )}
-            {/* Nombre de empresa para usuarios normales (solo lectura, sin selector) */}
-            {!isSuperAdmin && empresa?.nombre && (
+            {/* Nombre de empresa (solo lectura) cuando el usuario tiene una sola empresa */}
+            {misEmpresas.length <= 1 && empresa?.nombre && (
               <div className="flex items-center gap-1.5 shrink-0 max-w-[140px]">
                 <Building2 size={12} className="text-gray-600 shrink-0" />
                 <span className="text-xs text-gray-500 truncate">{empresa.nombre}</span>
@@ -438,10 +551,15 @@ export default function App() {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-950">
+         <Suspense fallback={<div className="flex items-center justify-center h-96 text-gray-600 text-sm">Cargando módulo...</div>}>
           {page === "home" && <HomeModulo profile={profile} role={role} platform={platform} setPlatform={setPlatform} navigate={navigate} setPage={setPage} empresa={empresa} />}
           {page === "superadmin" && isSuperAdmin && <SuperAdmin />}
-          {page === "dashboard" && <Dashboard workers={workers} trainings={trainings} />}
-          {page === "directorio" && <Directorio workers={workers} setWorkers={setWorkers} role={role} empresaId={empresaId} empresa={empresa} />}
+          {page === "dashboard" && (platform === "administrativo"
+            ? <AdminDashboard workers={workers} empresaId={empresaId} />
+            : <Dashboard workers={workers} trainings={trainings} />)}
+          {page === "directorio" && <Directorio workers={workers} setWorkers={setWorkers} role={role} empresaId={empresaId} empresa={empresa} adminMode={platform === "administrativo"} />}
+          {page === "admin_descansos" && (esComindustria || isAdministrativo) && <DescansosMedicosModulo workers={workers} empresaId={empresaId} />}
+          {page === "emo_entregas" && esEntregaEmo && <EmoEntregasModulo workers={workers} empresaId={empresaId} />}
           {page === "capacitaciones" && !saludBloqueado("capacitaciones") && <Capacitaciones workers={workers} trainings={trainings} setTrainings={setTrainings} empresaId={empresaId} empresa={empresa} role={role} />}
           {page === "documentos"    && !saludBloqueado("documentos")    && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
           {page === "kpis"          && !saludBloqueado("kpis")          && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}
@@ -465,7 +583,7 @@ export default function App() {
               <p className="text-gray-700 text-xs mt-1">Este módulo no está habilitado para tu empresa.</p>
             </div>
           )}
-          {page === "ssoma_dashboard" && <SSOMADashboard empresaId={empresaId} workers={workers} />}
+          {page === "ssoma_dashboard" && <SSOMADashboard empresaId={empresaId} workers={workers} onNavigate={go} esOilGas={esOilGas} />}
           {page === "racs"           && <RacsModulo empresaId={empresaId} empresa={empresa} />}
           {page === "triaje"         && <TriajeModulo empresaId={empresaId} empresa={empresa} />}
           {page === "iperc"          && <IpercModulo empresaId={empresaId} />}
@@ -477,6 +595,9 @@ export default function App() {
           {page === "inversion" && <InversionSST empresaId={empresaId} />}
           {page === "indicadores" && esComindustria && <IndicadoresComind empresaId={empresaId} />}
           {page === "hallazgos_hgp" && esHydroGlobal && <HallazgosHGP empresaId={empresaId} />}
+          {page === "homologacion"  && esOilGas      && <HomologacionModulo empresaId={empresaId} />}
+          {page === "sig"          && esOilGas && <SIGModulo empresaId={empresaId} />}
+         </Suspense>
         </main>
       </div>
       <ToastContainer />

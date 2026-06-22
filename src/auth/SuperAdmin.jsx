@@ -18,14 +18,17 @@ export default function SuperAdmin() {
   const [editingEmpresa,  setEditingEmpresa]  = useState(null);
   const [modalUsuario,    setModalUsuario]    = useState(false);
   const [formEmpresa,     setFormEmpresa]     = useState({ nombre: "", ruc: "", sector: "" });
-  const [formUsuario,     setFormUsuario]     = useState({ email: "", password: "", nombre: "", rol: "SEGURIDAD", empresa_id: "" });
+  const [formUsuario,     setFormUsuario]     = useState({ email: "", password: "", nombre: "", rol: "SEGURIDAD", empresa_id: "", empresas_extra: [] });
   const [isSaving,        setIsSaving]        = useState(false);
   const [isDeleting,      setIsDeleting]      = useState(null);
   const [deleteTarget,    setDeleteTarget]    = useState(null);
   const [deleteInput,     setDeleteInput]     = useState("");
   const [editingUsuario,  setEditingUsuario]  = useState(null);
-  const [formEditUser,    setFormEditUser]    = useState({ nombre: "", rol: "SEGURIDAD", empresa_id: "" });
+  const [formEditUser,    setFormEditUser]    = useState({ nombre: "", rol: "SEGURIDAD", empresa_id: "", empresas_extra: [] });
   const [savingUser,      setSavingUser]      = useState(false);
+  const [deleteUserTarget, setDeleteUserTarget] = useState(null);
+  const [deleteUserInput,  setDeleteUserInput]  = useState("");
+  const [isDeletingUser,   setIsDeletingUser]   = useState(null);
 
   useEffect(() => { loadEmpresas(); loadUsuarios(); }, []);
 
@@ -34,9 +37,18 @@ export default function SuperAdmin() {
     setEmpresas(data || []);
   };
   const loadUsuarios = async () => {
-    const { data } = await supabase.from("profiles").select("*, empresas(nombre)").order("nombre");
+    const { data } = await supabase.from("profiles").select("*").order("nombre");
     setUsuarios(data || []);
   };
+
+  // Sincroniza las empresas asignadas a un usuario (principal + extras)
+  const syncProfileEmpresas = async (profileId, principal, extra = []) => {
+    const ids = [...new Set([principal, ...extra].filter(Boolean))];
+    await supabase.from("profile_empresas").delete().eq("profile_id", profileId);
+    if (ids.length) await supabase.from("profile_empresas").insert(ids.map(empresa_id => ({ profile_id: profileId, empresa_id })));
+  };
+  const toggleExtraNew  = (id) => setFormUsuario(f => ({ ...f, empresas_extra: f.empresas_extra.includes(id) ? f.empresas_extra.filter(x => x !== id) : [...f.empresas_extra, id] }));
+  const toggleExtraEdit = (id) => setFormEditUser(f => { const a = f.empresas_extra || []; return { ...f, empresas_extra: a.includes(id) ? a.filter(x => x !== id) : [...a, id] }; });
 
   const openNuevaEmpresa = () => {
     setEditingEmpresa(null);
@@ -89,7 +101,7 @@ export default function SuperAdmin() {
       password: formUsuario.password,
       options: { emailRedirectTo: "https://ssoma-hse.vercel.app" },
     });
-    if (error) { showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
+    if (error) { console.error("❌ Error al crear usuario (auth):", error); showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
     if (!data.user) { showToast("No se pudo obtener el usuario creado", "error"); setIsSaving(false); return; }
     const { error: profileError } = await supabase.from("profiles").insert([{
       id: data.user.id,
@@ -97,33 +109,59 @@ export default function SuperAdmin() {
       rol: formUsuario.rol,
       empresa_id: formUsuario.empresa_id,
     }]);
-    if (profileError) { showToast("Usuario creado pero error al asignar perfil: " + profileError.message, "error"); }
-    else { showToast("✅ Usuario creado. Se envió un email de confirmación a " + formUsuario.email, "success"); }
+    if (profileError) { console.error("❌ Error al asignar perfil:", profileError); showToast("Error al asignar perfil: " + profileError.message, "error"); }
+    else {
+      await syncProfileEmpresas(data.user.id, formUsuario.empresa_id, formUsuario.empresas_extra);
+      showToast("✅ Usuario creado. Se envió un email de confirmación a " + formUsuario.email, "success");
+    }
     setIsSaving(false); setModalUsuario(false);
-    setFormUsuario({ email: "", password: "", nombre: "", rol: "SEGURIDAD", empresa_id: "" });
+    setFormUsuario({ email: "", password: "", nombre: "", rol: "SEGURIDAD", empresa_id: "", empresas_extra: [] });
     loadUsuarios();
   };
 
   const openEditUser = (u) => {
+    // Carga inmediata del rol/empresa reales (sin ventana de carrera)
     setEditingUsuario(u);
-    setFormEditUser({ nombre: u.nombre || "", rol: u.rol || "SEGURIDAD", empresa_id: u.empresa_id || "" });
+    setFormEditUser({ nombre: u.nombre || "", rol: u.rol || "SEGURIDAD", empresa_id: u.empresa_id || "", empresas_extra: [] });
+    // Las empresas adicionales se cargan aparte y se mezclan cuando llegan
+    supabase.from("profile_empresas").select("empresa_id").eq("profile_id", u.id).then(({ data }) => {
+      const extra = (data || []).map(x => x.empresa_id).filter(id => id !== u.empresa_id);
+      setFormEditUser(f => ({ ...f, empresas_extra: extra }));
+    });
   };
   const saveEditUser = async () => {
     if (!formEditUser.empresa_id) { showToast("Selecciona una empresa", "error"); return; }
     setSavingUser(true);
     const { error } = await supabase.from("profiles").update({
       nombre:     formEditUser.nombre,
-      rol:        formEditUser.rol,
+      rol:        formEditUser.rol || editingUsuario.rol, // nunca dejar el rol vacío
       empresa_id: formEditUser.empresa_id,
     }).eq("id", editingUsuario.id);
+    if (!error) await syncProfileEmpresas(editingUsuario.id, formEditUser.empresa_id, formEditUser.empresas_extra);
     setSavingUser(false);
-    if (error) { showToast("Error: " + error.message, "error"); return; }
+    if (error) { console.error("❌ Error al actualizar usuario:", error); showToast("Error: " + error.message, "error"); return; }
     showToast("Usuario actualizado", "success");
     setEditingUsuario(null);
     loadUsuarios();
   };
 
-  const rolColor = { SUPERADMIN: "orange", ADMIN: "purple", MEDICO: "green", SEGURIDAD: "amber" };
+  const pedirConfirmDeleteUser = (u) => {
+    setDeleteUserTarget(u);
+    setDeleteUserInput("");
+  };
+  const confirmarDeleteUser = async () => {
+    if (!deleteUserTarget) return;
+    setIsDeletingUser(deleteUserTarget.id);
+    const { error } = await supabase.from("profiles").delete().eq("id", deleteUserTarget.id);
+    setIsDeletingUser(null);
+    if (error) { showToast("Error al eliminar: " + error.message, "error"); return; }
+    showToast("✅ Usuario eliminado", "success");
+    setDeleteUserTarget(null);
+    setDeleteUserInput("");
+    loadUsuarios();
+  };
+
+  const rolColor = { SUPERADMIN: "orange", ADMIN: "purple", MEDICO: "green", SEGURIDAD: "amber", ADMINISTRATIVO: "emerald" };
 
   return (
     <div>
@@ -200,16 +238,24 @@ export default function SuperAdmin() {
                       <div className="text-xs text-gray-600 mt-0.5">{u.email || ""}</div>
                     </td>
                     <td className="px-4 py-3 text-gray-400 text-sm">
-                      {u.empresas?.nombre || <span className="text-red-500/70 text-xs">Sin empresa</span>}
+                      {(u.empresas?.nombre || empresas.find(e => e.id === u.empresa_id)?.nombre) || <span className="text-red-500/70 text-xs">Sin empresa</span>}
                     </td>
                     <td className="px-4 py-3"><Badge color={rolColor[u.rol] || "gray"}>{u.rol}</Badge></td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => openEditUser(u)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800 hover:border-gray-700 transition-colors"
-                      >
-                        <Pencil size={12} /> Editar
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => openEditUser(u)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800 hover:border-gray-700 transition-colors"
+                        >
+                          <Pencil size={12} /> Editar
+                        </button>
+                        <button
+                          onClick={() => pedirConfirmDeleteUser(u)}
+                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-red-500/70 hover:text-red-400 hover:bg-red-900/20 border border-gray-800 hover:border-red-800/50 transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -295,16 +341,28 @@ export default function SuperAdmin() {
           <FormField label="Nombre completo">
             <Input value={formEditUser.nombre} onChange={e => setFormEditUser(f => ({ ...f, nombre: e.target.value }))} placeholder="Nombre del usuario" />
           </FormField>
-          <FormField label="Empresa">
+          <FormField label="Empresa principal">
             <Select value={formEditUser.empresa_id} onChange={e => setFormEditUser(f => ({ ...f, empresa_id: e.target.value }))}>
               <option value="">Seleccionar empresa...</option>
               {empresas.filter(e => e.activa).map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
             </Select>
           </FormField>
+          <FormField label="Acceso a otras empresas (opcional)">
+            <div className="max-h-40 overflow-y-auto space-y-0.5 border border-gray-800 rounded-lg p-2 bg-gray-900/50">
+              {empresas.filter(e => e.activa && e.id !== formEditUser.empresa_id).map(e => (
+                <label key={e.id} className="flex items-center gap-2 text-sm text-gray-300 px-1 py-1 cursor-pointer hover:bg-gray-800 rounded">
+                  <input type="checkbox" checked={(formEditUser.empresas_extra || []).includes(e.id)} onChange={() => toggleExtraEdit(e.id)} className="w-4 h-4 accent-blue-600" />
+                  {e.nombre}
+                </label>
+              ))}
+              {empresas.filter(e => e.activa && e.id !== formEditUser.empresa_id).length === 0 && <div className="text-xs text-gray-600 px-1 py-1">No hay otras empresas.</div>}
+            </div>
+          </FormField>
           <FormField label="Rol">
             <Select value={formEditUser.rol} onChange={e => setFormEditUser(f => ({ ...f, rol: e.target.value }))}>
               <option value="SEGURIDAD">SEGURIDAD — Jefe de Seguridad</option>
               <option value="MEDICO">MEDICO — Médico Ocupacional</option>
+              <option value="ADMINISTRATIVO">ADMINISTRATIVO — Perfil Administrativo</option>
               <option value="ADMIN">ADMIN — Administrador</option>
               <option value="SUPERADMIN">SUPERADMIN — Super Administrador</option>
             </Select>
@@ -318,6 +376,42 @@ export default function SuperAdmin() {
         </Modal>
       )}
 
+      {deleteUserTarget && (
+        <Modal title="⚠ Eliminar usuario" onClose={() => setDeleteUserTarget(null)}>
+          <div className="space-y-4">
+            <div className="bg-red-900/20 border border-red-800/50 rounded-lg p-3">
+              <p className="text-sm text-red-400 font-medium mb-1">Esta acción es irreversible.</p>
+              <p className="text-xs text-red-400/70">Se eliminará el acceso de este usuario a la plataforma. Sus datos no serán borrados.</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-2">
+                Para confirmar, escribe el nombre o email del usuario:
+              </p>
+              <p className="text-sm font-semibold text-white mb-2 px-3 py-2 bg-gray-800 rounded-lg border border-gray-700 font-mono">
+                {deleteUserTarget.nombre || deleteUserTarget.email}
+              </p>
+              <Input
+                value={deleteUserInput}
+                onChange={e => setDeleteUserInput(e.target.value)}
+                placeholder="Escribe el nombre/email para confirmar..."
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <Btn onClick={() => setDeleteUserTarget(null)} className="flex-1 justify-center">Cancelar</Btn>
+              <button
+                onClick={confirmarDeleteUser}
+                disabled={deleteUserInput.trim() !== (deleteUserTarget.nombre || deleteUserTarget.email || "").trim() || isDeletingUser === deleteUserTarget.id}
+                className="flex-1 flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2 rounded-lg transition-colors"
+              >
+                <Trash2 size={14} />
+                {isDeletingUser === deleteUserTarget.id ? "Eliminando..." : "Eliminar usuario"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {modalUsuario && (
         <Modal title="Nuevo Usuario" onClose={() => setModalUsuario(false)}>
           <div className="mb-3 px-3 py-2 rounded-lg bg-blue-900/20 border border-blue-900/40 text-xs text-blue-400">
@@ -326,16 +420,28 @@ export default function SuperAdmin() {
           <FormField label="Nombre completo"><Input value={formUsuario.nombre} onChange={e => setFormUsuario(f => ({ ...f, nombre: e.target.value }))} placeholder="Dr. Juan Pérez" /></FormField>
           <FormField label="Email"><Input type="email" value={formUsuario.email} onChange={e => setFormUsuario(f => ({ ...f, email: e.target.value }))} placeholder="usuario@empresa.com" /></FormField>
           <FormField label="Contraseña temporal"><Input type="password" value={formUsuario.password} onChange={e => setFormUsuario(f => ({ ...f, password: e.target.value }))} placeholder="Mínimo 8 caracteres" /></FormField>
-          <FormField label="Empresa">
+          <FormField label="Empresa principal">
             <Select value={formUsuario.empresa_id} onChange={e => setFormUsuario(f => ({ ...f, empresa_id: e.target.value }))}>
               <option value="">Seleccionar empresa...</option>
               {empresas.filter(e => e.activa).map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
             </Select>
           </FormField>
+          <FormField label="Acceso a otras empresas (opcional)">
+            <div className="max-h-40 overflow-y-auto space-y-0.5 border border-gray-800 rounded-lg p-2 bg-gray-900/50">
+              {empresas.filter(e => e.activa && e.id !== formUsuario.empresa_id).map(e => (
+                <label key={e.id} className="flex items-center gap-2 text-sm text-gray-300 px-1 py-1 cursor-pointer hover:bg-gray-800 rounded">
+                  <input type="checkbox" checked={formUsuario.empresas_extra.includes(e.id)} onChange={() => toggleExtraNew(e.id)} className="w-4 h-4 accent-blue-600" />
+                  {e.nombre}
+                </label>
+              ))}
+              {empresas.filter(e => e.activa && e.id !== formUsuario.empresa_id).length === 0 && <div className="text-xs text-gray-600 px-1 py-1">No hay otras empresas.</div>}
+            </div>
+          </FormField>
           <FormField label="Rol">
             <Select value={formUsuario.rol} onChange={e => setFormUsuario(f => ({ ...f, rol: e.target.value }))}>
               <option value="SEGURIDAD">SEGURIDAD — Jefe de Seguridad</option>
               <option value="MEDICO">MEDICO — Médico Ocupacional</option>
+              <option value="ADMINISTRATIVO">ADMINISTRATIVO — Perfil Administrativo</option>
               <option value="ADMIN">ADMIN — Administrador</option>
             </Select>
           </FormField>

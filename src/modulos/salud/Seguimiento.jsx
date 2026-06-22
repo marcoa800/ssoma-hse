@@ -17,6 +17,7 @@ import { Select } from '../../components/ui/Select.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 import {
   Plus, Upload, Download, ChevronRight, ChevronLeft, Lock,
   Trash2, Filter, HelpCircle, Pencil, FileDown, AlertTriangle,
@@ -158,7 +159,46 @@ export default function SeguimientoModulo({ workers, empresaId }) {
         )}
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* ── Vista móvil: tarjetas ── */}
+      <div className="md:hidden space-y-2.5">
+        {loading && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Cargando...</div>}
+        {!loading && filtered.map(r => {
+          const isProx = r.proxima_evaluacion && new Date(r.proxima_evaluacion + "T00:00:00") <= in7 && new Date(r.proxima_evaluacion + "T00:00:00") >= now;
+          return (
+            <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm leading-tight">{r.trabajadores?.nombre || "—"}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{r.trabajadores?.cargo || ""}{r.trabajadores?.cargo ? " · " : ""}{fmtFecha(r.fecha_inicio)}</div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 p-1 transition-colors"><Pencil size={15} /></button>
+                  <button onClick={() => handleDelete(r.id)} className="text-red-500/60 hover:text-red-400 p-1 transition-colors"><Trash2 size={15} /></button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mb-2.5">
+                <Badge color={r.tipo_caso.includes("Accidente") ? "red" : r.tipo_caso.includes("Enf") ? "amber" : "purple"}>{r.tipo_caso}</Badge>
+                <Badge color={prioColor(r.prioridad)}>{r.prioridad}</Badge>
+                <Badge color={estadoColor(r.estado)}>{r.estado}</Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                <div className="truncate"><span className="text-gray-600">Dx presuntivo:</span> <span className="text-gray-400">{r.diagnostico_presuntivo || "—"}</span></div>
+                <div><span className="text-gray-600">Próx. eval:</span> <span className={`font-mono ${isProx ? "text-amber-400 font-semibold" : "text-gray-400"}`}>{r.proxima_evaluacion || "—"}{isProx && " ⚠"}</span></div>
+                <div className="truncate"><span className="text-gray-600">Médico:</span> <span className="text-gray-400">{r.medico_responsable || "—"}</span></div>
+              </div>
+            </div>
+          );
+        })}
+        {!loading && !filtered.length && (
+          <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">
+            {records.length ? "Sin resultados para los filtros aplicados." : "Sin casos registrados. Usa \"Nuevo Caso\" para comenzar."}
+          </div>
+        )}
+      </div>
+
+      {/* ── Vista escritorio: tabla ── */}
+      <div className="hidden md:block">
+        <WideTableScroll>
         <table className="w-full text-sm">
           <thead><tr className="border-b border-gray-800">
             {["Trabajador", "Tipo de caso", "F. Inicio", "Dx presuntivo", "Prioridad", "Estado", "Próx. Evaluación", "Médico", ""].map(h => (
@@ -196,12 +236,13 @@ export default function SeguimientoModulo({ workers, empresaId }) {
             )}
           </tbody>
         </table>
+        </WideTableScroll>
       </div>
 
       {showModal && (
         <Modal title={editing ? "Editar Caso" : "Nuevo Caso de Seguimiento"} onClose={closeModal} wide>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Trabajador *">
                 <Select value={form.trabajador_id} onChange={e => setForm(f => ({ ...f, trabajador_id: e.target.value }))}>
                   <option value="">Seleccionar trabajador...</option>

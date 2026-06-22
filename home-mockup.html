@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SSOMA HSE — Home</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #03070f;
+    --surface:   #0c111d;
+    --card:      #0f1623;
+    --border:    #1a2234;
+    --border-hi: #243044;
+    --text:      #e8edf5;
+    --muted:     #4a5568;
+    --dim:       #8492a6;
+    --blue:      #3b82f6;
+    --blue-dim:  #1d3d7a;
+    --blue-glow: rgba(59,130,246,0.15);
+    --amber:     #f59e0b;
+    --amber-dim: #7c4a00;
+    --amber-glow:rgba(245,158,11,0.15);
+    --emerald:   #10b981;
+    --purple:    #8b5cf6;
+    --red:       #ef4444;
+    --orange:    #f97316;
+    --yellow:    #eab308;
+    --rose:      #f43f5e;
+    --gray:      #6b7280;
+    --green:     #22c55e;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── DOT GRID BACKGROUND ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, #1e2d45 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.35;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(3, 7, 15, 0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 60px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-box {
+    width: 32px; height: 32px;
+    background: var(--blue);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 16px; color: #fff;
+    box-shadow: 0 0 12px rgba(59,130,246,0.4);
+  }
+  .logo-text { font-weight: 600; font-size: 15px; letter-spacing: -0.3px; }
+  .logo-text span { color: var(--muted); font-weight: 400; }
+  .company-sep { width: 1px; height: 20px; background: var(--border-hi); margin: 0 12px; }
+  .company-name { font-size: 12px; color: var(--dim); letter-spacing: 0.2px; }
+
+  .header-center {
+    display: flex; align-items: center; gap: 10px;
+    position: absolute; left: 50%; transform: translateX(-50%);
+  }
+  .greeting { font-size: 13px; color: var(--dim); }
+  .greeting strong { color: var(--text); font-weight: 500; }
+  .badge-role {
+    padding: 2px 9px; border-radius: 20px; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.6px; font-family: 'DM Mono', monospace;
+    background: rgba(249,115,22,0.15); color: #f97316; border: 1px solid rgba(249,115,22,0.3);
+  }
+
+  .header-right {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .date-chip {
+    font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace;
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 20px;
+  }
+  .logout-btn {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--muted); transition: all 0.2s;
+  }
+  .logout-btn:hover { border-color: var(--red); color: var(--red); background: rgba(239,68,68,0.08); }
+
+  /* ── MAIN ── */
+  main {
+    position: relative; z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem 4rem;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    text-align: center;
+    padding: 3.5rem 0 2.5rem;
+    position: relative;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 200px;
+    background: radial-gradient(ellipse at center, rgba(59,130,246,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: 2px;
+    color: var(--blue); text-transform: uppercase; margin-bottom: 12px;
+    font-family: 'DM Mono', monospace;
+  }
+  .hero-title {
+    font-size: 2.4rem; font-weight: 700; letter-spacing: -1px;
+    color: var(--text); line-height: 1.1; margin-bottom: 10px;
+  }
+  .hero-title span {
+    background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-sub { font-size: 14px; color: var(--dim); margin-bottom: 2rem; }
+
+  /* Platform pills */
+  .platform-pills {
+    display: inline-flex; gap: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 4px;
+  }
+  .pill {
+    padding: 7px 18px; border-radius: 9px; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+    border: 1px solid transparent;
+  }
+  .pill.active-blue {
+    background: rgba(59,130,246,0.15); color: #60a5fa;
+    border-color: rgba(59,130,246,0.25);
+  }
+  .pill.inactive {
+    color: var(--muted);
+  }
+  .pill.active-amber {
+    background: rgba(245,158,11,0.15); color: #fbbf24;
+    border-color: rgba(245,158,11,0.25);
+  }
+
+  /* ── SECTION ── */
+  .section { margin-bottom: 3rem; }
+  .section-header {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 1.25rem;
+  }
+  .section-bar {
+    width: 3px; height: 22px; border-radius: 4px;
+    background: linear-gradient(to bottom, var(--blue), transparent);
+  }
+  .section-bar.amber {
+    background: linear-gradient(to bottom, var(--amber), transparent);
+  }
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 2px;
+    color: var(--dim); text-transform: uppercase; font-family: 'DM Mono', monospace;
+  }
+  .section-count {
+    margin-left: auto;
+    font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace;
+  }
+
+  /* ── CARD GRID ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+    overflow: hidden;
+    display: flex; flex-direction: column; gap: 10px;
+    min-height: 130px;
+  }
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    opacity: 0; transition: opacity 0.25s;
+    border-radius: inherit;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--border-hi);
+  }
+  .card.blue-card:hover {
+    border-color: rgba(59,130,246,0.35);
+    box-shadow: 0 8px 30px rgba(59,130,246,0.12), 0 0 0 1px rgba(59,130,246,0.1);
+  }
+  .card.amber-card:hover {
+    border-color: rgba(245,158,11,0.35);
+    box-shadow: 0 8px 30px rgba(245,158,11,0.1), 0 0 0 1px rgba(245,158,11,0.1);
+  }
+
+  /* Card "hovered" demo state */
+  .card.demo-hover {
+    transform: translateY(-3px);
+    border-color: rgba(59,130,246,0.4);
+    box-shadow: 0 8px 32px rgba(59,130,246,0.18), 0 0 0 1px rgba(59,130,246,0.15);
+  }
+
+  /* Left accent bar */
+  .card-accent {
+    position: absolute; left: 0; top: 12px; bottom: 12px;
+    width: 3px; border-radius: 0 4px 4px 0;
+  }
+
+  .card-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+  }
+  .card-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .card-badge {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 2px 7px; border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+  }
+  .card-arrow {
+    width: 20px; height: 20px; border-radius: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 11px; transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .card:hover .card-arrow {
+    background: var(--blue); border-color: var(--blue); color: #fff;
+  }
+  .card.amber-card:hover .card-arrow {
+    background: var(--amber); border-color: var(--amber); color: #000;
+  }
+
+  .card-title {
+    font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: -0.2px;
+    line-height: 1.3;
+  }
+  .card-desc {
+    font-size: 11px; color: var(--muted); line-height: 1.4; flex: 1;
+  }
+
+  /* Color variants for icons */
+  .ic-blue   { background: rgba(59,130,246,0.12); color: #60a5fa; }
+  .ic-emerald{ background: rgba(16,185,129,0.12); color: #34d399; }
+  .ic-purple { background: rgba(139,92,246,0.12); color: #a78bfa; }
+  .ic-red    { background: rgba(239,68,68,0.12);  color: #f87171; }
+  .ic-orange { background: rgba(249,115,22,0.12); color: #fb923c; }
+  .ic-gray   { background: rgba(107,114,128,0.12);color: #9ca3af; }
+  .ic-yellow { background: rgba(234,179,8,0.12);  color: #facc15; }
+  .ic-rose   { background: rgba(244,63,94,0.12);  color: #fb7185; }
+  .ic-amber  { background: rgba(245,158,11,0.12); color: #fbbf24; }
+  .ic-green  { background: rgba(34,197,94,0.12);  color: #4ade80; }
+
+  /* Accent bar colors */
+  .ac-blue   { background: #3b82f6; }
+  .ac-emerald{ background: #10b981; }
+  .ac-purple { background: #8b5cf6; }
+  .ac-red    { background: #ef4444; }
+  .ac-orange { background: #f97316; }
+  .ac-gray   { background: #6b7280; }
+  .ac-yellow { background: #eab308; }
+  .ac-rose   { background: #f43f5e; }
+  .ac-amber  { background: #f59e0b; }
+  .ac-green  { background: #22c55e; }
+
+  /* Badge colors */
+  .bg-red-badge  { background: rgba(239,68,68,0.15);  color: #f87171; }
+  .bg-blue-badge { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .bg-amber-badge{ background: rgba(245,158,11,0.15); color: #fbbf24; }
+
+  /* ── ADMIN SECTION ── */
+  .admin-section {
+    margin-top: 1rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1.5rem;
+  }
+  .admin-card {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--card); border: 1px solid rgba(249,115,22,0.2);
+    border-radius: 12px; padding: 14px 18px;
+    cursor: pointer; transition: all 0.2s; max-width: 340px;
+  }
+  .admin-card:hover {
+    border-color: rgba(249,115,22,0.4);
+    background: rgba(249,115,22,0.04);
+  }
+  .admin-icon {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: rgba(249,115,22,0.1); color: #f97316;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    flex-shrink: 0;
+  }
+  .admin-text { flex: 1; }
+  .admin-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .admin-desc  { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .admin-badge {
+    font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+    background: rgba(249,115,22,0.12); color: #f97316;
+    border: 1px solid rgba(249,115,22,0.2); letter-spacing: 0.5px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .hero        { animation: fadeUp 0.5s ease both; }
+  .section     { animation: fadeUp 0.5s ease both; }
+  .section:nth-child(2) { animation-delay: 0.1s; }
+  .section:nth-child(3) { animation-delay: 0.18s; }
+  .admin-section { animation: fadeUp 0.5s 0.25s ease both; }
+
+  .card { animation: fadeUp 0.4s ease both; }
+  .card-grid .card:nth-child(1) { animation-delay: 0.05s; }
+  .card-grid .card:nth-child(2) { animation-delay: 0.08s; }
+  .card-grid .card:nth-child(3) { animation-delay: 0.11s; }
+  .card-grid .card:nth-child(4) { animation-delay: 0.14s; }
+  .card-grid .card:nth-child(5) { animation-delay: 0.17s; }
+  .card-grid .card:nth-child(6) { animation-delay: 0.20s; }
+  .card-grid .card:nth-child(7) { animation-delay: 0.23s; }
+  .card-grid .card:nth-child(8) { animation-delay: 0.26s; }
+
+  /* Pulse dot */
+  .pulse-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+    display: inline-block; position: relative; flex-shrink: 0;
+  }
+  .pulse-dot::after {
+    content: ''; position: absolute; inset: -3px;
+    border-radius: 50%; background: rgba(34,197,94,0.25);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.6); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<header>
+  <div class="logo">
+    <div class="logo-box">S</div>
+    <div class="logo-text">SSOMA <span>HSE</span></div>
+    <div class="company-sep"></div>
+    <div class="company-name">Hydro Global Perú SAC</div>
+  </div>
+
+  <div class="header-center">
+    <div class="pulse-dot"></div>
+    <div class="greeting">Bienvenido, <strong>Dr. Marco Arévalo</strong></div>
+    <div class="badge-role">SUPERADMIN</div>
+  </div>
+
+  <div class="header-right">
+    <div class="date-chip">Lun 26 May 2026</div>
+    <div class="logout-btn" title="Cerrar sesión">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    </div>
+  </div>
+</header>
+
+<!-- ══ MAIN ══ -->
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">Panel de Control</div>
+    <h1 class="hero-title">¿A dónde quieres ir <span>hoy?</span></h1>
+    <p class="hero-sub">Selecciona un módulo para comenzar</p>
+    <div class="platform-pills">
+      <div class="pill active-blue">🩺 Salud Ocupacional</div>
+      <div class="pill inactive">⚠ SSOMA</div>
+    </div>
+  </div>
+
+  <!-- ══ SECCIÓN SALUD ══ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-bar"></div>
+      <div class="section-label">Salud Ocupacional</div>
+      <div class="section-count">8 módulos</div>
+    </div>
+    <div class="card-grid">
+
+      <!-- Dashboard -->
+      <div class="card blue-card demo-hover">
+        <div class="card-accent ac-blue"></div>
+        <div class="card-top">
+          <div class="card-icon ic-blue">📊</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">Dashboard General</div>
+        <div class="card-desc">Métricas y KPIs en tiempo real</div>
+      </div>
+
+      <!-- Directorio -->
+      <div class="card blue-card">
+        <div class="card-accent ac-emerald"></div>
+        <div class="card-top">
+          <div class="card-icon ic-emerald">👥</div>
+          <div class="card-badge bg-blue-badge">124 activos</div>
+        </div>
+        <div class="card-title">Directorio de Personal</div>
+        <div class="card-desc">Sábana completa de trabajadores</div>
+      </div>
+
+      <!-- Capacitaciones -->
+      <div class="card blue-card">
+        <div class="card-accent ac-purple"></div>
+        <div class="card-top">
+          <div class="card-icon ic-purple">🎓</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">Capacitaciones</div>
+        <div class="card-desc">Registro y seguimiento de cursos</div>
+      </div>
+
+      <!-- Vigilancia -->
+      <div class="card blue-card">
+        <div class="card-accent ac-red"></div>
+        <div class="card-top">
+          <div class="card-icon ic-red">🏥</div>
+          <div class="card-badge bg-red-badge">8 programas</div>
+        </div>
+        <div class="card-title">Vigilancia Médica</div>
+        <div class="card-desc">Programas de salud activos</div>
+      </div>
+
+      <!-- Caracterización -->
+      <div class="card blue-card">
+        <div class="card-accent ac-orange"></div>
+        <div class="card-top">
+          <div class="card-icon ic-orange">🔬</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">Caracterización de Riesgo</div>
+        <div class="card-desc">Evaluación ergonómica RM-375</div>
+      </div>
+
+      <!-- Documentos -->
+      <div class="card blue-card">
+        <div class="card-accent ac-gray"></div>
+        <div class="card-top">
+          <div class="card-icon ic-gray">📄</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">Centro Documental</div>
+        <div class="card-desc">Normativa y documentos vigentes</div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="card blue-card">
+        <div class="card-accent ac-yellow"></div>
+        <div class="card-top">
+          <div class="card-icon ic-yellow">⚡</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">Gestión de KPIs</div>
+        <div class="card-desc">Indicadores de gestión mensual</div>
+      </div>
+
+      <!-- Accidentes -->
+      <div class="card blue-card">
+        <div class="card-accent ac-rose"></div>
+        <div class="card-top">
+          <div class="card-icon ic-rose">🩺</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">Accidentes e Incidentes</div>
+        <div class="card-desc">Registro y seguimiento de eventos</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ SECCIÓN SSOMA ══ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-bar amber"></div>
+      <div class="section-label">Seguridad y Medio Ambiente</div>
+      <div class="section-count">6 módulos</div>
+    </div>
+    <div class="card-grid">
+
+      <!-- Dashboard SSOMA -->
+      <div class="card amber-card">
+        <div class="card-accent ac-amber"></div>
+        <div class="card-top">
+          <div class="card-icon ic-amber">📊</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">Dashboard SSOMA</div>
+        <div class="card-desc">Panel de seguridad operacional</div>
+      </div>
+
+      <!-- RACs -->
+      <div class="card amber-card">
+        <div class="card-accent ac-orange"></div>
+        <div class="card-top">
+          <div class="card-icon ic-orange">⚠️</div>
+          <div class="card-badge bg-amber-badge">3 pendientes</div>
+        </div>
+        <div class="card-title">RACs</div>
+        <div class="card-desc">Reportes de actos y condiciones</div>
+      </div>
+
+      <!-- Inspecciones -->
+      <div class="card amber-card">
+        <div class="card-accent ac-blue"></div>
+        <div class="card-top">
+          <div class="card-icon ic-blue">📋</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">Inspecciones</div>
+        <div class="card-desc">Inspecciones de seguridad en campo</div>
+      </div>
+
+      <!-- ATS/PETAR -->
+      <div class="card amber-card">
+        <div class="card-accent ac-green"></div>
+        <div class="card-top">
+          <div class="card-icon ic-green">✅</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">ATS / PETAR</div>
+        <div class="card-desc">Análisis de trabajo seguro</div>
+      </div>
+
+      <!-- IPERC -->
+      <div class="card amber-card">
+        <div class="card-accent ac-red"></div>
+        <div class="card-top">
+          <div class="card-icon ic-red">🛡️</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">IPERC / Riesgos</div>
+        <div class="card-desc">Matriz de identificación de riesgos</div>
+      </div>
+
+      <!-- Reportes -->
+      <div class="card amber-card">
+        <div class="card-accent ac-gray"></div>
+        <div class="card-top">
+          <div class="card-icon ic-gray">📑</div>
+          <div class="card-arrow">↗</div>
+        </div>
+        <div class="card-title">Reportes PDF</div>
+        <div class="card-desc">Generación de informes mensuales</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ ADMIN ══ -->
+  <div class="admin-section">
+    <div class="section-label" style="margin-bottom:12px; display:block;">Solo Superadmin</div>
+    <div class="admin-card">
+      <div class="admin-icon">⚙️</div>
+      <div class="admin-text">
+        <div class="admin-title">Panel de Administración</div>
+        <div class="admin-desc">Gestión de empresas y usuarios del sistema</div>
+      </div>
+      <div class="admin-badge">SUPERADMIN</div>
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

@@ -1,27 +1,9 @@
 import { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia } from '../../lib/helpers.js';
-import { TRIAJE_CATS, CATEGORIAS_RIESGO, DETALLES_ESPECIFICOS } from '../../constants/triaje.js';
-import { Badge } from '../../components/ui/Badge.jsx';
-import { KpiCard } from '../../components/ui/KpiCard.jsx';
-import { Modal } from '../../components/ui/Modal.jsx';
-import { FormField } from '../../components/ui/FormField.jsx';
-import { Input } from '../../components/ui/Input.jsx';
-import { Select } from '../../components/ui/Select.jsx';
-import { Btn } from '../../components/ui/Btn.jsx';
-import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
-import { FilterBar } from '../../components/ui/FilterBar.jsx';
+import { TRIAJE_CATS } from '../../constants/triaje.js';
 import {
-  Plus, Upload, Download, Trash2, Pencil, AlertTriangle, CheckCircle,
-  Filter, HelpCircle, Lock, Shield, ClipboardList, ShieldAlert,
-  Activity, FileText, Users, LayoutDashboard, Stethoscope, Search,
-  ChevronRight, ChevronLeft, Phone, QrCode, Eye, EyeOff, X, Copy, FileDown,
-  Building2, Settings
+  Trash2, ClipboardList, Search, Phone, QrCode, FileDown, X,
 } from 'lucide-react';
 
 export default function TriajeModulo({ empresaId, empresa }) {
@@ -39,7 +21,7 @@ export default function TriajeModulo({ empresaId, empresa }) {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase.from("triajes").select("*").eq("empresa_id", empresaId).order("created_at", { ascending: false }).limit(300);
+    const { data } = await supabase.from("triajes").select("*").eq("empresa_id", empresaId).order("created_at", { ascending: false }).limit(1000);
     setTriajes(data || []);
     setLoading(false);
   };
@@ -241,7 +223,7 @@ export default function TriajeModulo({ empresaId, empresa }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-gray-800 bg-gray-900/80">
-                <tr>{["Fecha / Hora", "Trabajador", "Categorías", "Signos Vitales", "Atención", "Urgencia", ""].map(h => (
+                <tr>{["Fecha / Hora", "Trabajador", "DNI", "Categorías", "Signos Vitales", "Atención", "Urgencia", ""].map(h => (
                   <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}</tr>
               </thead>
@@ -258,6 +240,7 @@ export default function TriajeModulo({ empresaId, empresa }) {
                         <div className="text-sm font-medium text-gray-200 leading-tight">{t.nombre}</div>
                         <div className="text-xs text-gray-600 mt-0.5">{t.puesto || "—"}</div>
                       </td>
+                      <td className="px-4 py-3 text-xs font-mono text-gray-500 whitespace-nowrap">{t.dni || "—"}</td>
                       <td className="px-4 py-3 max-w-[180px]">
                         <div className="flex flex-wrap gap-1">
                           {(t.categorias || []).map(k => (
@@ -317,7 +300,11 @@ export default function TriajeModulo({ empresaId, empresa }) {
               <div>
                 {selected.tiene_emergencia && <div className="text-red-400 text-xs font-bold mb-1">🚨 EMERGENCIA DETECTADA</div>}
                 <h3 className="font-bold text-white text-base">{selected.nombre}</h3>
-                <p className="text-gray-500 text-sm">{selected.puesto || "Sin puesto"} · {new Date(selected.created_at).toLocaleString("es-PE", { dateStyle:"medium", timeStyle:"short" })}</p>
+                <p className="text-gray-500 text-sm">
+                  {selected.puesto || "Sin puesto"}
+                  {selected.dni && <span className="ml-2 font-mono text-gray-600">DNI {selected.dni}</span>}
+                  {" · "}{new Date(selected.created_at).toLocaleString("es-PE", { dateStyle:"medium", timeStyle:"short" })}
+                </p>
               </div>
               <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-gray-300 p-1"><X size={18} /></button>
             </div>

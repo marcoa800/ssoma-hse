@@ -17,6 +17,7 @@ import { Select } from '../../components/ui/Select.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 import RegistrosLegalesHGP from './RegistrosLegalesHGP.jsx';
 import {
   Plus, Upload, Download, ChevronRight, ChevronLeft, Lock,
@@ -165,7 +166,43 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
 
       <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} area={fTipo} onArea={setFTipo} areaOptions={tipoOpts} areaLabel="Tipo" />
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* ── Vista móvil: tarjetas ── */}
+      <div className="md:hidden space-y-2.5">
+        {loading && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Cargando...</div>}
+        {!loading && filtered.map(r => (
+          <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+            <div className="flex items-start justify-between gap-2 mb-1.5">
+              <div className="min-w-0">
+                <div className="font-semibold text-white text-sm leading-tight">{r.trabajadores?.nombre || "No especificado"}</div>
+                <div className="text-xs text-gray-500 font-mono mt-0.5">{fmtFecha(r.fecha_evento)}{r.hora_evento ? ` · ${r.hora_evento}` : ""}</div>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 p-1 transition-colors"><Pencil size={15} /></button>
+                <button onClick={() => handleDelete(r.id)} className="text-red-500/60 hover:text-red-400 p-1 transition-colors"><Trash2 size={15} /></button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mb-2.5">
+              <Badge color={r.tipo === "Accidente Laboral" || r.tipo === "Accidente de Trayecto" ? "red" : r.tipo === "Incidente Peligroso" ? "amber" : "gray"}>{r.tipo}</Badge>
+              <Badge color={gravColor(r.gravedad)}>{r.gravedad}</Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div className="truncate"><span className="text-gray-600">Área / Lugar:</span> <span className="text-gray-400">{r.lugar || r.area_puesto || "—"}</span></div>
+              <div><span className="text-gray-600">Días perdidos:</span> <span className="text-gray-400 font-mono font-bold text-white">{r.dias_perdidos ?? 0}</span></div>
+              <div><span className="text-gray-600">Investigación:</span> <Badge color={investColor(r.estado_investigacion)}>{r.estado_investigacion}</Badge></div>
+              <div><span className="text-gray-600">Medidas:</span> <Badge color={estadoMedidasColor(r.estado_medidas || "Pendiente")}>{r.estado_medidas || "Pendiente"}</Badge></div>
+            </div>
+          </div>
+        ))}
+        {!loading && !filtered.length && (
+          <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">
+            {records.length ? "Sin resultados para el filtro aplicado." : "Sin registros. Usa \"Nuevo Registro\" para comenzar."}
+          </div>
+        )}
+      </div>
+
+      {/* ── Vista escritorio: tabla ── */}
+      <div className="hidden md:block">
+        <WideTableScroll>
         <table className="w-full text-sm">
           <thead><tr className="border-b border-gray-800">
             {["Tipo", "", "Fecha", "Hora", "Área / Lugar", "Gravedad", "Días perdidos", "Investigación", "Medidas", ""].map((h, i) => (
@@ -204,12 +241,13 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
             )}
           </tbody>
         </table>
+        </WideTableScroll>
       </div>
 
       {showModal && (
         <Modal title={editing ? "Editar Registro" : "Nuevo Accidente / Incidente"} onClose={closeModal} wide>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Tipo de evento *">
                 <Select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}>
                   {["Accidente Laboral","Accidente de Trayecto","Incidente Peligroso","Casi-accidente","Enfermedad Ocupacional"].map(t => <option key={t}>{t}</option>)}
@@ -231,7 +269,7 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
             <FormField label="Descripción del evento *">
               <textarea value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} rows={3} placeholder="Describe detalladamente cómo ocurrió el evento..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500 resize-none" />
             </FormField>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <FormField label="Parte del cuerpo afectada">
                 <Select value={form.parte_cuerpo} onChange={e => setForm(f => ({ ...f, parte_cuerpo: e.target.value }))}>
                   <option value="">Seleccionar...</option>
@@ -251,7 +289,7 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
                 </Select>
               </FormField>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <FormField label="Gravedad">
                 <Select value={form.gravedad} onChange={e => setForm(f => ({ ...f, gravedad: e.target.value }))}>
                   {["Sin lesión","Leve","Moderado","Grave","Fatal"].map(g => <option key={g}>{g}</option>)}
@@ -266,11 +304,11 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
                 </Select>
               </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Médico / Enfermero responsable"><Input value={form.medico_responsable} onChange={e => setForm(f => ({ ...f, medico_responsable: e.target.value }))} /></FormField>
               <FormField label="Supervisor del área"><Input value={form.supervisor} onChange={e => setForm(f => ({ ...f, supervisor: e.target.value }))} /></FormField>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <FormField label="Medidas correctivas implementadas" className="col-span-2">
                 <textarea value={form.medidas_correctivas} onChange={e => setForm(f => ({ ...f, medidas_correctivas: e.target.value }))} rows={2} placeholder="Describe las acciones tomadas para evitar recurrencia..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500 resize-none" />
               </FormField>

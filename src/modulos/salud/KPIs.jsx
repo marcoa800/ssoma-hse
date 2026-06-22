@@ -84,7 +84,7 @@ export default function KPIs({ kpis, setKpis, empresaId }) {
           <FormField label="Nombre del Indicador"><Input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Índice de Frecuencia" /></FormField>
           <FormField label="Mes"><Input value={form.mes} onChange={e => setForm(f => ({ ...f, mes: e.target.value }))} placeholder="Abril 2025" /></FormField>
           <FormField label="Fecha"><Input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} /></FormField>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <FormField label="Valor Real"><Input type="number" value={form.real} onChange={e => setForm(f => ({ ...f, real: e.target.value }))} /></FormField>
             <FormField label="Meta"><Input type="number" value={form.meta} onChange={e => setForm(f => ({ ...f, meta: e.target.value }))} /></FormField>
           </div>

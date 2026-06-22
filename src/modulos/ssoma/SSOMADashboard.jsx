@@ -24,7 +24,7 @@ import {
   Building2, Settings
 } from 'lucide-react';
 
-export default function SSOMADashboard({ empresaId, workers }) {
+export default function SSOMADashboard({ empresaId, workers, onNavigate, esOilGas }) {
   const [accidentes, setAccidentes] = useState([]);
   const [loadingAcc, setLoadingAcc] = useState(true);
 
@@ -111,6 +111,30 @@ export default function SSOMADashboard({ empresaId, workers }) {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* ── Acceso rápido a módulos ── */}
+      <div className="mb-4">
+        <div className="text-xs text-gray-600 font-medium uppercase tracking-wider mb-3">Acceso rápido</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {[
+            { id: "racs",        label: "RACs",             sub: "Actos y condiciones",       icon: ClipboardList, color: "text-amber-400 bg-amber-900/20 border-amber-900/40" },
+            { id: "iperc",       label: "IPERC",            sub: "Matriz de riesgos",          icon: AlertTriangle, color: "text-red-400 bg-red-900/20 border-red-900/40" },
+            { id: "inspecciones",label: "Inspecciones",     sub: "Seguridad en campo",         icon: Shield,        color: "text-blue-400 bg-blue-900/20 border-blue-900/40" },
+            { id: "ats",         label: "ATS / PETAR",      sub: "Análisis de trabajo seguro", icon: FileText,      color: "text-cyan-400 bg-cyan-900/20 border-cyan-900/40" },
+            { id: "contratistas",label: "Contratistas",     sub: "Gestión y control",          icon: Users,         color: "text-purple-400 bg-purple-900/20 border-purple-900/40" },
+            { id: "triaje",      label: "Triaje",           sub: "Atenciones de salud",        icon: Stethoscope,   color: "text-emerald-400 bg-emerald-900/20 border-emerald-900/40" },
+          ].map(({ id, label, sub, icon: Icon, color }) => (
+            <button key={id} onClick={() => onNavigate && onNavigate(id)}
+              className={`flex items-center gap-3 px-3 py-3 rounded-xl border text-left hover:opacity-90 active:scale-95 transition-all ${color}`}>
+              <Icon size={18} className="shrink-0" />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold leading-tight truncate">{label}</div>
+                <div className="text-xs opacity-60 truncate">{sub}</div>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 

@@ -10,6 +10,7 @@ import { KpiCard } from '../../components/ui/KpiCard.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 import {
   Upload, Download, Search, Filter, X, ChevronLeft, Info,
   AlertTriangle, Calendar, Activity, User, FileDown, HelpCircle
@@ -798,7 +799,44 @@ export default function TopicoModulo({ empresaId }) {
                 </select>
               </div>
 
-              <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden overflow-x-auto">
+              {/* ── Vista móvil: tarjetas ── */}
+              <div className="md:hidden space-y-2.5">
+                {filtered.slice(0, 200).map(r => (
+                  <div key={r.id} onClick={() => setSelected(r)}
+                    className={`bg-gray-900 border border-gray-800 rounded-xl p-3.5 cursor-pointer ${r.caracteristica === "ACCIDENTE LABORAL" ? "border-l-2 border-l-red-600" : ""}`}>
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-white text-sm leading-tight">{r.nombre_paciente}</div>
+                        <div className="text-xs text-gray-500 font-mono mt-0.5">{r.dni} · {r.sexo}{r.edad ? ` · ${r.edad}a` : ""}</div>
+                      </div>
+                      <button onClick={e => { e.stopPropagation(); setSelected(r); }} className="text-xs text-blue-400 hover:text-blue-300 border border-blue-900 hover:border-blue-700 px-2 py-1 rounded-lg transition-colors shrink-0">Ver</button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                      <Badge color={r.tipo_atencion === "Nueva" ? "blue" : r.tipo_atencion === "Control" ? "amber" : "purple"}>{r.tipo_atencion}</Badge>
+                      {r.descanso_medico && <Badge color="red">Descanso</Badge>}
+                      {(r.parte_cuerpo || []).slice(0, 2).map(p => (
+                        <span key={p} className="text-[10px] px-1.5 py-0.5 bg-red-900/20 border border-red-900/40 text-red-400 rounded">{PARTES_CUERPO.find(x => x.id === p)?.label || p}</span>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                      <div><span className="text-gray-600">Fecha:</span> <span className="text-gray-400 font-mono">{fmtFecha(r.fecha)}</span></div>
+                      <div><span className="text-gray-600">Característica:</span> <span className="text-gray-400">{r.caracteristica || "—"}</span></div>
+                      <div className="col-span-2"><span className="text-gray-600">Diagnóstico:</span> <span className="text-gray-300">{r.diagnostico1 || "—"}</span>{r.cie10_1 && <span className="text-[10px] text-blue-500 font-mono ml-1">{r.cie10_1}</span>}</div>
+                      {r.grupo_enfermedad && <div className="col-span-2"><span className="text-gray-600">Grupo:</span> <span className="text-gray-400">{r.grupo_enfermedad}</span></div>}
+                    </div>
+                  </div>
+                ))}
+                {filtered.length === 0 && (
+                  <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Sin resultados para los filtros aplicados.</div>
+                )}
+                {filtered.length > 200 && (
+                  <div className="text-center text-gray-600 text-xs py-2">Mostrando 200 de {filtered.length}. Usa los filtros para refinar.</div>
+                )}
+              </div>
+
+              {/* ── Vista escritorio: tabla ── */}
+              <div className="hidden md:block">
+                <WideTableScroll>
                 <table className="w-full text-sm" style={{ minWidth: "900px" }}>
                   <thead>
                     <tr className="border-b border-gray-800">
@@ -851,6 +889,7 @@ export default function TopicoModulo({ empresaId }) {
                     )}
                   </tbody>
                 </table>
+                </WideTableScroll>
               </div>
             </div>
           )}

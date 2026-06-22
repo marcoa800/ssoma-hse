@@ -26,6 +26,7 @@ import {
 
 import InspeccionesHGP from './InspeccionesHGP.jsx';
 import InspeccionesComind from './InspeccionesComind.jsx';
+import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 
 const TIPOS_INSPECCION = ["Planeada","No planeada","Gerencial","Orden y limpieza","Equipos y herramientas","Instalaciones eléctricas","EPPs","Otro"];
 const RESULTADO_COLOR = { Satisfactorio:"green", "Con observaciones":"amber", Insatisfactorio:"red" };
@@ -154,7 +155,46 @@ function InspeccionesGenerico({ empresaId }) {
         {(fTipo||fResult) && <button onClick={()=>{setFTipo("");setFResult("");}} className="text-xs text-blue-400 hover:text-blue-300 ml-1">✕ Limpiar</button>}
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* ── Vista móvil: tarjetas ── */}
+      <div className="md:hidden space-y-2.5">
+        {loading && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Cargando...</div>}
+        {!loading && filtered.map(i => {
+          const hs = hallazgosDe(i); const abiertos = hs.filter(h=>h.estado!=="Cerrado").length;
+          return (
+            <div key={i.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm leading-tight">{i.area}</div>
+                  <div className="text-xs text-gray-500 font-mono mt-0.5">{fmtFecha(i.fecha)} · {i.tipo}</div>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <button onClick={()=>openDetail(i)} className="text-gray-500 hover:text-emerald-400 p-1" title="Ver hallazgos"><Eye size={15} /></button>
+                  <button onClick={()=>openEditInsp(i)} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15} /></button>
+                  <button onClick={()=>deleteInsp(i.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mb-2.5">
+                <Badge color={RESULTADO_COLOR[i.resultado]||"gray"}>{i.resultado}</Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                <div className="truncate"><span className="text-gray-600">Inspector:</span> <span className="text-gray-400">{i.inspector||"—"}</span></div>
+                <div>
+                  <button onClick={()=>openDetail(i)} className="text-blue-400">
+                    <span className={`font-bold ${abiertos>0?"text-amber-400":"text-gray-500"}`}>{hs.length}</span> <span className="text-gray-600">hallazgos</span>{abiertos>0 && <span className="text-amber-500"> ({abiertos} ab.)</span>}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {!loading && !filtered.length && (
+          <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">{inspecciones.length?"Sin resultados para el filtro.":"Sin inspecciones. Usa \"Nueva inspección\" para comenzar."}</div>
+        )}
+      </div>
+
+      {/* ── Vista escritorio: tabla ── */}
+      <div className="hidden md:block">
+        <WideTableScroll>
         <table className="w-full text-sm">
           <thead><tr className="border-b border-gray-800">
             {["Fecha","Tipo","Área","Inspector","Resultado","Hallazgos",""].map(h=>(
@@ -192,13 +232,14 @@ function InspeccionesGenerico({ empresaId }) {
             )}
           </tbody>
         </table>
+        </WideTableScroll>
       </div>
 
       {/* Modal — Formulario inspección */}
       {showFormModal && (
         <Modal title={editingInsp ? "Editar inspección" : "Nueva inspección"} onClose={()=>setShowFormModal(false)} wide>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Tipo de inspección">
                 <Select value={formInsp.tipo} onChange={e=>setFormInsp(f=>({...f,tipo:e.target.value}))}>
                   {TIPOS_INSPECCION.map(t=><option key={t}>{t}</option>)}
@@ -269,7 +310,7 @@ function InspeccionesGenerico({ empresaId }) {
         <Modal title={editingHall ? "Editar hallazgo" : "Nuevo hallazgo"} onClose={()=>setShowHallModal(false)}>
           <div className="space-y-3">
             <FormField label="Descripción del hallazgo *"><Input value={formHall.descripcion} onChange={e=>setFormHall(f=>({...f,descripcion:e.target.value}))} placeholder="Describe el acto o condición observada..." /></FormField>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Tipo">
                 <Select value={formHall.tipo} onChange={e=>setFormHall(f=>({...f,tipo:e.target.value}))}>
                   <option>Condición subestándar</option><option>Acto subestándar</option><option>Observación positiva</option>
