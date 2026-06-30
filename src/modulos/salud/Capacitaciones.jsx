@@ -29,8 +29,8 @@ import ExamenModulo from './ExamenModulo.jsx';
 
 export default function Capacitaciones({ workers, trainings, setTrainings, empresaId, empresa, role }) {
   const esComindustria = empresa?.nombre?.toLowerCase().includes('comindustria') || false;
-  // Empresas que usan el portal de Exámenes/Capacitaciones: Comindustria + Expertos en Café + Franquicias Unidas
-  const usaExamenes = esComindustria || (() => { const n = empresa?.nombre?.toLowerCase() || ""; return n.includes('expertos en cafe') || n.includes('expertos en café') || n.includes('franquicias unidas') || n.includes('multisel'); })();
+  // Empresas que usan el portal de Exámenes/Capacitaciones: Comindustria + Expertos en Café + Franquicias Unidas + Multisel + DEMO
+  const usaExamenes = esComindustria || (() => { const n = empresa?.nombre?.toLowerCase() || ""; return n.includes('expertos en cafe') || n.includes('expertos en café') || n.includes('franquicias unidas') || n.includes('multisel') || n.includes('demo'); })();
   const [vistaCAP, setVistaCAP] = useState('capacitaciones'); // capacitaciones | examenes
   const [detail, setDetail] = useState(null);
   const [attendance, setAttendance] = useState({});

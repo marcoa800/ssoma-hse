@@ -23,7 +23,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
   const hydroBloqueado = (id) => esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
   const moduloOcultoHome = (id) => {
     if (esComindustria && ["ats"].includes(id)) return true;
-    if (!esComindustria && ["indicadores"].includes(id)) return true;
+    if (!esComindustria && !esDemo && ["indicadores"].includes(id)) return true; // indicadores: Comindustria + DEMO
     return false;
   };
 

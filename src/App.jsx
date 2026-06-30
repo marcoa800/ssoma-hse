@@ -8,6 +8,7 @@ import Login from "./auth/Login.jsx";
 const PublicTriajeForm = lazy(() => import("./modulos/ssoma/PublicTriajeForm.jsx"));
 const PublicExamenForm = lazy(() => import("./modulos/salud/PublicExamenForm.jsx"));
 const PublicRacForm = lazy(() => import("./modulos/ssoma/PublicRacForm.jsx"));
+const PublicContratista = lazy(() => import("./modulos/ssoma/PublicContratista.jsx"));
 // Módulos internos (post-login) — diferidos para aligerar la carga inicial
 const SuperAdmin = lazy(() => import("./auth/SuperAdmin.jsx"));
 const HomeModulo = lazy(() => import("./modulos/salud/Home.jsx"));
@@ -49,6 +50,7 @@ const IndicadoresComind = lazy(() => import("./modulos/ssoma/IndicadoresComind.j
 const ATSPetarModulo = lazy(() => import("./modulos/ssoma/AtsPetarModulo.jsx"));
 const ReportesSSOMAModulo = lazy(() => import("./modulos/ssoma/ReportesSSOMA.jsx"));
 const ContratistasModulo = lazy(() => import("./modulos/ssoma/ContratistasModulo.jsx"));
+const ContratistasPortal = lazy(() => import("./modulos/ssoma/ContratistasPortal.jsx")); // versión CTG con portal (solo DEMO)
 const HallazgosHGP = lazy(() => import("./modulos/ssoma/HallazgosHGP.jsx"));
 const HomologacionModulo = lazy(() => import("./modulos/ssoma/HomologacionModulo.jsx"));
 const SIGModulo = lazy(() => import("./modulos/ssoma/SIGModulo.jsx"));
@@ -225,7 +227,8 @@ export default function App() {
   // Módulos ocultos por empresa
   const moduloOculto = (id) => {
     if (esComindustria && ["ats"].includes(id)) return true;
-    if (!esComindustria && ["indicadores","examenes"].includes(id)) return true; // solo Comindustria
+    if (!esComindustria && !esDemo && id === "indicadores") return true; // indicadores: Comindustria + DEMO
+    if (!esComindustria && id === "examenes") return true; // módulo examenes: solo Comindustria
     return false;
   };
 
@@ -266,6 +269,8 @@ export default function App() {
   if (publicExamenId) return <Suspense fallback={cargandoPublico}><PublicExamenForm empresaId={publicExamenId} /></Suspense>;
   const emoToken = new URLSearchParams(window.location.search).get("entrega");
   if (emoToken) return <Suspense fallback={cargandoPublico}><EmoDeliveryFlow token={emoToken} /></Suspense>;
+  const publicContratistaId = new URLSearchParams(window.location.search).get("contratista");
+  if (publicContratistaId) return <Suspense fallback={cargandoPublico}><PublicContratista empresaId={publicContratistaId} /></Suspense>;
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-600 text-sm">Cargando...</div>;
   if (!session) return <><Login /><ToastContainer /></>;
@@ -631,9 +636,11 @@ export default function App() {
           {page === "ats"            && !moduloOculto("ats") && <ATSPetarModulo empresaId={empresaId} workers={workers} />}
           {page === "reportes_ssoma" && <ReportesSSOMAModulo empresaId={empresaId} empresa={empresa} workers={workers} />}
           {page === "plan_so" && esMultisel && <PlanSOModulo empresaId={empresaId} />}
-          {page === "contratistas" && <ContratistasModulo empresaId={empresaId} />}
+          {page === "contratistas" && (esDemo
+            ? <ContratistasPortal empresaId={empresaId} empresa={empresa} />
+            : <ContratistasModulo empresaId={empresaId} />)}
           {page === "inversion" && <InversionSST empresaId={empresaId} />}
-          {page === "indicadores" && esComindustria && <IndicadoresComind empresaId={empresaId} />}
+          {page === "indicadores" && (esComindustria || esDemo) && <IndicadoresComind empresaId={empresaId} />}
           {page === "hallazgos_hgp" && esHydroGlobal && <HallazgosHGP empresaId={empresaId} />}
           {page === "homologacion"  && esOilGas      && <HomologacionModulo empresaId={empresaId} />}
           {page === "sig"          && esOilGas && <SIGModulo empresaId={empresaId} />}
