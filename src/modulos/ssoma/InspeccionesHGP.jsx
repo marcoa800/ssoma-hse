@@ -1157,7 +1157,8 @@ function guardarPDF(doc, plantilla, registro) {
 
 export async function generarPDF(registro, plantilla, empresa = EMPRESA_HGP) {
   if (!plantilla) { showToast("Plantilla no encontrada para el PDF", "error"); return; }
-  const logo = await cargarLogo(empresa.logo || EMPRESA_HGP.logo);
+  // logo === null ⇒ sin logo (DEMO); falsy "normal" ⇒ usa el de HGP por defecto
+  const logo = empresa.logo === null ? null : await cargarLogo(empresa.logo || EMPRESA_HGP.logo);
 
   // El RACS (evento) usa formato vertical propio
   if (plantilla.patron === "evento") {

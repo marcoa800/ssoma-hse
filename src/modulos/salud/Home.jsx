@@ -4,7 +4,9 @@ import {
   LayoutDashboard, Users, BookOpen, FileText, BarChart2, Stethoscope,
   AlertTriangle, CheckCircle, Plus, Download, ChevronRight, Lock, FileDown,
   ClipboardList, ShieldAlert, Shield, Activity, Home, HeartPulse,
-  Microscope, Settings, Building2, DollarSign, TrendingUp, Sparkles
+  Microscope, Settings, Building2, DollarSign, TrendingUp, Sparkles,
+  Leaf, Droplets, Wind, Trash2, Cloud, Scale, Target, GitBranch, ClipboardCheck,
+  Award, Gauge, Ruler, MessageSquare, Megaphone, HeartHandshake
 } from 'lucide-react';
 
 export default function HomeModulo({ profile, role, platform, setPlatform, navigate, setPage, empresa }) {
@@ -96,6 +98,70 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     { id: "homologacion", label: "Homologación SGS",  desc: "Cuestionario UNNA Energía — 129 ítems",        Icon: CheckCircle, color: "amber"  },
   ];
 
+  // ── DEMO: Gestión Ambiental (módulos de ejemplo, aún no funcionales) ──
+  const AMBIENTAL_CARDS = [
+    { id: "aspectos_impactos", label: "Aspectos e Impactos",     desc: "Matriz IAAS de aspectos e impactos ambientales", Icon: Leaf,          color: "green",   placeholder: true },
+    { id: "residuos",          label: "Gestión de Residuos",     desc: "Residuos sólidos (DL 1278) y peligrosos",        Icon: Trash2,        color: "emerald", placeholder: true },
+    { id: "monitoreo_amb",     label: "Monitoreo Ambiental",     desc: "Agua, aire, ruido y suelo",                      Icon: Activity,      color: "cyan",    placeholder: true },
+    { id: "efluentes",         label: "Efluentes / Vertimientos",desc: "Control de efluentes (ECA Agua, ANA)",           Icon: Droplets,      color: "blue",    placeholder: true },
+    { id: "emisiones",         label: "Emisiones Atmosféricas",  desc: "Control de emisiones (ECA Aire)",                Icon: Wind,          color: "teal",    placeholder: true },
+    { id: "huella_carbono",    label: "Huella de Carbono",       desc: "Inventario de GEI (alcances 1, 2 y 3)",          Icon: Cloud,         color: "gray",    placeholder: true },
+    { id: "legal_amb",         label: "Cumplimiento Legal",      desc: "Requisitos legales ambientales (Ley 28611)",     Icon: Scale,         color: "amber",   placeholder: true },
+    { id: "pma",               label: "Plan de Manejo Ambiental",desc: "PMA y compromisos del instrumento de gestión",   Icon: FileText,      color: "green",   placeholder: true },
+    { id: "emergencias_amb",   label: "Emergencias Ambientales", desc: "Plan de contingencia ante derrames",             Icon: AlertTriangle, color: "red",     placeholder: true },
+    { id: "indicadores_amb",   label: "Indicadores Ambientales", desc: "Consumo de agua, energía y generación de residuos", Icon: BarChart2,  color: "blue",    placeholder: true },
+    { id: "capacitacion_amb",  label: "Capacitación Ambiental",  desc: "Sensibilización y formación ambiental",          Icon: BookOpen,      color: "purple",  placeholder: true },
+    { id: "hallazgos_amb",     label: "Hallazgos Ambientales",   desc: "No conformidades y acciones correctivas",        Icon: ClipboardCheck,color: "orange",  placeholder: true },
+  ];
+
+  // ── DEMO: Sistema Integrado de Gestión (ISO 9001/14001/45001) — ejemplo ──
+  const SIG_DEMO_CARDS = [
+    { id: "sig_politica",    label: "Política Integrada",       desc: "Política del SIG (Calidad, SST y Ambiente)",  Icon: FileText,      color: "violet", placeholder: true },
+    { id: "sig_documentos",  label: "Control de Documentos",    desc: "Documentación y registros del SIG",           Icon: FileDown,      color: "blue",   placeholder: true },
+    { id: "sig_legal",       label: "Requisitos Legales",       desc: "Matriz de requisitos legales aplicables",     Icon: Scale,         color: "amber",  placeholder: true },
+    { id: "sig_objetivos",   label: "Objetivos y Metas",        desc: "Objetivos del sistema y su seguimiento",      Icon: Target,        color: "emerald",placeholder: true },
+    { id: "sig_riesgos",     label: "Riesgos y Oportunidades",  desc: "Gestión de riesgos y oportunidades",          Icon: Shield,        color: "red",    placeholder: true },
+    { id: "sig_auditorias",  label: "Auditorías Internas",      desc: "ISO 9001 / 14001 / 45001",                    Icon: ClipboardCheck,color: "cyan",   placeholder: true },
+    { id: "sig_nc",          label: "No Conformidades",         desc: "NC y acciones correctivas (PHVA)",            Icon: AlertTriangle, color: "orange", placeholder: true },
+    { id: "sig_cambio",      label: "Gestión del Cambio",       desc: "Control de cambios del sistema",              Icon: GitBranch,     color: "purple", placeholder: true },
+    { id: "sig_partes",      label: "Partes Interesadas",       desc: "Necesidades y expectativas",                  Icon: Users,         color: "teal",   placeholder: true },
+    { id: "sig_revision",    label: "Revisión por la Dirección",desc: "Entradas, salidas y acuerdos",                Icon: CheckCircle,   color: "blue",   placeholder: true },
+    { id: "sig_indicadores", label: "Indicadores SIG",          desc: "KPIs del sistema integrado de gestión",       Icon: BarChart2,     color: "yellow", placeholder: true },
+    { id: "sig_mejora",      label: "Mejora Continua",          desc: "Ciclo PHVA y oportunidades de mejora",        Icon: TrendingUp,    color: "green",  placeholder: true },
+  ];
+
+  // ── DEMO: Gestión de Calidad (ISO 9001) — módulos de ejemplo ──
+  const CALIDAD_CARDS = [
+    { id: "cal_politica",     label: "Política de Calidad",     desc: "Política y objetivos de calidad",            Icon: FileText,      color: "blue",    placeholder: true },
+    { id: "cal_procesos",     label: "Gestión de Procesos",     desc: "Mapa de procesos y caracterización",         Icon: GitBranch,     color: "purple",  placeholder: true },
+    { id: "cal_control",      label: "Control de Calidad",      desc: "Inspección y ensayos del producto/servicio", Icon: ClipboardCheck,color: "cyan",    placeholder: true },
+    { id: "cal_pnc",          label: "Producto No Conforme",    desc: "Tratamiento de salidas no conformes",        Icon: AlertTriangle, color: "red",     placeholder: true },
+    { id: "cal_satisfaccion", label: "Satisfacción del Cliente",desc: "Encuestas y voz del cliente",                Icon: Award,         color: "amber",   placeholder: true },
+    { id: "cal_metrologia",   label: "Calibración / Metrología",desc: "Control de equipos de medición",             Icon: Ruler,         color: "teal",    placeholder: true },
+    { id: "cal_capa",         label: "Acciones Correctivas",    desc: "No conformidades y acciones (PHVA)",         Icon: CheckCircle,   color: "emerald", placeholder: true },
+    { id: "cal_auditorias",   label: "Auditorías de Calidad",   desc: "Auditorías internas ISO 9001",               Icon: ClipboardList, color: "blue",    placeholder: true },
+    { id: "cal_proveedores",  label: "Evaluación de Proveedores",desc: "Homologación y desempeño de proveedores",   Icon: Building2,     color: "orange",  placeholder: true },
+    { id: "cal_indicadores",  label: "Indicadores de Calidad",  desc: "KPIs de calidad y desempeño",                Icon: Gauge,         color: "yellow",  placeholder: true },
+    { id: "cal_mejora",       label: "Mejora Continua",         desc: "Kaizen y oportunidades de mejora",           Icon: TrendingUp,    color: "green",   placeholder: true },
+    { id: "cal_riesgos",      label: "Riesgos de Procesos",     desc: "Riesgos y oportunidades por proceso",        Icon: Shield,        color: "red",     placeholder: true },
+  ];
+
+  // ── DEMO: Responsabilidad Social / Relaciones Comunitarias — ejemplo ──
+  const RSE_CARDS = [
+    { id: "rse_grupos",        label: "Grupos de Interés",       desc: "Mapeo de actores y stakeholders",            Icon: Users,         color: "blue",    placeholder: true },
+    { id: "rse_quejas",        label: "Quejas y Reclamos",       desc: "Gestión de quejas de comunidades",           Icon: MessageSquare, color: "red",     placeholder: true },
+    { id: "rse_inversion",     label: "Inversión Social",        desc: "Proyectos e inversión en comunidades",       Icon: DollarSign,    color: "emerald", placeholder: true },
+    { id: "rse_monitoreo",     label: "Monitoreo Participativo", desc: "Monitoreo ambiental participativo",          Icon: Activity,      color: "cyan",    placeholder: true },
+    { id: "rse_convenios",     label: "Convenios y Compromisos", desc: "Acuerdos y compromisos sociales",            Icon: FileText,      color: "amber",   placeholder: true },
+    { id: "rse_empleo",        label: "Empleo Local",            desc: "Contratación de mano de obra local",         Icon: Users,         color: "teal",    placeholder: true },
+    { id: "rse_dialogo",       label: "Comunicación y Diálogo",  desc: "Mesas de diálogo y comunicación",            Icon: Megaphone,     color: "purple",  placeholder: true },
+    { id: "rse_conflictos",    label: "Gestión de Conflictos",   desc: "Prevención de conflictos sociales",          Icon: AlertTriangle, color: "orange",  placeholder: true },
+    { id: "rse_desarrollo",    label: "Desarrollo Comunitario",  desc: "Programas de desarrollo local",              Icon: HeartHandshake,color: "rose",    placeholder: true },
+    { id: "rse_etica",         label: "Línea Ética",             desc: "Canal de denuncias y ética",                 Icon: Shield,        color: "gray",    placeholder: true },
+    { id: "rse_indicadores",   label: "Indicadores Sociales",    desc: "KPIs de gestión social",                     Icon: BarChart2,     color: "blue",    placeholder: true },
+    { id: "rse_sostenibilidad",label: "Reporte de Sostenibilidad",desc: "Memoria de sostenibilidad (GRI)",           Icon: Leaf,          color: "green",   placeholder: true },
+  ];
+
   const ADMIN_CARDS = [
     { id: "dashboard",       label: "Dashboard",         desc: "Métricas y resumen general",            Icon: LayoutDashboard, color: "emerald" },
     { id: "directorio",      label: "Directorio",        desc: "Sábana de personal",                    Icon: Users,           color: "emerald" },
@@ -105,11 +171,18 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
   const cards = (
     platform === "administrativo" ? ADMIN_CARDS :
     platform === "salud" ? SALUD_CARDS :
-    platform === "sig" && esOilGas ? SIG_CARDS :
+    platform === "ambiental" ? AMBIENTAL_CARDS :
+    platform === "calidad" ? CALIDAD_CARDS :
+    platform === "rse" ? RSE_CARDS :
+    platform === "sig" ? (esOilGas ? SIG_CARDS : SIG_DEMO_CARDS) :
     SSOMA_CARDS
   ).filter(c => !moduloOcultoHome(c.id));
 
   const handleCard = (card) => {
+    if (card.placeholder) {
+      showToast("Módulo en construcción — disponible próximamente", "info");
+      return;
+    }
     if (hydroBloqueado(card.id)) {
       showToast("Módulo no disponible para tu empresa", "error");
       return;
@@ -155,9 +228,39 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
                   ? "bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-500/25"
                   : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
               }`}>
-              <ShieldAlert size={16} /> SSOMA
+              <ShieldAlert size={16} /> {esDemo ? "Seguridad" : "SSOMA"}
             </button>
-            {esOilGas && (
+            {esDemo && (
+              <button onClick={() => setPlatform("ambiental")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+                  platform === "ambiental"
+                    ? "bg-green-600 text-white border-green-500 shadow-lg shadow-green-500/25"
+                    : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
+                }`}>
+                <Leaf size={16} /> Ambiental
+              </button>
+            )}
+            {esDemo && (
+              <button onClick={() => setPlatform("calidad")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+                  platform === "calidad"
+                    ? "bg-cyan-600 text-white border-cyan-500 shadow-lg shadow-cyan-500/25"
+                    : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
+                }`}>
+                <Award size={16} /> Calidad
+              </button>
+            )}
+            {esDemo && (
+              <button onClick={() => setPlatform("rse")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+                  platform === "rse"
+                    ? "bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-500/25"
+                    : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
+                }`}>
+                <HeartHandshake size={16} /> Responsabilidad Social
+              </button>
+            )}
+            {(esOilGas || esDemo) && (
               <button onClick={() => setPlatform("sig")}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
                   platform === "sig"
@@ -183,10 +286,10 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
 
       {/* ── Section ── */}
       <div>
-        <div className={`flex items-center gap-3 pl-3 border-l-2 mb-5 ${platform === "salud" ? "border-blue-500" : platform === "sig" ? "border-violet-500" : platform === "administrativo" ? "border-emerald-500" : "border-amber-500"}`}>
+        <div className={`flex items-center gap-3 pl-3 border-l-2 mb-5 ${platform === "salud" ? "border-blue-500" : platform === "ambiental" ? "border-green-500" : platform === "calidad" ? "border-cyan-500" : platform === "rse" ? "border-rose-500" : platform === "sig" ? "border-violet-500" : platform === "administrativo" ? "border-emerald-500" : "border-amber-500"}`}>
           <div>
-            <div className={`text-sm font-bold uppercase tracking-widest ${platform === "salud" ? "text-blue-400" : platform === "sig" ? "text-violet-400" : platform === "administrativo" ? "text-emerald-400" : "text-amber-400"}`}>
-              {platform === "salud" ? "Salud Ocupacional" : platform === "sig" ? "Sistema Integrado de Gestión" : platform === "administrativo" ? "Administrativo" : "Seguridad y Medio Ambiente"}
+            <div className={`text-sm font-bold uppercase tracking-widest ${platform === "salud" ? "text-blue-400" : platform === "ambiental" ? "text-green-400" : platform === "calidad" ? "text-cyan-400" : platform === "rse" ? "text-rose-400" : platform === "sig" ? "text-violet-400" : platform === "administrativo" ? "text-emerald-400" : "text-amber-400"}`}>
+              {platform === "salud" ? "Salud Ocupacional" : platform === "ambiental" ? "Gestión Ambiental" : platform === "calidad" ? "Gestión de Calidad" : platform === "rse" ? "Responsabilidad Social" : platform === "sig" ? "Sistema Integrado de Gestión" : platform === "administrativo" ? "Administrativo" : (esDemo ? "Seguridad" : "Seguridad y Medio Ambiente")}
             </div>
             <div className="text-sm text-gray-500 mt-0.5">Selecciona un módulo para comenzar</div>
           </div>
@@ -207,6 +310,9 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
                 </div>
                 <div className="text-base font-semibold text-white leading-tight mb-1.5">{card.label}</div>
                 <div className="text-sm text-gray-500 leading-relaxed">{card.desc}</div>
+                {card.placeholder && (
+                  <span className="absolute top-3 right-3 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-gray-800 text-gray-400 border border-gray-700">Pronto</span>
+                )}
                 {!isLocked && (
                   <div className={`absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity ${cc.text}`}>
                     <ChevronRight size={16} />
