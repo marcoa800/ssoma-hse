@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia, fmtFecha} from '../../lib/helpers.js';
 import { TRIAJE_CATS, CATEGORIAS_RIESGO, DETALLES_ESPECIFICOS } from '../../constants/triaje.js';
@@ -230,7 +230,9 @@ export default function ContratistasModulo({ empresaId }) {
           </div>
           <div className="flex gap-2 shrink-0">
             <Btn size="sm" variant="ghost" onClick={() => { const d={...initC,...selected}; ["sctr_empresa_venc","poliza_rc_venc","poliza_vida_venc","plan_sst_venc","iper_venc"].forEach(k=>{ d[k]=selected[k]||""; }); setFormC(d); setEditingC(selected); setShowModalC(true); }}><Pencil size={13}/> Editar</Btn>
-            <button onClick={() => deleteContratista(selected.id)} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500/60 hover:text-red-400 border border-red-900/40 hover:border-red-800 rounded-lg transition-colors"><Trash2 size={13}/></button>
+            {puedeEliminar() && (
+              <button onClick={() => deleteContratista(selected.id)} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500/60 hover:text-red-400 border border-red-900/40 hover:border-red-800 rounded-lg transition-colors"><Trash2 size={13}/></button>
+            )}
           </div>
         </div>
 
@@ -418,7 +420,9 @@ export default function ContratistasModulo({ empresaId }) {
                           d.es_brigadista=p.es_brigadista||false; d.grupo_riesgo_covid=p.grupo_riesgo_covid||false;
                           setFormP(d); setEditingP(p); setShowModalP(true);
                         }} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15}/></button>
-                        <button onClick={async()=>{ if(!confirm("¿Eliminar?"))return; await supabase.from("contratista_personal").delete().eq("id",p.id); showToast("Eliminado","info"); load(); }} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15}/></button>
+                        {puedeEliminar() && (
+                          <button onClick={async()=>{ if(!confirm("¿Eliminar?"))return; await supabase.from("contratista_personal").delete().eq("id",p.id); showToast("Eliminado","info"); load(); }} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15}/></button>
+                        )}
                       </div>
                     </div>
                     <div className="text-xs text-gray-400 mb-2">{p.perfil==="Operativo que maneja" ? "🚗 Maneja" : "🦺 No maneja"}{p.cargo ? ` · ${p.cargo}` : ""}{p.frente_trabajo ? ` · ${p.frente_trabajo}` : ""}</div>
@@ -512,7 +516,9 @@ export default function ContratistasModulo({ empresaId }) {
                               d.es_brigadista=p.es_brigadista||false; d.grupo_riesgo_covid=p.grupo_riesgo_covid||false;
                               setFormP(d); setEditingP(p); setShowModalP(true);
                             }} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13}/></button>
-                            <button onClick={async()=>{ if(!confirm("¿Eliminar?"))return; await supabase.from("contratista_personal").delete().eq("id",p.id); showToast("Eliminado","info"); load(); }} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13}/></button>
+                            {puedeEliminar() && (
+                              <button onClick={async()=>{ if(!confirm("¿Eliminar?"))return; await supabase.from("contratista_personal").delete().eq("id",p.id); showToast("Eliminado","info"); load(); }} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13}/></button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -561,7 +567,9 @@ export default function ContratistasModulo({ empresaId }) {
                       </div>
                       <div className="flex gap-1 ml-3 shrink-0">
                         <button onClick={() => { const d={...initT,...t,fecha_inicio:t.fecha_inicio||"",fecha_fin:t.fecha_fin||"",personal_asignado:t.personal_asignado||[]}; setFormT(d); setEditingT(t); setShowModalT(true); }} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13}/></button>
-                        <button onClick={async()=>{ if(!confirm("¿Eliminar?"))return; await supabase.from("contratista_trabajos").delete().eq("id",t.id); showToast("Eliminado","info"); load(); }} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13}/></button>
+                        {puedeEliminar() && (
+                          <button onClick={async()=>{ if(!confirm("¿Eliminar?"))return; await supabase.from("contratista_trabajos").delete().eq("id",t.id); showToast("Eliminado","info"); load(); }} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13}/></button>
+                        )}
                       </div>
                     </div>
                   </div>

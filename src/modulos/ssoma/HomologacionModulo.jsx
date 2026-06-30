@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "../../lib/supabase.js";
+import { supabase, puedeEliminar } from "../../lib/supabase.js";
 import { showToast } from "../../lib/toast.jsx";
 import { Modal } from "../../components/ui/Modal.jsx";
 import { FormField } from "../../components/ui/FormField.jsx";
@@ -317,7 +317,9 @@ export default function HomologacionModulo({ empresaId }) {
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button onClick={() => openEdit(item)} className="text-gray-500 hover:text-gray-200 p-1"><Pencil size={15} /></button>
-                  <button onClick={() => del(item)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                  {puedeEliminar() && (
+                    <button onClick={() => del(item)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                  )}
                 </div>
               </div>
               {item.notas && <div className="text-xs text-gray-600 italic mb-2">{item.notas}</div>}
@@ -437,10 +439,12 @@ export default function HomologacionModulo({ empresaId }) {
                           className="p-1.5 text-gray-600 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors">
                           <Pencil size={13} />
                         </button>
-                        <button onClick={() => del(item)}
-                          className="p-1.5 text-gray-700 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
-                          <Trash2 size={13} />
-                        </button>
+                        {puedeEliminar() && (
+                          <button onClick={() => del(item)}
+                            className="p-1.5 text-gray-700 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

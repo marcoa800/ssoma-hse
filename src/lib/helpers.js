@@ -59,6 +59,14 @@ const THEME_CSS = {
     ".t-blanco .hover\\:text-blue-400:hover{color:#1d4ed8!important}" +
     ".t-blanco .text-blue-400{color:#1d4ed8!important}" +
     ".t-blanco .text-blue-500{color:#1d4ed8!important}" +
+    ".t-blanco .text-blue-300{color:#1d4ed8!important}" +
+    ".t-blanco .text-amber-300{color:#b45309!important}" +
+    ".t-blanco .text-emerald-300{color:#047857!important}" +
+    ".t-blanco .text-red-300{color:#b91c1c!important}" +
+    ".t-blanco .text-orange-300{color:#c2410c!important}" +
+    ".t-blanco .text-purple-300{color:#7e22ce!important}" +
+    ".t-blanco .text-cyan-300{color:#0e7490!important}" +
+    ".t-blanco .text-green-300{color:#15803d!important}" +
     ".t-blanco .text-amber-400{color:#b45309!important}" +
     ".t-blanco .text-amber-500{color:#92400e!important}" +
     ".t-blanco .text-orange-400{color:#c2410c!important}" +
@@ -128,13 +136,107 @@ export function fmtFecha(val) {
   return s; // si ya está en otro formato, lo devuelve tal cual
 }
 
+// Meses en texto (es/en abreviados) → número
+const MESES_TXT = { ene: 1, jan: 1, feb: 2, mar: 3, abr: 4, apr: 4, may: 5, jun: 6, jul: 7, ago: 8, aug: 8, sep: 9, set: 9, oct: 10, nov: 11, dic: 12, dec: 12 };
+
+// Convierte una celda de fecha a ISO (YYYY-MM-DD) detectando el formato:
+// año/mes/día en cualquier posición, serial de Excel, objeto Date y mes en texto.
 export function excelDateToISO(val) {
-  if (!val) return null;
-  if (typeof val === "string" && val.includes("-")) return val;
-  if (typeof val === "string" && val.includes("/")) {
-    const parts = val.split("/");
-    if (parts.length === 3) { const [d, m, y] = parts; return `${y.length === 2 ? "20" + y : y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`; }
+  if (val === null || val === undefined || val === "") return null;
+
+  // 1) Objeto Date (cuando se lee con cellDates:true)
+  if (val instanceof Date) {
+    if (isNaN(val)) return null;
+    return `${val.getFullYear()}-${String(val.getMonth() + 1).padStart(2, "0")}-${String(val.getDate()).padStart(2, "0")}`;
   }
-  if (typeof val === "number") { const date = new Date((val - 25569) * 86400 * 1000); return date.toISOString().split("T")[0]; }
-  return null;
+
+  // 2) Serial de Excel (número o cadena puramente numérica, rango ~1927–2064)
+  const sRaw = String(val).trim();
+  if (/^\d+(\.\d+)?$/.test(sRaw)) {
+    const n = Number(sRaw);
+    if (n >= 10000 && n <= 60000) {
+      const date = new Date(Math.round((n - 25569) * 86400 * 1000));
+      if (!isNaN(date)) return date.toISOString().split("T")[0];
+    }
+  }
+
+  // 3) Cadena con separadores. Quitar solo la hora si viene (no los espacios separadores).
+  let s = sRaw.replace(/[T ]+\d{1,2}:\d{2}(:\d{2})?.*$/, "").trim();
+
+  // 3a) Mes en texto: "01-ene-2026", "1 ENE 2026", etc.
+  const lower = s.toLowerCase();
+  for (const [txt, mnum] of Object.entries(MESES_TXT)) {
+    if (lower.includes(txt)) {
+      const nums = s.match(/\d+/g) || [];
+      let y = nums.find(p => p.length === 4), d = nums.find(p => p.length <= 2);
+      if (y) return `${y}-${String(mnum).padStart(2, "0")}-${String(parseInt(d || "1", 10)).padStart(2, "0")}`;
+    }
+  }
+
+  // 3b) Numérico con / - . o espacio
+  const parts = s.split(/[\/.\- ]/).map(p => p.trim()).filter(Boolean);
+  if (parts.length !== 3) return null;
+  const nums = parts.map(p => parseInt(p, 10));
+  if (nums.some(isNaN)) return null;
+
+  // Detectar el AÑO: parte de 4 dígitos, o un valor >31 (año 2 dígitos al inicio/fin)
+  let yi = parts.findIndex(p => p.length === 4);
+  if (yi < 0) yi = nums.findIndex(n => n > 31);
+  if (yi < 0) yi = 2; // ninguno claro → asumir año al final (formato D/M/A de Perú)
+
+  const [i1, i2] = [0, 1, 2].filter(i => i !== yi);
+  let dia, mes;
+  if (yi === 0) { mes = nums[i1]; dia = nums[i2]; }   // Año primero → A/M/D
+  else          { dia = nums[i1]; mes = nums[i2]; }   // Año al final/medio → D/M/A
+  // Desambiguar con la regla "valor > 12 es el día"
+  if (mes > 12 && dia <= 12) { const t = mes; mes = dia; dia = t; }
+
+  let year = nums[yi];
+  if (String(year).length <= 2) year = 2000 + year;
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  return `${year}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+// ── Periodicidad de controles de vigilancia ──
+export const PERIODICIDADES = ["Único", "Semanal", "Quincenal", "Mensual", "Trimestral", "Semestral", "Anual"];
+
+// Calcula la fecha del próximo control según la periodicidad
+export function proximoControl(fechaISO, periodicidad) {
+  if (!fechaISO || !periodicidad || periodicidad === "Único") return null;
+  const d = new Date(fechaISO + "T00:00:00");
+  if (isNaN(d)) return null;
+  const map = { Semanal: [0, 7], Quincenal: [0, 15], Mensual: [1, 0], Trimestral: [3, 0], Semestral: [6, 0], Anual: [12, 0] };
+  const add = map[periodicidad];
+  if (!add) return null;
+  d.setMonth(d.getMonth() + add[0]);
+  d.setDate(d.getDate() + add[1]);
+  return d.toISOString().split("T")[0];
+}
+
+// Estado de un control según su próxima fecha
+export function estadoControl(proximoISO) {
+  if (!proximoISO) return null;
+  const hoy = new Date(new Date().toISOString().split("T")[0] + "T00:00:00");
+  const prox = new Date(proximoISO + "T00:00:00");
+  const dias = Math.round((prox - hoy) / 86400000);
+  if (dias < 0) return { label: "Vencido", color: "red", dias };
+  if (dias <= 15) return { label: "Por vencer", color: "amber", dias };
+  return { label: "Vigente", color: "green", dias };
+}
+
+// ── Branding por empresa (logo + marca) para portales/PDF ──
+export function brandingEmpresa(nombre) {
+  const n = (nombre || "").toLowerCase();
+  // Franquicias Unidas opera bajo la marca "Gelarti"
+  if (n.includes("franquicias unidas"))
+    return { marca: "Gelarti", logo: "/logo-gelarti.png", footer: "Gelarti  ·  Sistema Medicloud Safety" };
+  // Expertos en Café — logo propio (pendiente: cae a texto hasta colocar /logo-expertos.png)
+  if (n.includes("expertos en cafe") || n.includes("expertos en café"))
+    return { marca: "Expertos en Café", logo: "/logo-expertos.png", footer: "Expertos en Café  ·  Sistema Medicloud Safety" };
+  if (n.includes("comindustria"))
+    return { marca: "Comindustria", logo: "/logo-comind.png", footer: "Inversiones Comindustria  ·  Sistema Medicloud Safety" };
+  if (n.includes("multisel"))
+    return { marca: "Multisel", logo: "/logo-multisel.png", footer: "Multisel  ·  Sistema Medicloud Safety" };
+  const m = nombre || "Medicloud Safety";
+  return { marca: m, logo: null, footer: `${m}  ·  Sistema Medicloud Safety` };
 }

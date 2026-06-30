@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { fmtFecha } from '../../lib/helpers.js';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
@@ -111,7 +111,9 @@ export default function RegistrosLegalesHGP({ empresaId, onBack }) {
                   <button onClick={() => setDetalle(r)} className="text-gray-500 hover:text-emerald-400" title="Ver"><Eye size={13} /></button>
                   <button onClick={() => generarPDFLegal(r, getRegistroLegal(r.plantilla_codigo))} className="text-gray-500 hover:text-blue-400" title="Descargar PDF"><FileDown size={13} /></button>
                   <button onClick={() => editar(r)} className="text-gray-500 hover:text-blue-400" title="Editar"><Pencil size={13} /></button>
-                  <button onClick={() => eliminar(r.id)} className="text-red-500/40 hover:text-red-400" title="Eliminar"><Trash2 size={13} /></button>
+                  {puedeEliminar() && (
+                    <button onClick={() => eliminar(r.id)} className="text-red-500/40 hover:text-red-400" title="Eliminar"><Trash2 size={13} /></button>
+                  )}
                 </div></td>
               </tr>
             ))}

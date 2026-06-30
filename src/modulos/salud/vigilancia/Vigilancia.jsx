@@ -15,11 +15,20 @@ import RadiacionUVModulo from './RadiacionUV.jsx';
 import ProteccionRespiratoriaModulo from './Respiratoria.jsx';
 import DescansosMedicosModulo from './DescansosMedicos.jsx';
 import MorbilidadModulo from './Morbilidad.jsx';
+import PendientesPanel from './PendientesPanel.jsx';
+import CustomProgramaView from './CustomProgramaView.jsx';
+import ProgramaCreatorModal from './ProgramaCreatorModal.jsx';
+import { showToast } from '../../../lib/toast.jsx';
+import { Btn } from '../../../components/ui/Btn.jsx';
 
 export default function Vigilancia({ workers, empresaId }) {
   const [tab, setTab] = useState("emos");
   const [records, setRecords] = useState([]);
+  const [programas, setProgramas] = useState([]); // programas personalizados
+  const [showCreator, setShowCreator] = useState(false);
   useEffect(() => { supabase.from("registros_medicos").select("*, trabajadores(nombre)").then(({ data }) => setRecords(data || [])); }, []);
+  const loadProgramas = () => { if (!empresaId) return; supabase.from("vigilancia_programas").select("*").eq("empresa_id", empresaId).eq("activo", true).order("orden").order("nombre").then(({ data }) => setProgramas(data || [])); };
+  useEffect(() => { loadProgramas(); }, [empresaId]);
   const now = new Date(); const in30 = new Date(); in30.setDate(in30.getDate() + 30);
 
   const grupos = [
@@ -44,53 +53,33 @@ export default function Vigilancia({ workers, empresaId }) {
         { id: "estilos", label: "Estilos de Vida" },
       ],
     },
+    ...(programas.length ? [{
+      label: "PROGRAMAS PERSONALIZADOS",
+      items: programas.map(p => ({ id: `custom:${p.id}`, label: p.nombre })),
+    }] : []),
+    {
+      label: "SEGUIMIENTO",
+      items: [{ id: "pendientes", label: "Pendientes de control" }],
+    },
   ];
 
 
-  function ProgramaPlaceholder({ config }) {
-    return (
-      <div>
-        <div className="flex items-start justify-between mb-5">
-          <div>
-            <h3 className="text-white font-semibold text-sm mb-1">{config.title}</h3>
-            <p className="text-gray-500 text-xs max-w-xl">{config.desc}</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 ml-4">
-            <Badge color="amber">EN CONSTRUCCIÓN</Badge>
-            <Btn size="sm" variant="primary" onClick={() => showToast("Función en desarrollo", "info")}><Plus size={13} /> Nuevo Registro</Btn>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-4 mb-5">
-          <KpiCard label="Bajo vigilancia" value="—" sub="Sin datos aún" accentColor="blue" />
-          <KpiCard label="Evaluaciones este mes" value="—" sub="Sin datos aún" accentColor="amber" />
-          <KpiCard label="Alertas activas" value="—" sub="Sin datos aún" accentColor="red" />
-        </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800">
-                {config.columns.map(col => (
-                  <th key={col} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{col}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colSpan={config.columns.length} className="px-4 py-12 text-center text-gray-600 text-sm">
-                  Sin registros. Módulo en construcción.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex gap-6">
-      {/* Mini-sidebar de navegación interna */}
-      <div className="w-52 shrink-0">
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+      {/* Selector móvil */}
+      <div className="md:hidden flex gap-2">
+        <select value={tab} onChange={e => setTab(e.target.value)} className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+          {grupos.map(grupo => (
+            <optgroup key={grupo.label} label={grupo.label}>
+              {grupo.items.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+        <Btn size="sm" onClick={() => setShowCreator(true)}><Plus size={13} /></Btn>
+      </div>
+
+      {/* Mini-sidebar (escritorio) */}
+      <div className="hidden md:block w-52 shrink-0">
         {grupos.map(grupo => (
           <div key={grupo.label} className="mb-5">
             <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest px-2 mb-2">{grupo.label}</p>
@@ -107,6 +96,7 @@ export default function Vigilancia({ workers, empresaId }) {
             </div>
           </div>
         ))}
+        <Btn size="sm" variant="primary" className="w-full justify-center mt-1" onClick={() => setShowCreator(true)}><Plus size={13} /> Nuevo programa</Btn>
       </div>
 
       {/* Contenido principal */}
@@ -165,7 +155,15 @@ export default function Vigilancia({ workers, empresaId }) {
         {tab === "estilos" && <EstilosVidaModulo workers={workers} empresaId={empresaId} />}
         {tab === "radiacion" && <RadiacionUVModulo workers={workers} empresaId={empresaId} />}
         {tab === "respiratoria" && <ProteccionRespiratoriaModulo workers={workers} empresaId={empresaId} />}
+
+        {/* Pendientes globales */}
+        {tab === "pendientes" && <PendientesPanel empresaId={empresaId} />}
+
+        {/* Programas personalizados */}
+        {tab.startsWith("custom:") && <CustomProgramaView programa={programas.find(p => `custom:${p.id}` === tab)} empresaId={empresaId} workers={workers} />}
       </div>
+
+      {showCreator && <ProgramaCreatorModal empresaId={empresaId} onClose={() => setShowCreator(false)} onCreated={(id) => { setShowCreator(false); loadProgramas(); if (id) setTab(`custom:${id}`); }} />}
     </div>
   );
 }

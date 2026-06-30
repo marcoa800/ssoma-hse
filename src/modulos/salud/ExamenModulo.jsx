@@ -6,9 +6,9 @@
 import { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
-import { fmtFecha } from '../../lib/helpers.js';
+import { fmtFecha, brandingEmpresa } from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
@@ -40,13 +40,15 @@ function cargarLogo(src) {
   });
 }
 
-export default function ExamenModulo({ empresaId, role }) {
+export default function ExamenModulo({ empresaId, role, empresaNombre = '' }) {
   const isSuperAdmin = role === 'SUPERADMIN';
+  const brand = brandingEmpresa(empresaNombre);
   const [vista, setVista] = useState('dashboard'); // dashboard | examen | resultados | editor
   const [examenes, setExamenes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [resultados, setResultados] = useState([]);
+  const [filtroSede, setFiltroSede] = useState('');
   const [copied, setCopied] = useState(false);
 
   const load = async () => {
@@ -75,15 +77,15 @@ export default function ExamenModulo({ empresaId, role }) {
     showToast('Eliminado', 'info'); load();
   };
 
-  // ── Generar PDF de resultados por examen ──
-  const generarPDF = async (examen, lista) => {
+  // ── Generar PDF de resultados por examen (opcionalmente filtrado por sede) ──
+  const generarPDF = async (examen, lista, sedeSel = '') => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const W = doc.internal.pageSize.getWidth();
     const M = 14;
     const hoy = new Date().toISOString().split('T')[0];
 
-    // Logo de Comindustria
-    const logo = await cargarLogo('/logo-comind.png');
+    // Logo dinámico por empresa (Gelarti / Comindustria)
+    const logo = brand.logo ? await cargarLogo(brand.logo) : null;
     let y = M;
     if (logo) {
       const maxH = 16, maxW = 50;
@@ -92,7 +94,7 @@ export default function ExamenModulo({ empresaId, role }) {
       doc.addImage(logo.data, 'PNG', M, y, lw, lh);
       y += lh + 4;
     } else {
-      doc.setFontSize(11).setFont(undefined, 'bold').text('COMINDUSTRIA', M, y + 8);
+      doc.setFontSize(11).setFont(undefined, 'bold').text(brand.marca.toUpperCase(), M, y + 8);
       y += 14;
     }
 
@@ -102,7 +104,7 @@ export default function ExamenModulo({ empresaId, role }) {
     doc.setFontSize(11).setFont(undefined, 'normal').setTextColor(0);
     doc.text(examen.nombre, M, y + 7);
     doc.setFontSize(8).setTextColor(120);
-    doc.text(`Generado: ${hoy}  ·  Mínimo aprobatorio: ${examen.puntaje_minimo || 7}/10`, M, y + 13);
+    doc.text(`Generado: ${hoy}  ·  Mínimo aprobatorio: ${examen.puntaje_minimo || 7}/10${sedeSel ? `  ·  Sede: ${sedeSel}` : ''}`, M, y + 13);
     doc.setTextColor(0);
     y += 20;
 
@@ -129,9 +131,9 @@ export default function ExamenModulo({ empresaId, role }) {
     // Tabla de resultados
     autoTable(doc, {
       startY: y,
-      head: [['N°', 'DNI', 'Apellidos y Nombres', 'Puntaje', 'Resultado', 'Fecha']],
+      head: [['N°', 'DNI', 'Apellidos y Nombres', 'Sede', 'Puntaje', 'Resultado', 'Fecha']],
       body: lista.map((r, i) => [
-        i + 1, r.dni, r.nombre || '—',
+        i + 1, r.dni, r.nombre || '—', r.sede || '—',
         `${r.puntaje}/${r.total_preguntas}`,
         r.aprobado ? 'APROBADO' : 'DESAPROBADO',
         fmtFecha(r.fecha?.split('T')[0]),
@@ -140,13 +142,14 @@ export default function ExamenModulo({ empresaId, role }) {
       headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: 'bold', fontSize: 8 },
       columnStyles: {
         0: { cellWidth: 8, halign: 'center' },
-        1: { cellWidth: 22, halign: 'center' },
-        3: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
-        4: { cellWidth: 26, halign: 'center', fontStyle: 'bold' },
-        5: { cellWidth: 22, halign: 'center' },
+        1: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 24 },
+        4: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
+        5: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
+        6: { cellWidth: 20, halign: 'center' },
       },
       didParseCell: (d) => {
-        if (d.section === 'body' && d.column.index === 4) {
+        if (d.section === 'body' && d.column.index === 5) {
           if (d.cell.raw === 'APROBADO') { d.cell.styles.textColor = [22, 101, 52]; d.cell.styles.fillColor = [220, 252, 231]; }
           else { d.cell.styles.textColor = [185, 28, 28]; d.cell.styles.fillColor = [254, 226, 226]; }
         }
@@ -157,9 +160,10 @@ export default function ExamenModulo({ empresaId, role }) {
     // Pie de página
     const pageH = doc.internal.pageSize.getHeight();
     doc.setFontSize(7).setTextColor(160);
-    doc.text(`INVERSIONES COMINDUSTRIA  ·  Sistema Medicloud Safety  ·  ${hoy}`, W / 2, pageH - 8, { align: 'center' });
+    doc.text(`${brand.footer}  ·  ${hoy}`, W / 2, pageH - 8, { align: 'center' });
 
-    doc.save(`resultados_${examen.nombre.replace(/\s+/g,'_')}_${hoy}.pdf`);
+    const sufijoSede = sedeSel ? `_${sedeSel.replace(/\s+/g, '_')}` : '';
+    doc.save(`resultados_${examen.nombre.replace(/\s+/g,'_')}${sufijoSede}_${hoy}.pdf`);
   };
 
   const desbloquearDNI = async (resultadoId) => {
@@ -180,11 +184,13 @@ export default function ExamenModulo({ empresaId, role }) {
 
   // ── Vista: resultados de un examen ──
   if (vista === 'resultados' && selected) {
-    const aprobados = resultados.filter(r => r.aprobado).length;
-    const prom = resultados.length ? (resultados.reduce((s,r)=>s+r.puntaje,0)/resultados.length).toFixed(1) : '—';
+    const sedesResultados = [...new Set(resultados.map(r => r.sede).filter(Boolean))].sort();
+    const lista = filtroSede ? resultados.filter(r => (r.sede || '') === filtroSede) : resultados;
+    const aprobados = lista.filter(r => r.aprobado).length;
+    const prom = lista.length ? (lista.reduce((s,r)=>s+r.puntaje,0)/lista.length).toFixed(1) : '—';
     return (
       <div>
-        <button onClick={() => { setVista('dashboard'); setSelected(null); }}
+        <button onClick={() => { setVista('dashboard'); setSelected(null); setFiltroSede(''); }}
           className="mb-4 flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300">
           <ArrowLeft size={13}/> Volver
         </button>
@@ -193,27 +199,35 @@ export default function ExamenModulo({ empresaId, role }) {
             <h3 className="text-white font-semibold text-sm mb-1">{selected.nombre}</h3>
             <p className="text-gray-500 text-xs">Resultados de los trabajadores</p>
           </div>
-          <Btn size="sm" variant="primary" onClick={() => generarPDF(selected, resultados)}>
-            <FileDown size={13}/> Descargar PDF
-          </Btn>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={filtroSede} onChange={e => setFiltroSede(e.target.value)}
+              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+              <option value="">Todas las sedes</option>
+              {sedesResultados.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <Btn size="sm" variant="primary" onClick={() => generarPDF(selected, lista, filtroSede)}>
+              <FileDown size={13}/> Descargar PDF{filtroSede ? ` · ${filtroSede}` : ''}
+            </Btn>
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-5">
-          <KpiCard label="Rindieron" value={resultados.length} sub="trabajadores" accentColor="blue"/>
-          <KpiCard label="Aprobados" value={aprobados} sub={`${resultados.length ? Math.round(aprobados/resultados.length*100) : 0}% tasa`} accentColor="emerald"/>
+          <KpiCard label="Rindieron" value={lista.length} sub={filtroSede ? `sede ${filtroSede}` : 'trabajadores'} accentColor="blue"/>
+          <KpiCard label="Aprobados" value={aprobados} sub={`${lista.length ? Math.round(aprobados/lista.length*100) : 0}% tasa`} accentColor="emerald"/>
           <KpiCard label="Promedio" value={prom} sub="de 10 preguntas" accentColor="amber"/>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-gray-800">
-              {["DNI","Nombre","Puntaje","Resultado","Fecha",""].map(h=>(
+              {["DNI","Nombre","Sede","Puntaje","Resultado","Fecha",""].map(h=>(
                 <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr></thead>
             <tbody>
-              {resultados.map(r=>(
+              {lista.map(r=>(
                 <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                   <td className="px-4 py-3 font-mono text-xs text-gray-400">{r.dni}</td>
                   <td className="px-4 py-3 text-xs text-gray-300 font-medium">{r.nombre || '—'}</td>
+                  <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{r.sede || '—'}</td>
                   <td className="px-4 py-3 text-center font-bold text-lg">
                     <span className={r.aprobado ? 'text-emerald-400':'text-red-400'}>{r.puntaje}/{r.total_preguntas}</span>
                   </td>
@@ -233,7 +247,7 @@ export default function ExamenModulo({ empresaId, role }) {
                   </td>
                 </tr>
               ))}
-              {!resultados.length && <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-600 text-sm">Nadie ha rendido este examen aún.</td></tr>}
+              {!lista.length && <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-600 text-sm">{resultados.length ? 'Sin resultados para esa sede.' : 'Nadie ha rendido este examen aún.'}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -296,7 +310,7 @@ export default function ExamenModulo({ empresaId, role }) {
                 {ex.descripcion && <p className="text-gray-500 text-xs truncate">{ex.descripcion}</p>}
               </div>
               <div className="flex items-center gap-3 shrink-0flex-wrap">
-                <button onClick={async () => { setSelected(ex); await loadResultados(ex.id); setVista('resultados'); }}
+                <button onClick={async () => { setSelected(ex); setFiltroSede(''); await loadResultados(ex.id); setVista('resultados'); }}
                   className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-emerald-400">
                   <Users size={13}/> Ver resultados
                 </button>
@@ -318,7 +332,9 @@ export default function ExamenModulo({ empresaId, role }) {
                   title={ex.activo ? 'Desactivar':'Activar'}>
                   {ex.activo ? <Lock size={13}/> : <Unlock size={13}/>}
                 </button>
-                <button onClick={() => eliminarExamen(ex.id)} className="text-red-500/40 hover:text-red-400"><Trash2 size={13}/></button>
+                {puedeEliminar() && (
+                  <button onClick={() => eliminarExamen(ex.id)} className="text-red-500/40 hover:text-red-400"><Trash2 size={13}/></button>
+                )}
               </div>
             </div>
           ))}
@@ -339,6 +355,7 @@ export default function ExamenModulo({ empresaId, role }) {
 function EditorExamen({ empresaId, examen, onBack }) {
   const [nombre, setNombre] = useState(examen?.nombre || '');
   const [desc, setDesc] = useState(examen?.descripcion || '');
+  const [videoUrl, setVideoUrl] = useState(examen?.video_url || '');
   const [preguntas, setPreguntas] = useState([]);
   const [saving, setSaving] = useState(false);
 
@@ -367,11 +384,11 @@ function EditorExamen({ empresaId, examen, onBack }) {
     setSaving(true);
     let examenId = examen?.id;
     if (!examenId) {
-      const { data, error } = await supabase.from('examenes').insert({ empresa_id: empresaId, nombre: nombre.trim(), descripcion: desc || null }).select().single();
+      const { data, error } = await supabase.from('examenes').insert({ empresa_id: empresaId, nombre: nombre.trim(), descripcion: desc || null, video_url: videoUrl.trim() || null }).select().single();
       if (error) { showToast('Error: '+error.message, 'error'); setSaving(false); return; }
       examenId = data.id;
     } else {
-      await supabase.from('examenes').update({ nombre: nombre.trim(), descripcion: desc||null }).eq('id', examenId);
+      await supabase.from('examenes').update({ nombre: nombre.trim(), descripcion: desc||null, video_url: videoUrl.trim() || null }).eq('id', examenId);
     }
     // Borrar preguntas anteriores y reinsertar
     await supabase.from('examen_preguntas').delete().eq('examen_id', examenId);
@@ -398,6 +415,10 @@ function EditorExamen({ empresaId, examen, onBack }) {
         </FormField>
         <FormField label="Descripción / Tema" className="sm:col-span-2">
           <Input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Ej: Capacitación uso de arnés — Enero 2026"/>
+        </FormField>
+        <FormField label="Material de capacitación (YouTube, Drive, Sheets o Docs)" className="sm:col-span-2">
+          <Input value={videoUrl} onChange={e=>setVideoUrl(e.target.value)} placeholder="Video YouTube, o link de Drive/Sheets/Docs (compartido: cualquiera con el enlace)"/>
+          <p className="text-[11px] text-gray-600 mt-1">Opcional. El trabajador verá este video antes de rendir el examen.</p>
         </FormField>
       </div>
 

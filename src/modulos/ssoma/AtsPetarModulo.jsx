@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia, fmtFecha} from '../../lib/helpers.js';
 import { TRIAJE_CATS, CATEGORIAS_RIESGO, DETALLES_ESPECIFICOS, NIVEL_RIESGO_DESC } from '../../constants/triaje.js';
@@ -179,7 +179,9 @@ export default function ATSPetarModulo({ empresaId }) {
               <div className="flex gap-1 shrink-0">
                 <button onClick={() => openDetail(d)} className="text-gray-500 hover:text-blue-400 p-1" title="Ver detalle"><Eye size={15} /></button>
                 <button onClick={() => openEdit(d)} className="text-gray-500 hover:text-amber-400 p-1" title="Editar"><Pencil size={15} /></button>
-                <button onClick={() => del(d.id)} className="text-red-500/60 hover:text-red-400 p-1" title="Eliminar"><Trash2 size={15} /></button>
+                {puedeEliminar() && (
+                  <button onClick={() => del(d.id)} className="text-red-500/60 hover:text-red-400 p-1" title="Eliminar"><Trash2 size={15} /></button>
+                )}
               </div>
             </div>
             {d.descripcion && <div className="text-xs text-gray-400 mb-2">{d.descripcion}</div>}
@@ -227,7 +229,9 @@ export default function ATSPetarModulo({ empresaId }) {
                     <div className="flex gap-1 justify-end">
                       <button onClick={() => openDetail(d)} className="text-gray-500 hover:text-blue-400 transition-colors" title="Ver detalle"><Eye size={13} /></button>
                       <button onClick={() => openEdit(d)} className="text-gray-500 hover:text-amber-400 transition-colors" title="Editar"><Pencil size={13} /></button>
-                      <button onClick={() => del(d.id)} className="text-gray-500 hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={13} /></button>
+                      {puedeEliminar() && (
+                        <button onClick={() => del(d.id)} className="text-gray-500 hover:text-red-400 transition-colors" title="Eliminar"><Trash2 size={13} /></button>
+                      )}
                     </div>
                   </td>
                 </tr>

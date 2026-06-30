@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia, excelDateToISO } from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
@@ -151,7 +151,9 @@ export default function EppModulo({ workers, empresaId }) {
                 </div>
                 <div className="flex gap-1.5 shrink-0">
                   <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15} /></button>
-                  <button onClick={() => handleDelete(r.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                  {puedeEliminar() && (
+                    <button onClick={() => handleDelete(r.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                  )}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
@@ -203,7 +205,9 @@ export default function EppModulo({ workers, empresaId }) {
                   <td className="px-4 py-3"><Badge color={estadoColor(estadoReal)}>{estadoReal}</Badge></td>
                   <td className="px-4 py-3"><div className="flex gap-1">
                     <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>
-                    <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                    {puedeEliminar() && (
+                      <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                    )}
                   </div></td>
                 </tr>
               );

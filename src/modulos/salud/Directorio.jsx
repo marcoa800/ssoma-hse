@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia, excelDateToISO, fmtFecha} from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
@@ -17,6 +17,7 @@ import { Select } from '../../components/ui/Select.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { FilterBar } from '../../components/ui/FilterBar.jsx';
+import { MultiSelect } from '../../components/ui/MultiSelect.jsx';
 import { ImportGuideModal } from './ImportGuideModal.jsx';
 import {
   Plus, Upload, Download, ChevronRight, ChevronLeft, Lock,
@@ -30,10 +31,25 @@ import {
 export default function Directorio({ workers, setWorkers, role, empresaId, empresa, adminMode = false }) {
   const esComindustria = empresa?.nombre?.toLowerCase().includes('comindustria') || false;
   const esMultisel = empresa?.nombre?.toLowerCase().includes('multisel') || false;
+  // Expertos en Café + Franquicias Unidas — importador con formato RRHH (FUP)
+  const esGrupoCafe = (() => { const n = empresa?.nombre?.toLowerCase() || ""; return n.includes('expertos en cafe') || n.includes('expertos en café') || n.includes('franquicias unidas'); })();
   const AREAS_MULTISEL = ["SEGREGACION","MOLINO","OPERARIO","PLANTA","MANTENIMIENTO","CONDUCTOR","CONDUCTOR POR OCASIONES","PLANTA (POR OCASIONES)","VIGILANTE","GERENTE G.","ADMINSTRATIVO","LIMPIEZA","DIRECTOR TECNICO","S. PATRIMONIAL","SUPERVISOR"];
   const [vistaDir, setVistaDir] = useState("activos"); // "activos" | "cesados"
-  const [filter, setFilter] = useState({ text: "", estado: "", aptitud: [], cargo: "", epp: "", emo: "", lectura: "", vinculacion: "" });
+  const [filter, setFilter] = useState({ text: "", estado: "", aptitud: [], cargo: [], sede: [], epp: "", emo: "", lectura: "", vinculacion: "" });
   const APTITUDES = ["Apto", "Apto con restricción", "Observado", "No apto", "No evaluado"];
+  // Normaliza aptitud para comparar (sin tildes, minúsculas, espacios colapsados)
+  const normApt = (s) => (s || "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+  // Mapea variantes ("APTO CON RESTRICCIONES", "INAPTO", etc.) a la categoría canónica
+  const canonApt = (s) => {
+    const n = normApt(s);
+    if (!n) return "No evaluado";
+    if (n.includes("restric")) return "Apto con restricción";   // apto con restriccion(es), restringido
+    if (n.includes("no apto") || n === "inapto" || n.includes("inapto")) return "No apto";
+    if (n.includes("observ")) return "Observado";
+    if (n.includes("no evalu") || n.includes("pendiente") || n.includes("sin evalu")) return "No evaluado";
+    if (n.includes("apto")) return "Apto";
+    return s; // valor desconocido: respetar tal cual
+  };
   const MOTIVOS_CESE = ["Renuncia voluntaria","Término de contrato","Despido","Fallecimiento","Jubilación","Mutuo acuerdo","Otro"];
   const toggleAptitud = (a) => setFilter(f => ({
     ...f, aptitud: f.aptitud.includes(a) ? f.aptitud.filter(x => x !== a) : [...f.aptitud, a]
@@ -49,10 +65,14 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
   const syncFrom = (src, dst) => { if (src.current && dst.current) dst.current.scrollLeft = src.current.scrollLeft; };
   const [importPreview, setImportPreview] = useState(null); // { parsed, nuevos, existentes }
   const [isImporting, setIsImporting] = useState(false);
+  const [emoPreview, setEmoPreview] = useState(null); // { matched, sinMatch }
+  const [emoImporting, setEmoImporting] = useState(false);
+  const [showGuideEmo, setShowGuideEmo] = useState(false);
   const [modal, setModal] = useState(null);
   const [showGuideCesados, setShowGuideCesados] = useState(false);
   const [importandoCesados, setImportandoCesados] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showGuideFUP, setShowGuideFUP] = useState(false);
   const [form, setForm] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(null);
@@ -60,6 +80,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
   const canSeeMedical = !adminMode && ["ADMIN", "MEDICO", "SUPERADMIN", "SEGURIDAD"].includes(role);
   const canEditEmo = role !== "SEGURIDAD";
   const cargos = [...new Set(workers.map(w => w.cargo).filter(Boolean))].sort();
+  const sedes = [...new Set(workers.map(w => w.sede).filter(Boolean))].sort();
 
   // Separar activos y cesados
   const workersActivos = workers.filter(w => w.estado !== "Cesado");
@@ -77,8 +98,9 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
       || (filter.emo === "alerta" && d !== null && d <= 30);
     return (!t || w.nombre.toLowerCase().includes(t) || (w.dni || "").includes(t))
       && (!filter.estado || w.estado === filter.estado)
-      && (filter.aptitud.length === 0 || filter.aptitud.includes(w.aptitud))
-      && (!filter.cargo || w.cargo === filter.cargo)
+      && (filter.aptitud.length === 0 || filter.aptitud.some(a => canonApt(a) === canonApt(w.aptitud)))
+      && (filter.cargo.length === 0 || filter.cargo.includes(w.cargo))
+      && (filter.sede.length === 0 || filter.sede.includes(w.sede))
       && (!filter.epp || (filter.epp === "si" ? w.epp_recibido : !w.epp_recibido))
       && (!filter.lectura || (filter.lectura === "si" ? !!w.lectura_emo : !w.lectura_emo))
       && (!filter.vinculacion || (w.tipo_vinculacion || "").toLowerCase() === filter.vinculacion.toLowerCase())
@@ -100,7 +122,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
   }, [paged.length, esMultisel, canSeeMedical, vistaDir, pageSafe]);
 
   const openModal = (worker = null) => {
-    setForm(worker || { nombre: "", dni: "", cargo: "", celular: "", email: "", sede: "Lima", estado: "Activo", fecha_nacimiento: "", ultima_emo: "", duracion_emo: "Anual", aptitud: "No evaluado", restriccion_medica: "Ninguna", lectura_emo: "", epp_recibido: false, epp_detalle: "", epp_fecha: "", fecha_cese: "", motivo_cese: "" });
+    setForm(worker || { nombre: "", dni: "", cargo: "", celular: "", email: "", sede: "Lima", estado: "Activo", fecha_nacimiento: "", fecha_ingreso: "", ultima_emo: "", duracion_emo: "Anual", aptitud: "No evaluado", restriccion_medica: "Ninguna", lectura_emo: "", epp_recibido: false, epp_detalle: "", epp_fecha: "", fecha_cese: "", motivo_cese: "" });
     setModal(worker ? "edit" : "new");
   };
 
@@ -109,7 +131,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
     setIsSaving(true);
     const vigencia = calcularVigencia(form.ultima_emo, form.duracion_emo);
     const edad = calcularEdad(form.fecha_nacimiento);
-    const payload = { nombre: form.nombre, dni: form.dni, cargo: form.cargo || "", celular: form.celular || null, email: form.email || null, sede: "Lima", estado: form.estado || "Activo", fecha_nacimiento: form.fecha_nacimiento || null, edad, ultima_emo: form.ultima_emo || null, duracion_emo: form.duracion_emo || "Anual", vencimiento_emo: vigencia, lectura_emo: form.lectura_emo || null, aptitud: form.aptitud || "No evaluado", restriccion_medica: form.restriccion_medica || "Ninguna", epp_recibido: form.epp_recibido || false, epp_detalle: form.epp_detalle || null, epp_fecha: form.epp_fecha || null, fecha_cese: form.estado === "Cesado" ? (form.fecha_cese || null) : null, motivo_cese: form.estado === "Cesado" ? (form.motivo_cese || null) : null, empresa_id: empresaId };
+    const payload = { nombre: form.nombre, dni: form.dni, cargo: form.cargo || "", celular: form.celular || null, email: form.email || null, sede: esGrupoCafe ? (form.sede || "Lima") : "Lima", estado: form.estado || "Activo", fecha_nacimiento: form.fecha_nacimiento || null, fecha_ingreso: form.fecha_ingreso || null, edad, ultima_emo: form.ultima_emo || null, duracion_emo: form.duracion_emo || "Anual", vencimiento_emo: vigencia, lectura_emo: form.lectura_emo || null, aptitud: form.aptitud || "No evaluado", restriccion_medica: form.restriccion_medica || "Ninguna", epp_recibido: form.epp_recibido || false, epp_detalle: form.epp_detalle || null, epp_fecha: form.epp_fecha || null, fecha_cese: form.estado === "Cesado" ? (form.fecha_cese || null) : null, motivo_cese: form.estado === "Cesado" ? (form.motivo_cese || null) : null, empresa_id: empresaId };
     if (modal === "edit") {
       const { error } = await supabase.from("trabajadores").update(payload).eq("id", form.id);
       if (error) { showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
@@ -165,6 +187,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
     const colCargo     = dc("PUESTO","CARGO","PUESTO DE TRABAJO","OCUPACION");
     const colCelular   = dc("CELULAR","TELEFONO","MOVIL","CEL");
     const colNac       = dc("FECHA DE NACIMIENTO","FECHA NAC","F. NACIMIENTO","NACIMIENTO","FECHA NACIMIENTO");
+    const colIngreso   = dc("FECHA DE INGRESO","FECHA INGRESO","F. INGRESO","INGRESO");
     const colEmo       = dc("ULTIMA EMO","ULTIMO EMO","FECHA EMO","EMO");
     const colDuracion  = dc("DURACION DE EMO","DURACION EMO","TIPO EMO","DURACION");
     const colAptitud   = dc("APTITUD","APTITUD MEDICA");
@@ -202,12 +225,13 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
         sede: "Lima",
         estado:           colEstado     ? String(r[colEstado] || "").trim() || "Activo" : "Activo",
         fecha_nacimiento: fnac,
+        fecha_ingreso:    excelDateToISO(colIngreso ? r[colIngreso] : "") || null,
         edad:             calcularEdad(fnac),
         ultima_emo:       ultimaEmo,
         duracion_emo:     duracion,
         vencimiento_emo:  calcularVigencia(ultimaEmo, duracion),
         lectura_emo:      excelDateToISO(colLectura ? r[colLectura] : ""),
-        aptitud:          colAptitud    ? String(r[colAptitud] || "").trim() || "No evaluado" : "No evaluado",
+        aptitud:          colAptitud    ? canonApt(String(r[colAptitud] || "").trim() || "No evaluado") : "No evaluado",
         restriccion_medica: colRestriccion ? String(r[colRestriccion] || "").trim() || "Ninguna" : "Ninguna",
         epp_recibido:     colEpp        ? String(r[colEpp] || "").toUpperCase() === "SI" : false,
         epp_detalle:      colEppDetalle ? String(r[colEppDetalle] || "").trim() || null : null,
@@ -244,6 +268,135 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
     }
   };
 
+  // ── Importador formato RRHH (FUP) — solo Expertos / Franquicias ──
+  const normF = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  const parseFUPSheet = (ws, estado) => {
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+    const h = rows.findIndex(r => r.some(c => normF(c) === "nombre completo") || r.some(c => normF(c).includes("numero documento")));
+    if (h < 0) return [];
+    const head = rows[h].map(normF);
+    const ex = (n) => head.findIndex(c => c === n);
+    const inc = (n) => head.findIndex(c => c.includes(n));
+    const col = {
+      nombre: ex("nombre completo") >= 0 ? ex("nombre completo") : inc("nombre completo"),
+      tipo: inc("tipo documento"), dni: inc("numero documento"), sexo: ex("sexo"),
+      cel: inc("celular"), email: inc("correo"), nac: inc("fecha nacimiento"), edad: ex("edad"),
+      puesto: ex("puesto") >= 0 ? ex("puesto") : inc("puesto"),
+      sede: ex("sede") >= 0 ? ex("sede") : head.findIndex(c => c.includes("sede") && !c.includes("codigo")),
+    };
+    const out = [];
+    for (let i = h + 1; i < rows.length; i++) {
+      const r = rows[i];
+      const dni = (col.dni >= 0 ? String(r[col.dni] || "") : "").replace(/\D/g, "").slice(0, 12);
+      const nombre = (col.nombre >= 0 ? String(r[col.nombre] || "") : "").trim().toUpperCase();
+      if (!dni || !nombre) continue;
+      const fnac = excelDateToISO(col.nac >= 0 ? r[col.nac] : "");
+      const edadRaw = col.edad >= 0 ? parseInt(String(r[col.edad]).replace(/\D/g, ""), 10) : NaN;
+      out.push({
+        nombre, dni,
+        tipo_documento: col.tipo >= 0 ? String(r[col.tipo] || "").trim() || null : null,
+        genero: col.sexo >= 0 ? String(r[col.sexo] || "").trim() || null : null,
+        celular: col.cel >= 0 ? String(r[col.cel] || "").replace(/\D/g, "").slice(0, 12) || null : null,
+        email: col.email >= 0 ? String(r[col.email] || "").trim() || null : null,
+        fecha_nacimiento: fnac,
+        edad: Number.isFinite(edadRaw) ? edadRaw : calcularEdad(fnac),
+        cargo: col.puesto >= 0 ? String(r[col.puesto] || "").trim() : "",
+        sede: col.sede >= 0 ? String(r[col.sede] || "").trim() || "Lima" : "Lima",
+        estado, duracion_emo: "Anual", empresa_id: empresaId,
+      });
+    }
+    return out;
+  };
+  const importFUP = (e) => {
+    const file = e.target.files[0]; if (!file) return; e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const wb = XLSX.read(evt.target.result, { type: "binary", cellDates: false });
+      const findSheet = (...keys) => wb.SheetNames.find(n => keys.some(k => normF(n).includes(k)));
+      const act = wb.Sheets[findSheet("activo") || wb.SheetNames[0]];
+      const ces = findSheet("cesado", "cese") ? wb.Sheets[findSheet("cesado", "cese")] : null;
+      let parsed = [];
+      if (act) parsed = parsed.concat(parseFUPSheet(act, "Activo"));
+      if (ces) parsed = parsed.concat(parseFUPSheet(ces, "Cesado"));
+      // dedup dentro del archivo por DNI
+      const seen = new Set(); parsed = parsed.filter(r => seen.has(r.dni) ? false : (seen.add(r.dni), true));
+      if (!parsed.length) { showToast("No se reconoció el formato del Excel de RRHH (FUP).", "error"); return; }
+      const existingDnis = new Set(workers.map(w => w.dni));
+      const nuevos = parsed.filter(r => !existingDnis.has(r.dni));
+      const existentes = parsed.filter(r => existingDnis.has(r.dni));
+      setImportPreview({ parsed, nuevos, existentes });
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // ── Importador 2: EMO + Aptitud (complementa por NOMBRE) ──
+  const claveNombre = (s) => normF(s).replace(/,/g, " ").replace(/\s+/g, " ").trim();
+  const importEMO = (e) => {
+    const file = e.target.files[0]; if (!file) return; e.target.value = "";
+    const handle = (rows) => {
+      const valid = rows.filter(r => Object.values(r).some(v => String(v).trim()));
+      if (!valid.length) { showToast("Archivo vacío.", "error"); return; }
+      const headers = Object.keys(valid[0]);
+      const dc = (...al) => detectCol(headers, ...al);
+      const cNom = dc("NOMBRE COMPLETO", "NOMBRE", "APELLIDOS Y NOMBRES", "TRABAJADOR");
+      const cEmo = dc("FECHA DE ULTIMO EMO", "ULTIMO EMO", "ULTIMA EMO", "FECHA EMO", "EMO");
+      const cApt = dc("APTITUD", "APTITUD MEDICA");
+      // Todas las columnas de restricción (RESTRICCION, RESTRICCION 1, 2, 3…) para unirlas en una sola
+      const colsRes = headers.filter(h => normCol(h).includes("restriccion") || normCol(h).includes("restricciones"));
+      if (!cNom) { showToast("No se encontró la columna de Nombre.", "error"); return; }
+      // índice de trabajadores por nombre normalizado
+      const idx = new Map(); workers.forEach(w => idx.set(claveNombre(w.nombre), w));
+      const byWorker = new Map(); const sinMatch = [];
+      for (const r of valid) {
+        const nombre = String(r[cNom] || "").trim();
+        if (!nombre) continue;
+        const w = idx.get(claveNombre(nombre));
+        const ultima_emo = excelDateToISO(cEmo ? r[cEmo] : "");
+        let aptitud = cApt ? String(r[cApt] || "").trim() : "";
+        if (aptitud) aptitud = canonApt(aptitud);
+        // Une todas las columnas de restricción en una sola (sin vacíos ni duplicados)
+        let restriccion = [...new Set(colsRes.map(c => String(r[c] || "").trim()).filter(v => v && !/^(ninguna|n\/a|na|-)$/i.test(v)))].join(" · ");
+        if (aptitud === "Apto") restriccion = "Ninguna";
+        if (!w) { sinMatch.push(nombre); continue; }
+        const entry = { worker: w, nombre, ultima_emo, aptitud: aptitud || w.aptitud, restriccion: restriccion || w.restriccion_medica || "Ninguna" };
+        // Si el trabajador se repite en el Excel, conservar la fila con la FECHA MÁS RECIENTE
+        const prev = byWorker.get(w.id);
+        if (!prev || (ultima_emo || "") > (prev.ultima_emo || "")) byWorker.set(w.id, entry);
+      }
+      // Solo actualizar si la fecha del Excel es MÁS RECIENTE que la ya guardada
+      const matched = [], omitidos = [];
+      for (const entry of byWorker.values()) {
+        const existente = entry.worker.ultima_emo || "";
+        if (entry.ultima_emo && existente && entry.ultima_emo <= existente) omitidos.push(entry.nombre);
+        else matched.push(entry);
+      }
+      if (!matched.length && !sinMatch.length && !omitidos.length) { showToast("No se reconocieron datos.", "error"); return; }
+      setEmoPreview({ matched, sinMatch, omitidos });
+    };
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (evt) => { const wb = XLSX.read(evt.target.result, { type: "binary", cellDates: false }); handle(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" })); };
+      reader.readAsBinaryString(file);
+    } else { Papa.parse(file, { header: true, complete: (res) => handle(res.data) }); }
+  };
+  const executeEmoImport = async () => {
+    setEmoImporting(true);
+    let ok = 0;
+    for (const m of emoPreview.matched) {
+      const venc = calcularVigencia(m.ultima_emo || m.worker.ultima_emo, m.worker.duracion_emo || "Anual");
+      const patch = { aptitud: m.aptitud, restriccion_medica: m.restriccion };
+      if (m.ultima_emo) { patch.ultima_emo = m.ultima_emo; patch.vencimiento_emo = venc; }
+      const { error } = await supabase.from("trabajadores").update(patch).eq("id", m.worker.id);
+      if (!error) ok++;
+    }
+    // refrescar
+    const { data } = await supabase.from("trabajadores").select("*").eq("empresa_id", empresaId);
+    if (data) setWorkers(data);
+    setEmoImporting(false); setEmoPreview(null);
+    showToast(`${ok} trabajador(es) actualizado(s)`, "success");
+  };
+
   const executeImport = async (mode) => {
     const { nuevos, existentes } = importPreview;
     setIsImporting(true);
@@ -258,7 +411,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
 
     if (mode === "actualizar" && existentes.length) {
       const estaVacio = v => v === null || v === undefined || String(v).trim() === "" || v === "No evaluado" || v === "Ninguna";
-      const CAMPOS = ['cargo','celular','fecha_nacimiento','ultima_emo','duracion_emo','vencimiento_emo','lectura_emo','aptitud','restriccion_medica','epp_detalle','epp_fecha','tipo_vinculacion','area'];
+      const CAMPOS = ['cargo','celular','email','genero','tipo_documento','sede','fecha_nacimiento','fecha_ingreso','ultima_emo','duracion_emo','vencimiento_emo','lectura_emo','aptitud','restriccion_medica','epp_detalle','epp_fecha','tipo_vinculacion','area'];
 
       for (const nuevo of existentes) {
         const existing = workers.find(x => x.dni === nuevo.dni);
@@ -287,9 +440,52 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
     showToast(partes.length ? partes.join(", ") : "Sin cambios", "success");
   };
 
+  // ── Importador dedicado: Fecha de Ingreso (Comindustria) — empareja por DNI o nombre ──
+  const [ingImporting, setIngImporting] = useState(false);
+  const importFechaIngreso = (e) => {
+    const file = e.target.files?.[0]; if (!file) return; e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      setIngImporting(true);
+      try {
+        const wb = XLSX.read(ev.target.result, { type: "binary", cellDates: false });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        let h = rows.findIndex(r => r.some(c => normF(c).includes("ingreso")));
+        if (h < 0) h = 0;
+        const head = (rows[h] || []).map(normF);
+        const find = (...terms) => { for (const t of terms) { const i = head.findIndex(c => c.includes(t)); if (i >= 0) return i; } return -1; };
+        const cDni = find("numero documento", "dni", "documento");
+        const cNom = find("nombre completo", "apellidos y nombres", "nombre", "apellido");
+        const cIng = find("fecha de ingreso", "fecha ingreso", "ingreso");
+        if (cIng < 0) { showToast("No se encontró la columna de Fecha de Ingreso.", "error"); setIngImporting(false); return; }
+        if (cDni < 0 && cNom < 0) { showToast("El Excel debe tener una columna de DNI o de Nombre.", "error"); setIngImporting(false); return; }
+        const byDni = {}, byNom = {};
+        workers.forEach(w => { if (w.dni) byDni[String(w.dni).replace(/\D/g, "")] = w; if (w.nombre) byNom[claveNombre(w.nombre)] = w; });
+        const updates = []; let sin = 0;
+        for (let i = h + 1; i < rows.length; i++) {
+          const r = rows[i];
+          const ing = excelDateToISO(r[cIng]); if (!ing) continue;
+          let w = null;
+          if (cDni >= 0) { const d = String(r[cDni] || "").replace(/\D/g, ""); if (d) w = byDni[d]; }
+          if (!w && cNom >= 0) { const nm = claveNombre(String(r[cNom] || "")); if (nm) w = byNom[nm]; }
+          if (!w) { if (String((cDni >= 0 ? r[cDni] : "") || (cNom >= 0 ? r[cNom] : "")).trim()) sin++; continue; }
+          updates.push({ id: w.id, fecha_ingreso: ing });
+        }
+        if (!updates.length) { showToast("No se encontró ningún trabajador para actualizar.", "error"); setIngImporting(false); return; }
+        for (const u of updates) await supabase.from("trabajadores").update({ fecha_ingreso: u.fecha_ingreso }).eq("id", u.id);
+        const { data } = await supabase.from("trabajadores").select("*").eq("empresa_id", empresaId);
+        if (data) setWorkers(data);
+        showToast(`✅ ${updates.length} fechas de ingreso actualizadas${sin ? ` · ${sin} sin coincidencia` : ""}`, "success");
+      } catch (err) { showToast("Error al leer el archivo: " + err.message, "error"); }
+      setIngImporting(false);
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const exportExcel = () => {
-    const headers = ["APELLIDO Y NOMBRE", "FECHA DE NACIMIENTO", "EDAD", "DOC. DE IDENTIDAD", "PUESTO", ...(esMultisel ? ["VINCULACION", "AREA"] : []), "CELULAR", "CORREO", "ULTIMA EMO", "DURACION DE EMO", "VIGENTE HASTA", "ESTADO", "APTITUD", ...(canSeeMedical ? ["RESTRICCION"] : []), "LECTURA 2026", "EPP RECIBIDO", "EPP DETALLE", "EPP FECHA"];
-    const data = filtered.map(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return [w.nombre, w.fecha_nacimiento || "", calcularEdad(w.fecha_nacimiento) || "", w.dni, w.cargo || "", ...(esMultisel ? [w.tipo_vinculacion || "", w.area || ""] : []), w.celular || "", w.email || "", w.ultima_emo || "", w.duracion_emo || "", v || "", w.estado, w.aptitud, ...(canSeeMedical ? [w.restriccion_medica || ""] : []), w.lectura_emo || "", w.epp_recibido ? "SI" : "NO", w.epp_detalle || "", w.epp_fecha || ""]; });
+    const headers = ["APELLIDO Y NOMBRE", "FECHA DE NACIMIENTO", "EDAD", "DOC. DE IDENTIDAD", "PUESTO", ...(esComindustria ? ["FECHA DE INGRESO"] : []), ...(esMultisel ? ["VINCULACION", "AREA"] : []), "CELULAR", "CORREO", "ULTIMA EMO", "DURACION DE EMO", "VIGENTE HASTA", "ESTADO", "APTITUD", ...(canSeeMedical ? ["RESTRICCION"] : []), "LECTURA 2026", ...(!esGrupoCafe ? ["EPP RECIBIDO", "EPP DETALLE", "EPP FECHA"] : [])];
+    const data = filtered.map(w => { const v = calcularVigencia(w.ultima_emo, w.duracion_emo); return [w.nombre, w.fecha_nacimiento || "", calcularEdad(w.fecha_nacimiento) || "", w.dni, w.cargo || "", ...(esComindustria ? [w.fecha_ingreso || ""] : []), ...(esMultisel ? [w.tipo_vinculacion || "", w.area || ""] : []), w.celular || "", w.email || "", w.ultima_emo || "", w.duracion_emo || "", v || "", w.estado, w.aptitud, ...(canSeeMedical ? [w.restriccion_medica || ""] : []), w.lectura_emo || "", ...(!esGrupoCafe ? [w.epp_recibido ? "SI" : "NO", w.epp_detalle || "", w.epp_fecha || ""] : [])]; });
     const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
     ws["!cols"] = headers.map(() => ({ wch: 20 }));
     const wb = XLSX.utils.book_new();
@@ -340,6 +536,92 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
   return (
     <div>
       {showGuide && <ImportGuideModal onClose={() => setShowGuide(false)} />}
+      {showGuideFUP && (
+        <Modal title="Importar personal — Formato RRHH (FUP)" onClose={() => setShowGuideFUP(false)} wide>
+          <div className="space-y-4 text-sm text-gray-300">
+            <p className="text-gray-400">Sube el reporte de empleados que te envía RRHH (FUP). El sistema lee <b>ambas hojas</b>: <b>ACTIVOS</b> y <b>CESADOS</b>, y registra a cada trabajador con su estado correspondiente.</p>
+            <p className="text-gray-400">Del archivo solo se importan estas columnas (el resto se ignora):</p>
+            <div className="overflow-x-auto rounded-lg border border-gray-800">
+              <table className="w-full text-xs">
+                <thead><tr className="border-b border-gray-800"><th className="text-left text-gray-500 font-medium px-3 py-2">Columna del Excel</th><th className="text-left text-gray-500 font-medium px-3 py-2">Se guarda como</th></tr></thead>
+                <tbody>
+                  {[
+                    ["NOMBRE COMPLETO", "Nombre"],
+                    ["TIPO DOCUMENTO IDENTIDAD", "Tipo de documento"],
+                    ["NÚMERO DOCUMENTO IDENTIDAD", "DNI / CE"],
+                    ["SEXO", "Género"],
+                    ["TELEF. CELULAR", "Celular"],
+                    ["CORREO PERSONAL", "Correo"],
+                    ["FECHA NACIMIENTO", "Fecha de nacimiento"],
+                    ["EDAD", "Edad"],
+                    ["PUESTO", "Cargo"],
+                    ["SEDE", "Sede"],
+                    ["(Hoja ACTIVOS / CESADOS)", "Estado: Activo / Cesado"],
+                  ].map(([a, b]) => (
+                    <tr key={a} className="border-b border-gray-800/50"><td className="px-3 py-2 font-mono text-blue-400 whitespace-nowrap">{a}</td><td className="px-3 py-2 text-gray-400">{b}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-3 py-2.5 rounded-lg bg-amber-900/20 border border-amber-800/40 text-xs text-amber-400">
+              Se importan a la empresa <b>actualmente seleccionada</b> ({empresa?.nombre || "—"}). Los trabajadores con DNI ya existente no se duplican (puedes elegir actualizar sus datos en la vista previa).
+            </div>
+
+            <div className="border-t border-gray-800 pt-3">
+              <p className="font-semibold text-emerald-300 mb-1.5">2. Importar EMO / Aptitud (complemento)</p>
+              <p className="text-gray-400 text-xs mb-2">Después de cargar el personal, sube el segundo Excel para completar datos médicos. Empareja por <b>Nombre completo</b> con los trabajadores ya cargados. Debe contener estas columnas:</p>
+              <div className="overflow-x-auto rounded-lg border border-gray-800">
+                <table className="w-full text-xs">
+                  <thead><tr className="border-b border-gray-800"><th className="text-left text-gray-500 font-medium px-3 py-2">Columna del Excel</th><th className="text-left text-gray-500 font-medium px-3 py-2">Se usa para</th></tr></thead>
+                  <tbody>
+                    {[
+                      ["NOMBRE COMPLETO", "Emparejar con el trabajador (obligatorio)"],
+                      ["FECHA DE ÚLTIMO EMO", "Última EMO (calcula el vencimiento)"],
+                      ["APTITUD", "Aptitud médica"],
+                      ["RESTRICCIÓN", "Restricción médica"],
+                    ].map(([a, b]) => (
+                      <tr key={a} className="border-b border-gray-800/50"><td className="px-3 py-2 font-mono text-emerald-400 whitespace-nowrap">{a}</td><td className="px-3 py-2 text-gray-400">{b}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1.5">Regla: si la <b>APTITUD</b> es <b>"Apto"</b>, la restricción se guarda como <b>"Ninguna"</b> automáticamente.</p>
+              <p className="text-[11px] text-gray-600 mt-1">Los nombres que no coincidan con un trabajador del Directorio se listan aparte (no se actualizan).</p>
+            </div>
+
+            <div className="flex justify-end"><Btn variant="primary" onClick={() => setShowGuideFUP(false)}>Entendido</Btn></div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Vista previa — Importar EMO / Aptitud */}
+      {emoPreview && (
+        <Modal title="Importar EMO / Aptitud" onClose={() => setEmoPreview(null)} wide>
+          <div className="flex gap-3 mb-5">
+            <div className="flex-1 text-center bg-emerald-900/30 border border-emerald-800/50 rounded-xl px-4 py-3"><div className="text-2xl font-bold text-emerald-400">{emoPreview.matched.length}</div><div className="text-xs text-emerald-600 mt-0.5">Trabajadores a actualizar</div></div>
+            <div className="flex-1 text-center bg-amber-900/20 border border-amber-800/40 rounded-xl px-4 py-3"><div className="text-2xl font-bold text-amber-400">{emoPreview.omitidos?.length || 0}</div><div className="text-xs text-amber-600/80 mt-0.5">Ya tienen una EMO más reciente</div></div>
+            <div className="flex-1 text-center bg-gray-800 border border-gray-700 rounded-xl px-4 py-3"><div className="text-2xl font-bold text-gray-300">{emoPreview.sinMatch.length}</div><div className="text-xs text-gray-500 mt-0.5">Fuera del directorio (se omiten)</div></div>
+          </div>
+          {(emoPreview.omitidos?.length || 0) > 0 && (
+            <div className="mb-4 px-3 py-2.5 rounded-lg bg-amber-900/15 border border-amber-900/40 text-xs text-amber-300/90">
+              Se conserva la fecha ya guardada porque es <b>más reciente</b> que la del Excel (no se sobrescribe con una más antigua): <span className="text-amber-200">{emoPreview.omitidos.slice(0, 12).join(" · ")}{emoPreview.omitidos.length > 12 ? "…" : ""}</span>
+            </div>
+          )}
+          {emoPreview.sinMatch.length > 0 && (
+            <div className="mb-4 px-3 py-2.5 rounded-lg bg-gray-800/60 border border-gray-700 text-xs text-gray-400">
+              Estos nombres <b>no están en el directorio</b> (probablemente cesados) y se omiten — solo se actualiza al personal ya registrado: <span className="text-gray-300">{emoPreview.sinMatch.slice(0, 12).join(" · ")}{emoPreview.sinMatch.length > 12 ? "…" : ""}</span>
+            </div>
+          )}
+          <div className="overflow-x-auto mb-5 rounded-lg border border-gray-800 max-h-72">
+            <table className="w-full text-xs"><thead><tr className="border-b border-gray-800 bg-gray-900">{["Trabajador", "Última EMO", "Aptitud", "Restricción"].map(h => <th key={h} className="text-left text-gray-600 font-medium px-3 py-2">{h}</th>)}</tr></thead>
+              <tbody>{emoPreview.matched.slice(0, 12).map((m, i) => (
+                <tr key={i} className="border-b border-gray-800/50"><td className="px-3 py-2 text-white">{m.worker.nombre}</td><td className="px-3 py-2 font-mono text-gray-400">{m.ultima_emo || "—"}</td><td className="px-3 py-2 text-gray-400">{m.aptitud || "—"}</td><td className="px-3 py-2 text-gray-400">{m.restriccion || "—"}</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+          <div className="flex justify-end gap-2"><Btn onClick={() => setEmoPreview(null)}>Cancelar</Btn><Btn variant="primary" onClick={executeEmoImport} disabled={emoImporting || !emoPreview.matched.length}>{emoImporting ? "Actualizando..." : `Actualizar ${emoPreview.matched.length}`}</Btn></div>
+        </Modal>
+      )}
 
       {/* Pestañas Activos / Cesados */}
       {(
@@ -385,7 +667,9 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                   </div>
                   <div className="flex gap-1.5 shrink-0">
                     <button onClick={() => openModal(w)} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15} /></button>
-                    <button onClick={() => deleteWorker(w.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                    {puedeEliminar() && (
+                      <button onClick={() => deleteWorker(w.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                    )}
                   </div>
                 </div>
                 <div className="text-xs text-gray-400 mb-2">{w.cargo || "Sin cargo"}</div>
@@ -393,7 +677,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                   <div><span className="text-gray-600">Cese:</span> <span className="text-gray-400 font-mono">{fmtFecha(w.fecha_cese)}</span></div>
                   <div className="truncate"><span className="text-gray-600">Motivo:</span> <span className="text-gray-400">{w.motivo_cese || "—"}</span></div>
                 </div>
-                <div className="mt-2"><Badge color={aptitudColor[w.aptitud] || "gray"}>{w.aptitud || "—"}</Badge></div>
+                <div className="mt-2"><Badge color={aptitudColor[canonApt(w.aptitud)] || "gray"}>{w.aptitud ? canonApt(w.aptitud) : "—"}</Badge></div>
               </div>
             ))}
             {!workersCesados.length && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">Sin trabajadores cesados registrados.</div>}
@@ -415,10 +699,12 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                     <td className="px-3 py-3 text-gray-400">{w.cargo || "—"}</td>
                     <td className="px-3 py-3 font-mono text-xs text-gray-400">{fmtFecha(w.fecha_cese)}</td>
                     <td className="px-3 py-3 text-xs text-gray-400">{w.motivo_cese || "—"}</td>
-                    <td className="px-3 py-3"><Badge color={aptitudColor[w.aptitud] || "gray"}>{w.aptitud || "—"}</Badge></td>
+                    <td className="px-3 py-3"><Badge color={aptitudColor[canonApt(w.aptitud)] || "gray"}>{w.aptitud ? canonApt(w.aptitud) : "—"}</Badge></td>
                     <td className="px-3 py-3"><div className="flex gap-1">
                       <button onClick={() => openModal(w)} className="text-gray-500 hover:text-blue-400"><Pencil size={13} /></button>
-                      <button onClick={() => deleteWorker(w.id)} className="text-red-500/40 hover:text-red-400"><Trash2 size={13} /></button>
+                      {puedeEliminar() && (
+                        <button onClick={() => deleteWorker(w.id)} className="text-red-500/40 hover:text-red-400"><Trash2 size={13} /></button>
+                      )}
                     </div></td>
                   </tr>
                 ))}
@@ -437,8 +723,19 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
       <div className="flex items-center justify-between mb-4">
         <div><div className="text-sm font-semibold text-white">Sábana de Personal</div><div className="text-xs text-gray-600">{filtered.length} de {workersActivos.length} trabajadores</div></div>
         <div className="flex gap-2 flex-wrap">
-          <Btn size="sm" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>
-          <label className="cursor-pointer"><span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white transition-all cursor-pointer"><Upload size={13} /> Importar Excel/CSV</span><input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={importCSV} /></label>
+          {esGrupoCafe
+            ? <>
+                <Btn size="sm" onClick={() => setShowGuideFUP(true)}><HelpCircle size={13} /> Guía</Btn>
+                <label className="cursor-pointer"><span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-700 text-blue-300 hover:bg-blue-900/30 transition-all cursor-pointer"><Upload size={13} /> 1. Importar RRHH (FUP)</span><input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={importFUP} /></label>
+                <label className="cursor-pointer"><span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-700 text-emerald-300 hover:bg-emerald-900/30 transition-all cursor-pointer"><Upload size={13} /> 2. Importar EMO/Aptitud</span><input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={importEMO} /></label>
+              </>
+            : <>
+                <Btn size="sm" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>
+                <label className="cursor-pointer"><span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white transition-all cursor-pointer"><Upload size={13} /> Importar Excel/CSV</span><input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={importCSV} /></label>
+              </>}
+          {esComindustria && (
+            <label className="cursor-pointer"><span className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-700 text-emerald-300 hover:bg-emerald-900/30 transition-all cursor-pointer ${ingImporting ? "opacity-50 pointer-events-none" : ""}`}><Upload size={13} /> {ingImporting ? "Importando..." : "Importar F. Ingreso"}</span><input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={importFechaIngreso} disabled={ingImporting} /></label>
+          )}
           <Btn size="sm" onClick={exportExcel}><Download size={13} /> Exportar</Btn>
           <Btn size="sm" variant={sortAZ ? "primary" : "default"} onClick={() => setSortAZ(v => !v)}>
             {sortAZ ? "A→Z ✓" : "A→Z"}
@@ -448,7 +745,8 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
       </div>
       <div className="grid grid-cols-2 gap-2 mb-4 md:flex md:flex-wrap md:items-center">
         <Input placeholder="Buscar nombre o DNI..." value={filter.text} onChange={e => setFilter(f => ({ ...f, text: e.target.value }))} className="col-span-2 w-full md:w-auto md:flex-1 md:min-w-[160px]" />
-        <Select value={filter.cargo} onChange={e => setFilter(f => ({ ...f, cargo: e.target.value }))} className="md:w-[180px]"><option value="">Todos los puestos</option>{cargos.map(c => <option key={c}>{c}</option>)}</Select>
+        <MultiSelect value={filter.cargo} onChange={v => setFilter(f => ({ ...f, cargo: v }))} options={cargos} placeholder="Puestos" className="md:w-[180px]" />
+        {esGrupoCafe && <MultiSelect value={filter.sede} onChange={v => setFilter(f => ({ ...f, sede: v }))} options={sedes} placeholder="Sedes" className="md:w-[160px]" />}
         <Select value={filter.estado} onChange={e => setFilter(f => ({ ...f, estado: e.target.value }))} className="md:w-[150px]"><option value="">Todos los estados</option>{["Activo", "Vacaciones", "Inactivo"].map(s => <option key={s}>{s}</option>)}</Select>
         <div className="flex flex-wrap gap-1 items-center col-span-2 md:col-span-1">
           {APTITUDES.map(a => {
@@ -463,7 +761,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
           })}
           {filter.aptitud.length > 0 && <button onClick={() => setFilter(f => ({ ...f, aptitud: [] }))} className="text-[11px] text-blue-400 hover:text-blue-300 ml-1">✕</button>}
         </div>
-        <Select value={filter.epp} onChange={e => setFilter(f => ({ ...f, epp: e.target.value }))} className="md:w-[140px]"><option value="">EPP: Todos</option><option value="si">Con EPP</option><option value="no">Sin EPP</option></Select>
+        {!esGrupoCafe && <Select value={filter.epp} onChange={e => setFilter(f => ({ ...f, epp: e.target.value }))} className="md:w-[140px]"><option value="">EPP: Todos</option><option value="si">Con EPP</option><option value="no">Sin EPP</option></Select>}
         {esMultisel && <Select value={filter.vinculacion} onChange={e => setFilter(f => ({ ...f, vinculacion: e.target.value }))} className="md:w-[160px]"><option value="">Vinculación: Todos</option><option value="Planilla">Planilla</option><option value="Servicio">Servicio</option></Select>}
         <Select value={filter.lectura} onChange={e => setFilter(f => ({ ...f, lectura: e.target.value }))} className="md:w-[170px]"><option value="">Lectura EMO: Todos</option><option value="si">Con lectura</option><option value="no">Sin lectura</option></Select>
         <Select value={filter.emo} onChange={e => setFilter(f => ({ ...f, emo: e.target.value }))} className="col-span-2 md:col-span-1 md:w-[190px]"><option value="">EMO: Todos</option><option value="alerta">⚠ En alerta (≤30d + vencidos)</option><option value="porvencer">Por vencer (≤30 días)</option><option value="vencido">Vencidos</option></Select>
@@ -485,21 +783,27 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <Btn size="sm" onClick={() => openModal(w)}>Editar</Btn>
-                  <Btn size="sm" variant="danger" disabled={isDeleting === w.id} onClick={() => deleteWorker(w.id)}><Trash2 size={12} /></Btn>
+                  {puedeEliminar() && (
+                    <Btn size="sm" variant="danger" disabled={isDeleting === w.id} onClick={() => deleteWorker(w.id)}><Trash2 size={12} /></Btn>
+                  )}
                 </div>
               </div>
               <div className="text-xs text-gray-400 mb-2">{w.cargo || "Sin puesto"}{esMultisel && w.area ? ` · ${w.area}` : ""}</div>
               <div className="flex flex-wrap gap-1.5 mb-2.5">
                 <Badge color={w.estado === "Activo" ? "green" : "amber"}>{w.estado}</Badge>
-                <Badge color={aptitudColor[w.aptitud] || "gray"}>{w.aptitud}</Badge>
+                <Badge color={aptitudColor[canonApt(w.aptitud)] || "gray"}>{canonApt(w.aptitud)}</Badge>
                 {esMultisel && w.tipo_vinculacion && <Badge color={w.tipo_vinculacion === "Planilla" ? "green" : "blue"}>{w.tipo_vinculacion}</Badge>}
-                <Badge color={w.epp_recibido ? "green" : "gray"}>{w.epp_recibido ? "EPP ✓" : "Sin EPP"}</Badge>
+                {!esGrupoCafe && <Badge color={w.epp_recibido ? "green" : "gray"}>{w.epp_recibido ? "EPP ✓" : "Sin EPP"}</Badge>}
               </div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                 <div><span className="text-gray-600">Última EMO:</span> <span className="text-gray-400 font-mono">{fmtFecha(w.ultima_emo)}</span></div>
                 <div><span className="text-gray-600">Vigente:</span> <span className={`font-mono font-medium ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-400"}`}>{vigencia || "—"}</span></div>
                 {w.celular && <div><span className="text-gray-600">Cel:</span> <span className="text-gray-400 font-mono">{w.celular}</span></div>}
                 {w.email && <div className="truncate"><span className="text-gray-600">Correo:</span> <a href={`mailto:${w.email}`} className="text-blue-400">{w.email}</a></div>}
+                {esGrupoCafe && w.sede && <div><span className="text-gray-600">Sede:</span> <span className="text-gray-400">{w.sede}</span></div>}
+                {esGrupoCafe && w.genero && <div><span className="text-gray-600">Género:</span> <span className="text-gray-400">{w.genero}</span></div>}
+                {esGrupoCafe && w.tipo_documento && <div><span className="text-gray-600">Tipo doc:</span> <span className="text-gray-400">{w.tipo_documento}</span></div>}
+                {esComindustria && w.fecha_ingreso && <div><span className="text-gray-600">Ingreso:</span> <span className="text-gray-400 font-mono">{fmtFecha(w.fecha_ingreso)}</span></div>}
               </div>
               {canSeeMedical && w.restriccion_medica && w.restriccion_medica !== "Ninguna" && (
                 <div className="flex items-start gap-1.5 mt-2.5 text-xs text-amber-400 bg-amber-900/20 border border-amber-900/40 rounded-lg px-2.5 py-1.5">
@@ -525,7 +829,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
             <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800">
-                {["Apellido y Nombre", "F. Nac / Edad", "DNI", "Puesto", ...(esMultisel ? ["Vinculación", "Área"] : []), "Celular", "Correo", "Última EMO", "Duración", "Vigente Hasta", "Estado", "Aptitud", "EPP", "Lectura EMO", ...(canSeeMedical ? ["Restricción"] : []), ""].map((h, i) => (
+                {["Apellido y Nombre", "F. Nac / Edad", ...(esGrupoCafe ? ["Género"] : []), "DNI", ...(esGrupoCafe ? ["Tipo Doc"] : []), "Puesto", ...(esComindustria ? ["F. Ingreso"] : []), ...(esGrupoCafe ? ["Sede"] : []), ...(esMultisel ? ["Vinculación", "Área"] : []), "Celular", "Correo", "Última EMO", "Duración", "Vigente Hasta", "Estado", "Aptitud", ...(!esGrupoCafe ? ["EPP"] : []), "Lectura EMO", ...(canSeeMedical ? ["Restricción"] : []), ""].map((h, i) => (
                   <th key={h} className={`text-left text-xs text-gray-600 font-medium px-3 py-3 uppercase tracking-wide whitespace-nowrap sticky top-0 bg-gray-900 ${i === 0 ? "left-0 z-30 shadow-[2px_0_6px_rgba(0,0,0,0.4)]" : "z-20"}`}>{h}</th>
                 ))}
               </tr>
@@ -541,8 +845,12 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                   <tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors group">
                     <td className="px-3 py-3 font-medium text-white whitespace-nowrap sticky left-0 z-10 bg-gray-900 group-hover:bg-gray-800/30 shadow-[2px_0_6px_rgba(0,0,0,0.4)]">{w.nombre}</td>
                     <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap font-mono">{fmtFecha(w.fecha_nacimiento)}{edad ? <div className="text-gray-600">{edad} años</div> : null}</td>
+                    {esGrupoCafe && <td className="px-3 py-3 text-gray-400 whitespace-nowrap">{w.genero || "—"}</td>}
                     <td className="px-3 py-3 font-mono text-xs text-gray-500">{w.dni}</td>
+                    {esGrupoCafe && <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">{w.tipo_documento || "—"}</td>}
                     <td className="px-3 py-3 text-gray-400 whitespace-nowrap">{w.cargo || "—"}</td>
+                    {esComindustria && <td className="px-3 py-3 text-gray-400 whitespace-nowrap font-mono text-xs">{w.fecha_ingreso ? fmtFecha(w.fecha_ingreso) : "—"}</td>}
+                    {esGrupoCafe && <td className="px-3 py-3 text-gray-400 whitespace-nowrap">{w.sede || "—"}</td>}
                     {esMultisel && <td className="px-3 py-3 whitespace-nowrap"><Badge color={w.tipo_vinculacion === "Planilla" ? "green" : w.tipo_vinculacion === "Servicio" ? "blue" : "gray"}>{w.tipo_vinculacion || "—"}</Badge></td>}
                     {esMultisel && <td className="px-3 py-3 text-xs text-gray-400 whitespace-nowrap">{w.area || "—"}</td>}
                     <td className="px-3 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">{w.celular || "—"}</td>
@@ -557,28 +865,29 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                     <td className="px-3 py-3"><Badge color={w.duracion_emo === "Bianual" ? "purple" : "blue"}>{w.duracion_emo || "Anual"}</Badge></td>
                     <td className={`px-3 py-3 font-mono text-xs whitespace-nowrap font-medium ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-400"}`}>{vigencia || "—"}</td>
                     <td className="px-3 py-3"><Badge color={w.estado === "Activo" ? "green" : "amber"}>{w.estado}</Badge></td>
-                    <td className="px-3 py-3"><Badge color={aptitudColor[w.aptitud] || "gray"}>{w.aptitud}</Badge></td>
-                    <td className="px-3 py-3">{w.epp_recibido ? <div><Badge color="green">✓ Sí</Badge>{w.epp_detalle && <div className="text-xs text-gray-600 mt-0.5 max-w-32 truncate">{w.epp_detalle}</div>}</div> : <Badge color="gray">No</Badge>}</td>
+                    <td className="px-3 py-3"><Badge color={aptitudColor[canonApt(w.aptitud)] || "gray"}>{canonApt(w.aptitud)}</Badge></td>
+                    {!esGrupoCafe && <td className="px-3 py-3">{w.epp_recibido ? <div><Badge color="green">✓ Sí</Badge>{w.epp_detalle && <div className="text-xs text-gray-600 mt-0.5 max-w-32 truncate">{w.epp_detalle}</div>}</div> : <Badge color="gray">No</Badge>}</td>}
                     <td className="px-3 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{fmtFecha(w.lectura_emo)}</td>
                     {canSeeMedical && (
                       <td className="px-3 py-3 text-xs">
                         {w.restriccion_medica && w.restriccion_medica !== "Ninguna" ? (
                           <span
-                            className="inline-flex items-center text-amber-400 cursor-default"
+                            className="inline-flex items-center gap-1 max-w-[170px] bg-amber-500 border border-amber-600 text-gray-900 font-medium rounded-md px-1.5 py-0.5 cursor-default align-middle"
                             onMouseEnter={e => {
                               const r = e.currentTarget.getBoundingClientRect();
                               setTooltip({ text: w.restriccion_medica, x: r.left + r.width / 2, y: r.top });
                             }}
                             onMouseLeave={() => setTooltip(null)}
                           >
-                            <AlertTriangle size={14} />
+                            <AlertTriangle size={12} className="shrink-0" />
+                            <span className="truncate">{w.restriccion_medica}</span>
                           </span>
                         ) : (
                           <span className="text-gray-700">—</span>
                         )}
                       </td>
                     )}
-                    <td className="px-3 py-3"><div className="flex gap-1"><Btn size="sm" onClick={() => openModal(w)}>Editar</Btn><Btn size="sm" variant="danger" disabled={isDeleting === w.id} onClick={() => deleteWorker(w.id)}><Trash2 size={12} /></Btn></div></td>
+                    <td className="px-3 py-3"><div className="flex gap-1"><Btn size="sm" onClick={() => openModal(w)}>Editar</Btn>{puedeEliminar() && (<Btn size="sm" variant="danger" disabled={isDeleting === w.id} onClick={() => deleteWorker(w.id)}><Trash2 size={12} /></Btn>)}</div></td>
                   </tr>
                 );
               })}
@@ -713,6 +1022,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
               </FormField>
             )}
             <FormField label="Fecha de Nacimiento"><Input type="date" value={form.fecha_nacimiento || ""} onChange={e => setForm(f => ({ ...f, fecha_nacimiento: e.target.value }))} /></FormField>
+            {esComindustria && <FormField label="Fecha de Ingreso"><Input type="date" value={form.fecha_ingreso || ""} onChange={e => setForm(f => ({ ...f, fecha_ingreso: e.target.value }))} /></FormField>}
             <FormField label="Estado">
               <Select value={form.estado || "Activo"} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))}>
                 <option>Activo</option><option>Vacaciones</option><option>Inactivo</option>
@@ -728,7 +1038,9 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                 </Select>
               </FormField>
             </>)}
-            <FormField label="Sede"><Input value="Lima" disabled className="opacity-50" /></FormField>
+            <FormField label="Sede">{esGrupoCafe
+              ? <Input value={form.sede || ""} onChange={e => setForm(f => ({ ...f, sede: e.target.value }))} placeholder="Sede" />
+              : <Input value="Lima" disabled className="opacity-50" />}</FormField>
           </div>
           <div className="border border-gray-800 rounded-xl p-3 mb-3">
             <div className="text-xs font-semibold text-gray-300 mb-3">Examen Médico Ocupacional (EMO)</div>
@@ -744,6 +1056,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
               <div className="px-3 py-2.5 rounded-lg bg-amber-900/20 border border-amber-900/40 text-xs text-amber-400 flex items-center gap-2"><Lock size={12} /> Los campos de EMO solo pueden editarlos MEDICO o ADMIN</div>
             )}
           </div>
+          {!esGrupoCafe && (
           <div className="border border-gray-800 rounded-xl p-3 mb-3">
             <div className="text-xs font-semibold text-gray-300 mb-3">Equipos de Protección Personal (EPP)</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
@@ -752,6 +1065,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
               <div className="col-span-2"><FormField label="Detalle de EPP entregado"><Input value={form.epp_detalle || ""} onChange={e => setForm(f => ({ ...f, epp_detalle: e.target.value }))} placeholder="Ej. Casco, guantes, lentes, chaleco..." /></FormField></div>
             </div>
           </div>
+          )}
           {canSeeMedical && (
             <FormField label="Detalle Restricción Médica">
               <Input value={form.restriccion_medica || ""} onChange={e => setForm(f => ({ ...f, restriccion_medica: e.target.value }))} disabled={role === "SEGURIDAD"} className={role === "SEGURIDAD" ? "opacity-60 bg-gray-700" : ""} />

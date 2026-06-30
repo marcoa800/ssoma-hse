@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { supabase } from "./lib/supabase.js";
+import { supabase, setPuedeEliminar } from "./lib/supabase.js";
 import { ToastContainer, showToast } from "./lib/toast.jsx";
 import { applyThemeCSS } from "./lib/helpers.js";
 import { NAV, SSOMA_NAV, THEMES } from "./constants/nav.js";
@@ -34,6 +34,13 @@ const TopicoModulo = lazy(() => import("./modulos/salud/TopicoModulo.jsx"));
 const SSOMADashboard = lazy(() => import("./modulos/ssoma/SSOMADashboard.jsx"));
 const TriajeModulo = lazy(() => import("./modulos/ssoma/TriajeModulo.jsx"));
 const ExamenModulo = lazy(() => import("./modulos/salud/ExamenModulo.jsx"));
+const PendientesModulo = lazy(() => import("./modulos/salud/PendientesModulo.jsx"));
+const AuditoriaMintra = lazy(() => import("./modulos/ssoma/AuditoriaMintra.jsx"));
+const ComiteSST = lazy(() => import("./modulos/ssoma/ComiteSST.jsx"));
+const Investigaciones = lazy(() => import("./modulos/ssoma/Investigaciones.jsx"));
+const AccionesCorrectivas = lazy(() => import("./modulos/ssoma/AccionesCorrectivas.jsx"));
+const ProgramaSST = lazy(() => import("./modulos/ssoma/ProgramaSST.jsx"));
+const AsistenteSST = lazy(() => import("./modulos/ssoma/AsistenteSST.jsx"));
 const RacsModulo = lazy(() => import("./modulos/ssoma/RacsModulo.jsx"));
 const IpercModulo = lazy(() => import("./modulos/ssoma/IpercModulo.jsx"));
 const InspeccionesModulo = lazy(() => import("./modulos/ssoma/InspeccionesModulo.jsx"));
@@ -54,7 +61,7 @@ import {
   Settings, UserPlus, Eye, EyeOff, Pencil, FileDown,
   ClipboardList, ShieldAlert, Shield, Activity,
   Home, HeartPulse, Microscope, Menu, X, Search,
-  Thermometer, Heart, Wind, Zap, Clipboard, Phone
+  Thermometer, Heart, Wind, Zap, Clipboard, Phone, Sparkles
 } from "lucide-react";
 
 // Aplica el tema guardado antes del primer render (evita flash)
@@ -129,6 +136,8 @@ export default function App() {
     if (prof) {
       setProfile(prof);
       setEmpresa(prof.empresas);
+      // PREVENCIONISTA: puede crear/editar pero no eliminar (bloqueo global de borrado)
+      setPuedeEliminar((prof.rol || "") !== "PREVENCIONISTA");
       // Hydro Global arranca en SSOMA si el usuario no tiene preferencia guardada
       if (prof.empresas?.nombre?.toLowerCase().includes("hydro") && !localStorage.getItem("ssoma-platform")) {
         setPlatform("ssoma");
@@ -182,7 +191,7 @@ export default function App() {
   const go = (id) => { setPage(id); setSidebarOpen(false); };
 
   const navigate = (p) => {
-    if (p === "vigilancia" && profile?.rol === "SEGURIDAD") { showToast("Acceso denegado: módulo exclusivo para MEDICO/ADMIN", "error"); return; }
+    if (p === "vigilancia" && (profile?.rol === "SEGURIDAD" || profile?.rol === "PREVENCIONISTA")) { showToast("Acceso denegado: módulo exclusivo para MEDICO/ADMIN", "error"); return; }
     setPage(p);
     setSidebarOpen(false);
   };
@@ -207,6 +216,7 @@ export default function App() {
   const HYDRO_SALUD_PERMITIDOS = new Set(["dashboard", "directorio", "capacitaciones", "documentos", "accidentes", "epps", "monitoreo", "reportes"]);
   const saludBloqueado = (id) => !isSuperAdmin && esHydroGlobal && platform === "salud" && !HYDRO_SALUD_PERMITIDOS.has(id);
   const esMultisel     = empresa?.nombre?.toLowerCase().includes("multisel")    || false;
+  const esDemo         = empresa?.nombre?.toLowerCase().includes("demo")        || false;
   const esHydroGlobal  = empresa?.nombre?.toLowerCase().includes("hydro")       || false;
   const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria")|| false;
   const esOilGas       = empresa?.nombre?.toLowerCase().includes("oil")         || false;
@@ -236,8 +246,15 @@ export default function App() {
     sig: "SIG — Control Documental",
     admin_descansos: "Descansos Médicos — Administrativo",
     emo_entregas: "Entrega y Firma de EMO",
+    pendientes: "Pendientes / Actividades",
+    mintra: "Cumplimiento SST — MINTRA",
+    comite: "Comité de SST",
+    investigaciones: "Investigación de Accidentes",
+    acciones: "Acciones Correctivas / No Conformidades",
+    programa_sst: "Programa Anual de SST",
+    asistente_ia: "Asistente IA SSOMA",
   };
-  const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800", ADMINISTRATIVO: "text-emerald-400 bg-emerald-900/40 border-emerald-800" };
+  const roleColors = { SUPERADMIN: "text-orange-400 bg-orange-900/40 border-orange-800", ADMIN: "text-purple-400 bg-purple-900/40 border-purple-800", MEDICO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", SEGURIDAD: "text-amber-400 bg-amber-900/40 border-amber-800", ADMINISTRATIVO: "text-emerald-400 bg-emerald-900/40 border-emerald-800", PREVENCIONISTA: "text-cyan-400 bg-cyan-900/40 border-cyan-800" };
 
   // Formulario público RAC (accesible via QR sin login)
   const cargandoPublico = <div className="min-h-screen bg-slate-100 flex items-center justify-center text-gray-400 text-sm">Cargando...</div>;
@@ -387,12 +404,14 @@ export default function App() {
                 <FileText size={16} />Entrega de EMO
               </button>
             )}
+            {esComindustria && (
+              <button onClick={() => go("pendientes")} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === "pendientes" ? "bg-blue-900/40 text-blue-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                <ClipboardList size={16} />Pendientes
+              </button>
+            )}
             <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mt-4 mb-2">Seguridad</div>
             {[
-              { id: "accidentes", label: "Accidentes", icon: ShieldAlert },
               { id: "seguimiento", label: "Seguimiento", icon: ClipboardList },
-              { id: "epps", label: "Control de EPPs", icon: Shield },
-              { id: "monitoreo", label: "Monitoreo", icon: Activity },
             ].map(({ id, label, icon: Icon }) => {
               const bloqueado = saludBloqueado(id);
               return (
@@ -431,6 +450,20 @@ export default function App() {
           <>
             <div className="text-xs text-gray-700 font-medium uppercase tracking-wider px-2 mb-2 mt-2">Seguridad y Medio Ambiente</div>
             {SSOMA_NAV.filter(({ id }) => !moduloOculto(id)).map(({ id, label, icon: Icon }) => (
+              <button key={id} onClick={() => go(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-amber-900/40 text-amber-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
+                <Icon size={16} />{label}
+              </button>
+            ))}
+            {[
+              ...((esComindustria || esMultisel || esDemo) ? [{ id: "mintra", label: "Cumplimiento MINTRA", icon: Shield }] : []),
+              ...((esComindustria || esDemo) ? [{ id: "comite", label: "Comité de SST", icon: Users }] : []),
+              ...(esComindustria ? [
+                { id: "investigaciones", label: "Investigación Accidentes", icon: AlertTriangle },
+                { id: "acciones", label: "Acciones Correctivas", icon: CheckCircle },
+              ] : []),
+              ...((esComindustria || esDemo) ? [{ id: "programa_sst", label: "Programa Anual SST", icon: ClipboardList }] : []),
+              ...(esDemo ? [{ id: "asistente_ia", label: "Asistente IA SSOMA", icon: Sparkles }] : []),
+            ].map(({ id, label, icon: Icon }) => (
               <button key={id} onClick={() => go(id)} className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors text-left ${page === id ? "bg-amber-900/40 text-amber-400" : "text-gray-500 hover:text-gray-200 hover:bg-gray-800"}`}>
                 <Icon size={16} />{label}
               </button>
@@ -560,6 +593,13 @@ export default function App() {
           {page === "directorio" && <Directorio workers={workers} setWorkers={setWorkers} role={role} empresaId={empresaId} empresa={empresa} adminMode={platform === "administrativo"} />}
           {page === "admin_descansos" && (esComindustria || isAdministrativo) && <DescansosMedicosModulo workers={workers} empresaId={empresaId} />}
           {page === "emo_entregas" && esEntregaEmo && <EmoEntregasModulo workers={workers} empresaId={empresaId} />}
+          {page === "pendientes" && esComindustria && <PendientesModulo empresaId={empresaId} userId={session.user.id} />}
+          {page === "mintra" && (esComindustria || esMultisel || esDemo) && <AuditoriaMintra empresaId={empresaId} empresa={empresa} />}
+          {page === "comite" && (esComindustria || esDemo) && <ComiteSST empresaId={empresaId} empresa={empresa} />}
+          {page === "investigaciones" && esComindustria && <Investigaciones empresaId={empresaId} empresa={empresa} />}
+          {page === "acciones" && esComindustria && <AccionesCorrectivas empresaId={empresaId} empresa={empresa} />}
+          {page === "programa_sst" && (esComindustria || esDemo) && <ProgramaSST empresaId={empresaId} empresa={empresa} />}
+          {page === "asistente_ia" && esDemo && <AsistenteSST empresa={empresa} />}
           {page === "capacitaciones" && !saludBloqueado("capacitaciones") && <Capacitaciones workers={workers} trainings={trainings} setTrainings={setTrainings} empresaId={empresaId} empresa={empresa} role={role} />}
           {page === "documentos"    && !saludBloqueado("documentos")    && <Documentos docs={docs} setDocs={setDocs} empresaId={empresaId} />}
           {page === "kpis"          && !saludBloqueado("kpis")          && <KPIs kpis={kpis} setKpis={setKpis} empresaId={empresaId} />}
@@ -574,7 +614,7 @@ export default function App() {
             : <MonitoreoModulo empresaId={empresaId} />)}
           {page === "vigilancia"    && !saludBloqueado("vigilancia")    && <Vigilancia workers={workers} empresaId={empresaId} />}
           {page === "caracterizacion" && !saludBloqueado("caracterizacion") && <CaracterizacionRiesgoModulo empresaId={empresaId} />}
-          {page === "topico"        && !saludBloqueado("topico")        && <TopicoModulo empresaId={empresaId} />}
+          {page === "topico"        && !saludBloqueado("topico")        && <TopicoModulo empresaId={empresaId} empresa={empresa} />}
           {/* Pantalla bloqueada para Hydro Global */}
           {esHydroGlobal && saludBloqueado(page) && (
             <div className="flex flex-col items-center justify-center h-full text-center py-24">

@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { fmtFecha } from '../../lib/helpers.js';
+import { fmtFecha, calcularEdad } from '../../lib/helpers.js';
 import { HumanBody } from 'react-body-medic';
 import * as XLSX from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { KpiCard } from '../../components/ui/KpiCard.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
+import { FormField } from '../../components/ui/FormField.jsx';
+import { Input } from '../../components/ui/Input.jsx';
 import { Btn } from '../../components/ui/Btn.jsx';
 import { ExportBtn } from '../../components/ui/ExportBtn.jsx';
 import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
@@ -349,11 +351,22 @@ function parseExcelAtenciones(arrayBuffer) {
 }
 
 // ─── Módulo principal ─────────────────────────────────────────────
-export default function TopicoModulo({ empresaId }) {
+const CARACTERISTICAS = ["ENFERMEDAD COMÚN", "ACCIDENTE LABORAL", "ACCIDENTE COMÚN", "ENFERMEDAD OCUPACIONAL", "PREVENTIVO", "CONTROL"];
+const GRUPOS_ENF = ["Digestivo", "Respiratorio", "Dermatológico", "Musculoesquelético", "Neurológico", "Cardiovascular", "Genitourinario", "Traumatológico", "Oftalmológico", "Preventivo", "Otros"];
+
+export default function TopicoModulo({ empresaId, empresa }) {
+  const esComindustria = (empresa?.nombre || "").toLowerCase().includes("comindustria");
   const [records, setRecords]           = useState([]);
   const [loading, setLoading]           = useState(true);
   const [importing, setImporting]       = useState(false);
   const [selected, setSelected]         = useState(null);
+  const [formRec, setFormRec]           = useState(null);  // registro en edición/creación
+  const [savingRec, setSavingRec]       = useState(false);
+  const [historia, setHistoria]         = useState(null);  // { dni, nombre, list }
+  const [catalogo, setCatalogo]         = useState([]);    // inventario de medicamentos
+  const [catOpen, setCatOpen]           = useState(false);
+  const [catForm, setCatForm]           = useState(null);  // medicamento en edición
+  const [catSaving, setCatSaving]       = useState(false);
   const [selectedParte, setSelectedParte] = useState(null);
   const [showGuide, setShowGuide]       = useState(false);
   const [search, setSearch]             = useState("");
@@ -375,6 +388,113 @@ export default function TopicoModulo({ empresaId }) {
     setLoading(false);
   };
   useEffect(() => { if (empresaId) load(); }, [empresaId]);
+
+  // ── Inventario de medicamentos (catálogo para el selector + futuro kárdex) ──
+  const loadCatalogo = async () => {
+    const { data } = await supabase.from("medicamentos").select("*")
+      .eq("empresa_id", empresaId).eq("activo", true).order("nombre");
+    setCatalogo(data || []);
+  };
+  useEffect(() => { if (empresaId && esComindustria) loadCatalogo(); }, [empresaId]);
+
+  // Trabajadores del directorio (para autocompletar el nombre del paciente)
+  const [trabajadores, setTrabajadores] = useState([]);
+  useEffect(() => {
+    if (!empresaId || !esComindustria) return;
+    supabase.from("trabajadores").select("nombre,dni,cargo,area,fecha_nacimiento,genero").eq("empresa_id", empresaId).order("nombre")
+      .then(({ data }) => setTrabajadores(data || []));
+  }, [empresaId]);
+  // Al escribir/elegir el nombre, si coincide con un trabajador, autocompleta sus datos
+  const setNombrePaciente = (v) => setFormRec(f => {
+    const w = trabajadores.find(t => (t.nombre || "").toLowerCase() === v.toLowerCase());
+    if (!w) return { ...f, nombre_paciente: v };
+    return { ...f, nombre_paciente: v, dni: w.dni || f.dni, cargo: w.cargo || f.cargo, area: w.area || f.area,
+      edad: calcularEdad(w.fecha_nacimiento) || f.edad, sexo: (w.genero || "").toUpperCase().slice(0, 1) || f.sexo };
+  });
+
+  const setCF = (k, v) => setCatForm(f => ({ ...f, [k]: v }));
+  const guardarMed = async () => {
+    if (!catForm.nombre?.trim()) { showToast("El nombre del medicamento es obligatorio", "error"); return; }
+    setCatSaving(true);
+    const payload = {
+      empresa_id: empresaId, nombre: catForm.nombre.trim(), presentacion: catForm.presentacion || null,
+      concentracion: catForm.concentracion || null, unidad: catForm.unidad || "unidad",
+      stock: parseFloat(catForm.stock) || 0, stock_minimo: parseFloat(catForm.stock_minimo) || 0,
+      lote: catForm.lote || null, fecha_vencimiento: catForm.fecha_vencimiento || null,
+    };
+    const { error } = catForm.id
+      ? await supabase.from("medicamentos").update(payload).eq("id", catForm.id)
+      : await supabase.from("medicamentos").insert(payload);
+    setCatSaving(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast(catForm.id ? "Medicamento actualizado" : "Medicamento agregado", "success");
+    setCatForm(null); loadCatalogo();
+  };
+  const eliminarMed = async (id) => {
+    if (!confirm("¿Eliminar este medicamento del inventario?")) return;
+    await supabase.from("medicamentos").delete().eq("id", id);
+    showToast("Eliminado", "info"); loadCatalogo();
+  };
+  const nuevoMed = () => setCatForm({ nombre: "", presentacion: "", concentracion: "", unidad: "unidad", stock: "", stock_minimo: "", lote: "", fecha_vencimiento: "" });
+  const [impMeds, setImpMeds] = useState(false);
+  // Descarga plantilla de inventario
+  const plantillaMeds = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["NOMBRE", "CONCENTRACION", "PRESENTACION", "UNIDAD", "STOCK", "STOCK MINIMO", "LOTE", "FECHA VENCIMIENTO"],
+      ["Paracetamol", "500mg", "Tableta", "unidad", 100, 20, "L-2026", "2027-05-01"],
+      ["Ibuprofeno", "400mg", "Tableta", "unidad", 60, 15, "L-2025", "2026-12-31"],
+    ]);
+    ws["!cols"] = [{ wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 18 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Medicamentos");
+    XLSX.writeFile(wb, "plantilla_inventario_medicamentos.xlsx");
+  };
+  // Importa inventario desde Excel (actualiza por nombre+concentración, o inserta)
+  const importarMeds = (e) => {
+    const file = e.target.files?.[0]; if (!file) return; e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      setImpMeds(true);
+      try {
+        const wb = XLSX.read(ev.target.result, { type: "array", cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });
+        const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+        let hIdx = 0;
+        for (let i = 0; i < Math.min(5, rows.length); i++) {
+          if (rows[i].some(c => norm(c).includes("nombre") || norm(c).includes("medicament"))) { hIdx = i; break; }
+        }
+        const header = (rows[hIdx] || []).map(norm);
+        const col = (...terms) => { for (const t of terms) { const idx = header.findIndex(h => h.includes(t)); if (idx >= 0) return idx; } return -1; };
+        const cN = col("nombre", "medicament", "producto", "descripcion");
+        const cConc = col("concentr"), cPres = col("presentac", "forma"), cUni = col("unidad", "medida");
+        const cStock = col("stock", "cantidad", "saldo", "existencia"), cMin = col("minimo", "stock min");
+        const cLote = col("lote"), cVenc = col("vencim", "caducidad", "expira");
+        if (cN < 0) { showToast("No se encontró la columna de Nombre/Medicamento", "error"); setImpMeds(false); return; }
+        const get = (r, i) => i >= 0 ? String(r[i] || "").trim() : "";
+        const num = v => parseFloat(String(v).replace(/,/g, "")) || 0;
+        const fecha = v => { if (!v) return null; if (v instanceof Date) return v.toISOString().slice(0, 10); const d = new Date(v); return isNaN(d) ? null : d.toISOString().slice(0, 10); };
+        const parsed = rows.slice(hIdx + 1).map(r => {
+          const nombre = get(r, cN); if (!nombre) return null;
+          return { empresa_id: empresaId, nombre, concentracion: get(r, cConc) || null, presentacion: get(r, cPres) || null,
+            unidad: get(r, cUni) || "unidad", stock: num(get(r, cStock)), stock_minimo: num(get(r, cMin)),
+            lote: get(r, cLote) || null, fecha_vencimiento: fecha(cVenc >= 0 ? r[cVenc] : "") };
+        }).filter(Boolean);
+        if (!parsed.length) { showToast("No se reconocieron medicamentos en el Excel", "error"); setImpMeds(false); return; }
+        const idxBy = {};
+        catalogo.forEach(c => { idxBy[`${(c.nombre || "").toLowerCase()}|${(c.concentracion || "").toLowerCase()}`] = c.id; });
+        let nuevos = 0, act = 0;
+        for (const p of parsed) {
+          const existingId = idxBy[`${p.nombre.toLowerCase()}|${(p.concentracion || "").toLowerCase()}`];
+          if (existingId) { const { error } = await supabase.from("medicamentos").update(p).eq("id", existingId); if (!error) act++; }
+          else { const { error } = await supabase.from("medicamentos").insert(p); if (!error) nuevos++; }
+        }
+        showToast(`✅ Inventario: ${nuevos} nuevos · ${act} actualizados`, "success");
+        loadCatalogo();
+      } catch (err) { showToast("Error al leer el archivo: " + err.message, "error"); }
+      setImpMeds(false);
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
   // ── Import ──────────────────────────────────────────────────────
   const handleImport = (e) => {
@@ -404,6 +524,64 @@ export default function TopicoModulo({ empresaId }) {
       setImporting(false);
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  // ── Registro manual (Comindustria) ──────────────────────────────
+  const abrirNuevo = () => setFormRec({
+    nombre_paciente: "", dni: "", fecha: new Date().toISOString().slice(0, 10), hora: "", edad: "", sexo: "",
+    cargo: "", area: "", empresa_paciente: empresa?.nombre || "", tipo_atencion: "Nueva", caracteristica: "",
+    diagnostico1: "", cie10_1: "", diagnostico2: "", cie10_2: "", grupo_enfermedad: "", prescripcion: "",
+    responsable: "", descanso_medico: false, dias_descanso: "", trabajo_restringido: false,
+    requiere_seguimiento: false, parte_cuerpo: [], medicamentos: [], observacion: "",
+  });
+  const abrirEditar = (r) => { setSelected(null); setHistoria(null); setFormRec({ ...r, edad: r.edad ?? "", parte_cuerpo: r.parte_cuerpo || [], medicamentos: r.medicamentos || [] }); };
+  const setFR = (k, v) => setFormRec(f => ({ ...f, [k]: v }));
+  // Medicamentos (tratamiento estructurado) — base para el futuro kárdex
+  const addMed = () => setFormRec(f => ({ ...f, medicamentos: [...(f.medicamentos || []), { nombre: "", cantidad: "", dosis: "", frecuencia: "", duracion: "" }] }));
+  const setMed = (i, k, v) => setFormRec(f => ({ ...f, medicamentos: (f.medicamentos || []).map((m, j) => j === i ? { ...m, [k]: v } : m) }));
+  // Al elegir/escribir el nombre, vincula el id del catálogo (para que el kárdex descuente exacto)
+  const setMedNombre = (i, v) => setFormRec(f => {
+    const hit = catalogo.find(c => (c.nombre || "").toLowerCase() === v.toLowerCase());
+    return { ...f, medicamentos: (f.medicamentos || []).map((m, j) => j === i ? { ...m, nombre: v, medicamento_id: hit ? hit.id : null } : m) };
+  });
+  const delMed = (i) => setFormRec(f => ({ ...f, medicamentos: (f.medicamentos || []).filter((_, j) => j !== i) }));
+  // Historia clínica acumulada del paciente (por DNI; si no hay DNI, por nombre)
+  const verHistoria = (dni, nombre) => {
+    const list = records
+      .filter(r => (dni && r.dni) ? r.dni === dni : r.nombre_paciente === nombre)
+      .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "") || (b.hora || "").localeCompare(a.hora || ""));
+    setHistoria({ dni, nombre, list });
+  };
+  const toggleParte = (id) => setFormRec(f => {
+    const arr = f.parte_cuerpo || [];
+    return { ...f, parte_cuerpo: arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id] };
+  });
+  const guardarManual = async () => {
+    if (!formRec.nombre_paciente?.trim()) { showToast("El nombre del paciente es obligatorio", "error"); return; }
+    setSavingRec(true);
+    const payload = {
+      empresa_id: empresaId,
+      nombre_paciente: formRec.nombre_paciente.trim(), dni: formRec.dni || null,
+      fecha: formRec.fecha || null, hora: formRec.hora || null,
+      edad: parseInt(formRec.edad) || null, sexo: (formRec.sexo || "").toUpperCase().slice(0, 1) || null,
+      cargo: formRec.cargo || null, empresa_paciente: formRec.empresa_paciente || null, area: formRec.area || null,
+      tipo_atencion: formRec.tipo_atencion || "Nueva", caracteristica: formRec.caracteristica || null,
+      diagnostico1: formRec.diagnostico1 || null, cie10_1: formRec.cie10_1 || null,
+      diagnostico2: formRec.diagnostico2 || null, cie10_2: formRec.cie10_2 || null,
+      grupo_enfermedad: formRec.grupo_enfermedad || null, prescripcion: formRec.prescripcion || null,
+      responsable: formRec.responsable || null, descanso_medico: !!formRec.descanso_medico,
+      dias_descanso: formRec.dias_descanso || null, trabajo_restringido: !!formRec.trabajo_restringido,
+      requiere_seguimiento: !!formRec.requiere_seguimiento, parte_cuerpo: formRec.parte_cuerpo || [],
+      medicamentos: (formRec.medicamentos || []).filter(m => (m.nombre || "").trim()),
+      observacion: formRec.observacion || null,
+    };
+    const { error } = formRec.id
+      ? await supabase.from("topico_atenciones").update(payload).eq("id", formRec.id)
+      : await supabase.from("topico_atenciones").insert(payload);
+    setSavingRec(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast(formRec.id ? "Atención actualizada" : "Atención registrada", "success");
+    setFormRec(null); load();
   };
 
   // ── Filtros ─────────────────────────────────────────────────────
@@ -556,10 +734,32 @@ export default function TopicoModulo({ empresaId }) {
                 </div>
               )}
             </div>
-            {/* Prescripción */}
+            {/* Tratamiento (medicamentos) */}
+            {(selected.medicamentos || []).length > 0 && (
+              <div className="bg-gray-800 rounded-xl px-4 py-3">
+                <p className="text-xs text-gray-600 mb-2">💊 Tratamiento</p>
+                <table className="w-full text-xs">
+                  <thead><tr className="text-gray-600 text-left">
+                    <th className="font-medium pb-1">Medicamento</th><th className="font-medium pb-1 text-center">Cant.</th><th className="font-medium pb-1">Dosis</th><th className="font-medium pb-1">Frec.</th><th className="font-medium pb-1">Días</th>
+                  </tr></thead>
+                  <tbody>
+                    {selected.medicamentos.map((m, i) => (
+                      <tr key={i} className="border-t border-gray-700/50">
+                        <td className="py-1 text-gray-200">{m.nombre}</td>
+                        <td className="py-1 text-center text-gray-300 font-mono">{m.cantidad || "—"}</td>
+                        <td className="py-1 text-gray-400">{m.dosis || "—"}</td>
+                        <td className="py-1 text-gray-400">{m.frecuencia || "—"}</td>
+                        <td className="py-1 text-gray-400">{m.duracion || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {/* Indicaciones */}
             {selected.prescripcion && (
               <div className="bg-gray-800 rounded-xl px-4 py-3">
-                <p className="text-xs text-gray-600 mb-1">Prescripción médica</p>
+                <p className="text-xs text-gray-600 mb-1">Indicaciones generales</p>
                 <p className="text-sm text-gray-300 leading-relaxed">{selected.prescripcion}</p>
               </div>
             )}
@@ -585,6 +785,261 @@ export default function TopicoModulo({ empresaId }) {
             {selected.observacion && (
               <div><p className="text-xs text-gray-600 mb-1">Observaciones</p><p className="text-sm text-gray-400">{selected.observacion}</p></div>
             )}
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-800">
+              <Btn variant="ghost" onClick={() => verHistoria(selected.dni, selected.nombre_paciente)}>📋 Historia clínica</Btn>
+              {esComindustria && <Btn variant="primary" onClick={() => abrirEditar(selected)}>✏️ Editar atención</Btn>}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Modal historia clínica del paciente ───────── */}
+      {historia && (
+        <Modal title={`Historia clínica — ${historia.nombre || historia.dni || "Paciente"}`} onClose={() => setHistoria(null)} wide>
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">
+              {historia.dni ? `DNI ${historia.dni} · ` : ""}{historia.list.length} atención(es) registrada(s) · ordenadas de la más reciente
+            </p>
+            {historia.list.length === 0 && <p className="text-sm text-gray-600 py-6 text-center">Sin atenciones para este paciente.</p>}
+            <div className="space-y-2.5">
+              {historia.list.map(a => (
+                <div key={a.id} className="bg-gray-800/40 border border-gray-800 rounded-xl p-3">
+                  <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                    <span className="text-sm font-mono text-gray-300">{fmtFecha(a.fecha)} {a.hora || ""}</span>
+                    <div className="flex gap-1.5 flex-wrap">
+                      <Badge color={a.tipo_atencion === "Nueva" ? "blue" : a.tipo_atencion === "Control" ? "amber" : "purple"}>{a.tipo_atencion}</Badge>
+                      {a.caracteristica === "ACCIDENTE LABORAL" && <Badge color="red">Accidente</Badge>}
+                      {a.descanso_medico && <Badge color="amber">Descanso</Badge>}
+                    </div>
+                  </div>
+                  {a.diagnostico1 && <p className="text-sm text-gray-200">{a.diagnostico1}{a.cie10_1 && <span className="text-[10px] text-blue-400 font-mono ml-1">{a.cie10_1}</span>}</p>}
+                  {(a.medicamentos || []).length > 0 && (
+                    <p className="text-xs text-gray-400 mt-1">💊 {a.medicamentos.map(m => `${m.nombre}${m.cantidad ? ` x${m.cantidad}` : ""}`).join(" · ")}</p>
+                  )}
+                  {a.prescripcion && <p className="text-xs text-gray-500 mt-1">{a.prescripcion}</p>}
+                  <button onClick={() => { setHistoria(null); setSelected(a); }} className="text-[11px] text-blue-400 hover:text-blue-300 mt-1.5">Ver detalle completo →</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Modal registro/edición manual ───────────── */}
+      {formRec && (
+        <Modal title={formRec.id ? "Editar atención" : "Registrar atención"} onClose={() => setFormRec(null)} wide>
+          <div className="space-y-4">
+            {/* Datos del paciente */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="col-span-2"><FormField label="Nombre del paciente *">
+                <Input value={formRec.nombre_paciente} list="topico-trab-list" onChange={e => setNombrePaciente(e.target.value)} placeholder="Escribe o elige un trabajador…" />
+                <datalist id="topico-trab-list">{trabajadores.map(t => <option key={t.dni || t.nombre} value={t.nombre} />)}</datalist>
+              </FormField></div>
+              <FormField label="DNI"><Input value={formRec.dni} onChange={e => setFR("dni", e.target.value)} /></FormField>
+              <FormField label="Edad"><Input type="number" min="0" value={formRec.edad} onChange={e => setFR("edad", e.target.value)} /></FormField>
+              <FormField label="Sexo">
+                <select value={formRec.sexo || ""} onChange={e => setFR("sexo", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                  <option value="">—</option><option value="M">M</option><option value="F">F</option>
+                </select>
+              </FormField>
+              <FormField label="Cargo"><Input value={formRec.cargo} onChange={e => setFR("cargo", e.target.value)} /></FormField>
+              <FormField label="Área"><Input value={formRec.area} onChange={e => setFR("area", e.target.value)} /></FormField>
+              <FormField label="Fecha"><Input type="date" value={formRec.fecha || ""} onChange={e => setFR("fecha", e.target.value)} /></FormField>
+              <FormField label="Hora"><Input type="time" value={formRec.hora || ""} onChange={e => setFR("hora", e.target.value)} /></FormField>
+            </div>
+
+            {/* Aviso de historia previa */}
+            {(() => {
+              const prev = formRec.dni ? records.filter(r => r.dni === formRec.dni && r.id !== formRec.id) : [];
+              if (!prev.length) return null;
+              return (
+                <button type="button" onClick={() => verHistoria(formRec.dni, formRec.nombre_paciente)}
+                  className="w-full flex items-center justify-between gap-2 bg-blue-900/20 border border-blue-900/40 rounded-lg px-3 py-2 text-xs text-blue-300 hover:bg-blue-900/30 transition-colors">
+                  <span>📋 Este paciente ya tiene <b>{prev.length}</b> atención(es) previa(s).</span>
+                  <span className="underline shrink-0">Ver historia →</span>
+                </button>
+              );
+            })()}
+
+            {/* Tipo / característica / grupo */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <FormField label="Tipo de atención">
+                <select value={formRec.tipo_atencion} onChange={e => setFR("tipo_atencion", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                  {["Nueva", "Control", "Referencia"].map(t => <option key={t}>{t}</option>)}
+                </select>
+              </FormField>
+              <FormField label="Característica">
+                <select value={formRec.caracteristica || ""} onChange={e => setFR("caracteristica", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                  <option value="">—</option>{CARACTERISTICAS.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </FormField>
+              <FormField label="Grupo de enfermedad">
+                <select value={formRec.grupo_enfermedad || ""} onChange={e => setFR("grupo_enfermedad", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                  <option value="">—</option>{GRUPOS_ENF.map(g => <option key={g}>{g}</option>)}
+                </select>
+              </FormField>
+            </div>
+
+            {/* Diagnósticos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <FormField label="Diagnóstico 1"><Input value={formRec.diagnostico1} onChange={e => setFR("diagnostico1", e.target.value)} /></FormField>
+              <FormField label="CIE-10 (1)"><Input value={formRec.cie10_1} onChange={e => setFR("cie10_1", e.target.value)} /></FormField>
+              <FormField label="Diagnóstico 2"><Input value={formRec.diagnostico2} onChange={e => setFR("diagnostico2", e.target.value)} /></FormField>
+              <FormField label="CIE-10 (2)"><Input value={formRec.cie10_2} onChange={e => setFR("cie10_2", e.target.value)} /></FormField>
+            </div>
+
+            {/* Tratamiento estructurado (medicamentos) */}
+            <div className="border border-gray-800 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-gray-300">💊 Tratamiento / Medicamentos</p>
+                <button type="button" onClick={addMed} className="text-xs text-blue-400 hover:text-blue-300 font-medium">+ Agregar medicamento</button>
+              </div>
+              {(formRec.medicamentos || []).length === 0 && (
+                <p className="text-[11px] text-gray-600 py-1">Sin medicamentos. Agrega los del tratamiento (nombre, cantidad, dosis…).</p>
+              )}
+              {(formRec.medicamentos || []).length > 0 && (
+                <div className="hidden md:grid grid-cols-12 gap-1.5 px-1 mb-1 text-[10px] text-gray-600 uppercase tracking-wide">
+                  <span className="col-span-4">Medicamento</span><span className="col-span-2">Cantidad</span><span className="col-span-2">Dosis</span><span className="col-span-2">Frecuencia</span><span className="col-span-1">Días</span><span className="col-span-1"></span>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                {(formRec.medicamentos || []).map((m, i) => (
+                  <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
+                    <input value={m.nombre} list="med-catalogo" onChange={e => setMedNombre(i, e.target.value)} placeholder="Elige o escribe…" className={`col-span-12 md:col-span-4 bg-gray-800 border rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 ${m.medicamento_id ? "border-emerald-700" : "border-gray-700"}`} />
+                    <input type="number" min="0" value={m.cantidad} onChange={e => setMed(i, "cantidad", e.target.value)} placeholder="Cant." className="col-span-3 md:col-span-2 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500" />
+                    <input value={m.dosis} onChange={e => setMed(i, "dosis", e.target.value)} placeholder="1 tab" className="col-span-3 md:col-span-2 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500" />
+                    <input value={m.frecuencia} onChange={e => setMed(i, "frecuencia", e.target.value)} placeholder="c/8h" className="col-span-3 md:col-span-2 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500" />
+                    <input value={m.duracion} onChange={e => setMed(i, "duracion", e.target.value)} placeholder="5" className="col-span-2 md:col-span-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500" />
+                    <button type="button" onClick={() => delMed(i)} className="col-span-1 text-gray-600 hover:text-red-400 flex justify-center"><X size={15} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <datalist id="med-catalogo">{catalogo.map(c => <option key={c.id} value={c.nombre}>{[c.concentracion, c.presentacion].filter(Boolean).join(" · ")}</option>)}</datalist>
+            <p className="text-[10px] text-gray-600 -mt-2">
+              Los medicamentos del inventario aparecen en la lista (borde verde = enlazado al stock).{" "}
+              <button type="button" onClick={() => { setCatForm(null); setCatOpen(true); }} className="text-blue-400 hover:text-blue-300 underline">Gestionar inventario</button>
+            </p>
+
+            {/* Indicaciones generales */}
+            <FormField label="Indicaciones generales / observaciones del tratamiento">
+              <textarea rows={2} value={formRec.prescripcion || ""} onChange={e => setFR("prescripcion", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 resize-none" />
+            </FormField>
+
+            {/* Médico responsable */}
+            <FormField label="Médico responsable"><Input value={formRec.responsable} onChange={e => setFR("responsable", e.target.value)} /></FormField>
+
+            {/* Zona del cuerpo */}
+            <div>
+              <p className="text-xs text-gray-500 mb-1.5">Zona(s) afectada(s)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {PARTES_CUERPO.map(p => {
+                  const on = (formRec.parte_cuerpo || []).includes(p.id);
+                  return (
+                    <button key={p.id} type="button" onClick={() => toggleParte(p.id)}
+                      className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${on ? "bg-red-900/40 border-red-700 text-red-300" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-red-700"}`}>
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Flags */}
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2 text-gray-300"><input type="checkbox" checked={!!formRec.descanso_medico} onChange={e => setFR("descanso_medico", e.target.checked)} className="w-4 h-4 accent-red-600" /> Descanso médico</label>
+              <label className="flex items-center gap-2 text-gray-300"><input type="checkbox" checked={!!formRec.trabajo_restringido} onChange={e => setFR("trabajo_restringido", e.target.checked)} className="w-4 h-4 accent-amber-600" /> Trabajo restringido</label>
+              <label className="flex items-center gap-2 text-gray-300"><input type="checkbox" checked={!!formRec.requiere_seguimiento} onChange={e => setFR("requiere_seguimiento", e.target.checked)} className="w-4 h-4 accent-purple-600" /> Requiere seguimiento</label>
+            </div>
+            {formRec.descanso_medico && (
+              <FormField label="Fechas / días de descanso"><Input value={formRec.dias_descanso || ""} onChange={e => setFR("dias_descanso", e.target.value)} placeholder="Ej: 3 días (01–03 ene)" /></FormField>
+            )}
+
+            {/* Observación */}
+            <FormField label="Observaciones">
+              <textarea rows={2} value={formRec.observacion || ""} onChange={e => setFR("observacion", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 resize-none" />
+            </FormField>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-800">
+              <Btn variant="ghost" onClick={() => setFormRec(null)}>Cancelar</Btn>
+              <Btn variant="primary" disabled={savingRec} onClick={guardarManual}>{savingRec ? "Guardando..." : (formRec.id ? "Actualizar" : "Registrar")}</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Modal inventario de medicamentos ─────────── */}
+      {catOpen && (
+        <Modal title="Inventario de Medicamentos" onClose={() => { setCatOpen(false); setCatForm(null); }} wide>
+          <div className="space-y-4">
+            {/* Form alta/edición */}
+            <div className="border border-gray-800 rounded-xl p-3">
+              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <p className="text-xs font-semibold text-gray-300">{catForm?.id ? "Editar medicamento" : "Agregar medicamento"}</p>
+                {!catForm && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={plantillaMeds} className="text-xs text-gray-400 hover:text-gray-200 underline">Descargar plantilla</button>
+                    <label className={`text-xs px-2.5 py-1.5 rounded-lg border border-blue-700 bg-blue-900/30 text-blue-300 hover:bg-blue-900/50 cursor-pointer ${impMeds ? "opacity-50 pointer-events-none" : ""}`}>
+                      {impMeds ? "Importando..." : "⬆ Importar Excel"}
+                      <input type="file" accept=".xlsx,.xls" className="hidden" onChange={importarMeds} disabled={impMeds} />
+                    </label>
+                    <button onClick={nuevoMed} className="text-xs text-blue-400 hover:text-blue-300 font-medium">+ Nuevo medicamento</button>
+                  </div>
+                )}
+              </div>
+              {catForm && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="col-span-2"><FormField label="Nombre *"><Input value={catForm.nombre} onChange={e => setCF("nombre", e.target.value)} placeholder="Paracetamol" /></FormField></div>
+                    <FormField label="Concentración"><Input value={catForm.concentracion} onChange={e => setCF("concentracion", e.target.value)} placeholder="500mg" /></FormField>
+                    <FormField label="Presentación"><Input value={catForm.presentacion} onChange={e => setCF("presentacion", e.target.value)} placeholder="Tableta" /></FormField>
+                    <FormField label="Unidad"><Input value={catForm.unidad} onChange={e => setCF("unidad", e.target.value)} placeholder="unidad" /></FormField>
+                    <FormField label="Stock"><Input type="number" min="0" value={catForm.stock} onChange={e => setCF("stock", e.target.value)} /></FormField>
+                    <FormField label="Stock mínimo"><Input type="number" min="0" value={catForm.stock_minimo} onChange={e => setCF("stock_minimo", e.target.value)} /></FormField>
+                    <FormField label="Lote"><Input value={catForm.lote} onChange={e => setCF("lote", e.target.value)} /></FormField>
+                    <FormField label="Vencimiento"><Input type="date" value={catForm.fecha_vencimiento || ""} onChange={e => setCF("fecha_vencimiento", e.target.value)} /></FormField>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Btn size="sm" variant="ghost" onClick={() => setCatForm(null)}>Cancelar</Btn>
+                    <Btn size="sm" variant="primary" disabled={catSaving} onClick={guardarMed}>{catSaving ? "Guardando..." : (catForm.id ? "Actualizar" : "Agregar")}</Btn>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Lista de inventario */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead><tr className="border-b border-gray-800 text-gray-600 text-left">
+                  {["Medicamento", "Presentación", "Stock", "Mín.", "Lote", "Vence", ""].map(h => <th key={h} className="px-3 py-2 font-medium uppercase tracking-wide whitespace-nowrap">{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {catalogo.map(c => {
+                    const bajo = Number(c.stock) <= Number(c.stock_minimo);
+                    const venceDias = c.fecha_vencimiento ? Math.round((new Date(c.fecha_vencimiento) - new Date()) / 86400000) : null;
+                    const vencido = venceDias !== null && venceDias < 0;
+                    const porVencer = venceDias !== null && venceDias >= 0 && venceDias <= 60;
+                    return (
+                      <tr key={c.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                        <td className="px-3 py-2 text-gray-200 font-medium">{c.nombre} <span className="text-gray-500">{c.concentracion || ""}</span></td>
+                        <td className="px-3 py-2 text-gray-500">{c.presentacion || "—"} / {c.unidad}</td>
+                        <td className={`px-3 py-2 text-center font-mono font-bold ${bajo ? "text-red-400" : "text-gray-300"}`}>{c.stock}</td>
+                        <td className="px-3 py-2 text-center text-gray-500">{c.stock_minimo}</td>
+                        <td className="px-3 py-2 text-gray-500">{c.lote || "—"}</td>
+                        <td className={`px-3 py-2 whitespace-nowrap ${vencido ? "text-red-400 font-semibold" : porVencer ? "text-amber-400" : "text-gray-500"}`}>{c.fecha_vencimiento ? fmtFecha(c.fecha_vencimiento) : "—"}{vencido ? " ⚠" : porVencer ? " •" : ""}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <button onClick={() => setCatForm({ ...c, stock: c.stock ?? "", stock_minimo: c.stock_minimo ?? "" })} className="text-gray-500 hover:text-blue-400 mr-2">Editar</button>
+                          {puedeEliminar() && <button onClick={() => eliminarMed(c.id)} className="text-red-500/50 hover:text-red-400">Eliminar</button>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {catalogo.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-600">Sin medicamentos. Agrega el primero arriba.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-gray-600">Rojo = stock en o bajo el mínimo · ⚠ vencido · • vence en ≤60 días. El futuro kárdex descontará el stock automáticamente con cada atención registrada.</p>
           </div>
         </Modal>
       )}
@@ -593,10 +1048,18 @@ export default function TopicoModulo({ empresaId }) {
       <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
           <h3 className="text-white font-semibold text-sm mb-1">Tópico — Atenciones Médicas</h3>
-          <p className="text-gray-500 text-xs max-w-xl">Registro e importación de atenciones del tópico. Sube el Excel mensual para generar el dashboard automáticamente.</p>
+          <p className="text-gray-500 text-xs max-w-xl">{esComindustria
+            ? "Registra cada atención del tópico directamente en la app."
+            : "Registro e importación de atenciones del tópico. Sube el Excel mensual para generar el dashboard automáticamente."}</p>
         </div>
         <div className="flex gap-2 flex-wrap shrink-0">
-          <Btn size="sm" variant="ghost" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>
+          {esComindustria && (
+            <>
+              <Btn size="sm" variant="primary" onClick={abrirNuevo}><Activity size={13} /> Registrar atención</Btn>
+              <Btn size="sm" variant="ghost" onClick={() => { setCatForm(null); setCatOpen(true); }}>💊 Inventario</Btn>
+            </>
+          )}
+          {!esComindustria && <Btn size="sm" variant="ghost" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>}
           <ExportBtn filename="topico_atenciones" data={records.map(r => ({
             Nombre: r.nombre_paciente, DNI: r.dni, Fecha: r.fecha, Hora: r.hora,
             Edad: r.edad, Sexo: r.sexo, Cargo: r.cargo, Empresa: r.empresa_paciente, Área: r.area,
@@ -608,11 +1071,13 @@ export default function TopicoModulo({ empresaId }) {
             Responsable: r.responsable, Observación: r.observacion || "",
             "Parte cuerpo": (r.parte_cuerpo || []).join(", "),
           }))} />
-          <label className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-700 text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
-            <Upload size={13} /> {importing ? "Importando..." : "Importar Excel"}
-            <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} disabled={importing} />
-          </label>
-          {records.length > 0 && (
+          {!esComindustria && (
+            <label className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-700 text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
+              <Upload size={13} /> {importing ? "Importando..." : "Importar Excel"}
+              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} disabled={importing} />
+            </label>
+          )}
+          {records.length > 0 && puedeEliminar() && (
             <button onClick={async () => {
               if (!confirm(`¿Eliminar todos los ${records.length} registros? Esto no se puede deshacer.`)) return;
               await supabase.from("topico_atenciones").delete().eq("empresa_id", empresaId);
@@ -630,11 +1095,22 @@ export default function TopicoModulo({ empresaId }) {
             <Activity size={28} className="text-blue-400" />
           </div>
           <p className="text-white font-semibold mb-2">Sin atenciones registradas</p>
-          <p className="text-gray-500 text-sm max-w-xs mb-5">Sube el Excel mensual del tópico para generar el dashboard automáticamente.</p>
-          <label className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium cursor-pointer transition-colors">
-            <Upload size={15} /> Importar Excel
-            <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
-          </label>
+          {esComindustria ? (
+            <>
+              <p className="text-gray-500 text-sm max-w-xs mb-5">Registra la primera atención del tópico directamente en la app.</p>
+              <button onClick={abrirNuevo} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium cursor-pointer transition-colors">
+                <Activity size={15} /> Registrar atención
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-500 text-sm max-w-xs mb-5">Sube el Excel mensual del tópico para generar el dashboard automáticamente.</p>
+              <label className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium cursor-pointer transition-colors">
+                <Upload size={15} /> Importar Excel
+                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+              </label>
+            </>
+          )}
         </div>
       ) : (
         <>

@@ -15,6 +15,7 @@ export default function PublicTriajeForm({ empresaId }) {
   const [lookingUp, setLookingUp] = useState(false);
   const [dniFound, setDniFound] = useState(null); // null | true | false
   const [empresaNombre, setEmpresaNombre] = useState("");
+  const [copiado, setCopiado] = useState(false);
   const [form, setForm] = useState({
     nombre: "", puesto: "",
     temperatura: "", presionArterial: "", saturacion: "", frecuenciaCardiaca: "",
@@ -95,7 +96,21 @@ export default function PublicTriajeForm({ empresaId }) {
 
   if (submitted) {
     const reporteWsp = generateReport();
+    const esComindustria = (empresaNombre || "").toLowerCase().includes("comindustria");
+    const GRUPO_WSP_COMIND = "https://chat.whatsapp.com/D4FdFqePRchGLRIPO7YrR9?mode=gi_t";
     const wspUrl = `https://wa.me/51982762455?text=${encodeURIComponent(reporteWsp)}`;
+    const enviarAlGrupo = async () => {
+      try { await navigator.clipboard?.writeText(reporteWsp); setCopiado(true); setTimeout(() => setCopiado(false), 2500); } catch (e) { /* noop */ }
+      window.open(GRUPO_WSP_COMIND, "_blank", "noopener");
+    };
+    const copiarReporte = () => {
+      const ok = () => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); };
+      navigator.clipboard?.writeText(reporteWsp).then(ok).catch(() => {
+        const el = document.createElement("textarea"); el.value = reporteWsp;
+        document.body.appendChild(el); el.select(); try { document.execCommand("copy"); ok(); } catch (e) { /* noop */ }
+        document.body.removeChild(el);
+      });
+    };
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center">
@@ -109,11 +124,36 @@ export default function PublicTriajeForm({ empresaId }) {
             </div>
           )}
           <a href={wspUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold text-base mb-3 transition-colors shadow-md">
+            className="flex items-center justify-center gap-2 w-full py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold text-base mb-2.5 transition-colors shadow-md">
             <Phone size={20} />
             Enviar al médico por WhatsApp
           </a>
-          <p className="text-gray-400 text-xs mb-5">Toca el botón para enviar el reporte directamente al Dr. Marco Melgarejo</p>
+          {esComindustria && (
+            <button onClick={enviarAlGrupo}
+              className="flex items-center justify-center gap-2 w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-base mb-3 transition-colors shadow-md">
+              <Phone size={20} />
+              Enviar al grupo (pegar el texto)
+            </button>
+          )}
+          <p className="text-gray-400 text-xs mb-4">
+            {esComindustria
+              ? "Al médico: se envía automático. Al grupo: el reporte se copia y debes pegarlo (mantén presionado → \"Pegar\") porque WhatsApp no permite autoenviar a grupos."
+              : "Toca el botón para enviar el reporte directamente al Dr. Marco Melgarejo"}
+          </p>
+          {esComindustria && (
+            <div className="text-left bg-gray-50 border border-gray-200 rounded-xl p-3 mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-gray-600">Reporte (respaldo)</span>
+                <button onClick={copiarReporte}
+                  className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${copiado ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}>
+                  {copiado ? "✓ Copiado" : "Copiar reporte"}
+                </button>
+              </div>
+              <textarea readOnly value={reporteWsp} onFocus={e => e.target.select()}
+                className="w-full h-32 text-[11px] font-mono text-gray-700 bg-white border border-gray-200 rounded-lg p-2 resize-none focus:outline-none" />
+              <p className="text-[10px] text-gray-400 mt-1">Si al pegar en el grupo no aparece el texto, toca "Copiar reporte" y pégalo manualmente.</p>
+            </div>
+          )}
           <button onClick={resetForm}
             className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-colors">
             Nuevo Caso

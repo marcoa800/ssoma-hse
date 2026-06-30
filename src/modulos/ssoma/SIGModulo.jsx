@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx";
-import { supabase } from "../../lib/supabase.js";
+import { supabase, puedeEliminar } from "../../lib/supabase.js";
 import { showToast } from "../../lib/toast.jsx";
 import { Modal } from "../../components/ui/Modal.jsx";
 import { FormField } from "../../components/ui/FormField.jsx";
@@ -367,7 +367,9 @@ export default function SIGModulo({ empresaId }) {
                         <a href={item.drive_link} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 p-1"><ExternalLink size={15} /></a>
                       )}
                       <button onClick={() => openEdit(item)} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15} /></button>
-                      <button onClick={() => del(item.id)} disabled={deleting === item.id} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                      {puedeEliminar() && (
+                        <button onClick={() => del(item.id)} disabled={deleting === item.id} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -460,10 +462,12 @@ export default function SIGModulo({ empresaId }) {
                             className="p-1.5 rounded-lg text-gray-600 hover:text-blue-400 hover:bg-blue-900/20 transition-colors">
                             <Pencil size={12} />
                           </button>
-                          <button onClick={() => del(item.id)} disabled={deleting === item.id}
-                            className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-900/20 transition-colors">
-                            <Trash2 size={12} />
-                          </button>
+                          {puedeEliminar() && (
+                            <button onClick={() => del(item.id)} disabled={deleting === item.id}
+                              className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-900/20 transition-colors">
+                              <Trash2 size={12} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

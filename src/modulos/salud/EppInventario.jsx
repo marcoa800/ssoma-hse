@@ -4,7 +4,7 @@
 //  Usado por Comindustria en lugar del módulo per-persona.
 // ════════════════════════════════════════════════════════════════════
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { fmtFecha } from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
@@ -220,7 +220,9 @@ export default function EppInventario({ empresaId }) {
                     <td className="px-4 py-3 text-xs text-gray-500">{r.responsable || "—"}</td>
                     <td className="px-4 py-3"><div className="flex gap-1">
                       <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400"><Pencil size={13} /></button>
-                      <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400"><Trash2 size={13} /></button>
+                      {puedeEliminar() && (
+                        <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400"><Trash2 size={13} /></button>
+                      )}
                     </div></td>
                   </tr>
                 ))}

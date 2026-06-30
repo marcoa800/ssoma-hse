@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia, fmtFecha} from '../../lib/helpers.js';
 import { TRIAJE_CATS, CATEGORIAS_RIESGO, DETALLES_ESPECIFICOS, NIVEL_RIESGO_DESC } from '../../constants/triaje.js';
@@ -26,6 +26,7 @@ import {
 
 import InspeccionesHGP from './InspeccionesHGP.jsx';
 import InspeccionesComind from './InspeccionesComind.jsx';
+import InspeccionesSIG from './InspeccionesSIG.jsx';
 import { WideTableScroll } from '../../components/ui/WideTableScroll.jsx';
 
 const TIPOS_INSPECCION = ["Planeada","No planeada","Gerencial","Orden y limpieza","Equipos y herramientas","Instalaciones eléctricas","EPPs","Otro"];
@@ -35,8 +36,11 @@ export default function InspeccionesModulo({ empresaId, empresa }) {
   // Hydro Global usa el motor de inspecciones basado en formatos oficiales (FR-0XX)
   const esHydroGlobal = empresa?.nombre?.toLowerCase().includes("hydro") || false;
   const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria") || false;
+  const esMultisel = empresa?.nombre?.toLowerCase().includes("multisel") || false;
   if (esHydroGlobal) return <InspeccionesHGP empresaId={empresaId} />;
   if (esComindustria) return <InspeccionesComind empresaId={empresaId} />;
+  // Multisel usa los formatos SIG (R.0X-IN-SST) llenados en la app
+  if (esMultisel) return <InspeccionesSIG empresaId={empresaId} empresa={empresa} />;
 
   return <InspeccionesGenerico empresaId={empresaId} />;
 }
@@ -170,7 +174,9 @@ function InspeccionesGenerico({ empresaId }) {
                 <div className="flex gap-1.5 shrink-0">
                   <button onClick={()=>openDetail(i)} className="text-gray-500 hover:text-emerald-400 p-1" title="Ver hallazgos"><Eye size={15} /></button>
                   <button onClick={()=>openEditInsp(i)} className="text-gray-500 hover:text-blue-400 p-1"><Pencil size={15} /></button>
-                  <button onClick={()=>deleteInsp(i.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                  {puedeEliminar() && (
+                    <button onClick={()=>deleteInsp(i.id)} className="text-red-500/60 hover:text-red-400 p-1"><Trash2 size={15} /></button>
+                  )}
                 </div>
               </div>
               <div className="flex flex-wrap gap-1.5 mb-2.5">
@@ -222,7 +228,9 @@ function InspeccionesGenerico({ empresaId }) {
                   <td className="px-4 py-3"><div className="flex gap-1">
                     <button onClick={()=>openDetail(i)} className="text-gray-500 hover:text-emerald-400 transition-colors" title="Ver hallazgos"><Eye size={13} /></button>
                     <button onClick={()=>openEditInsp(i)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>
-                    <button onClick={()=>deleteInsp(i.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                    {puedeEliminar() && (
+                      <button onClick={()=>deleteInsp(i.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                    )}
                   </div></td>
                 </tr>
               );
@@ -295,7 +303,9 @@ function InspeccionesGenerico({ empresaId }) {
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button onClick={()=>openEditHall(h)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={12} /></button>
-                      <button onClick={()=>deleteHall(h.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                      {puedeEliminar() && (
+                        <button onClick={()=>deleteHall(h.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                      )}
                     </div>
                   </div>
                 </div>

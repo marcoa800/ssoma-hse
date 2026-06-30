@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../../lib/supabase.js';
 import { showToast } from '../../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia } from '../../../lib/helpers.js';
 import { VIG_GUIAS } from '../../../constants/vig-guias.js';
@@ -131,7 +131,7 @@ export default function MorbilidadModulo({ workers, empresaId }) {
                   <td className="px-4 py-3"><Badge color={tipoColor(r.tipo_morbilidad)}>{r.tipo_morbilidad}</Badge></td>
                   <td className="px-4 py-3 text-center font-mono text-xs text-gray-300">{r.dias_reposo ?? 0}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{r.medico_responsable || "—"}</td>
-                  <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
+                  <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>{puedeEliminar() && (<button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>)}</div></td>
                 </tr>
               ))}
               {!records.length && (

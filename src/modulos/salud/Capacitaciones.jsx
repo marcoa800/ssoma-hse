@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia, excelDateToISO, fmtFecha} from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
@@ -29,6 +29,8 @@ import ExamenModulo from './ExamenModulo.jsx';
 
 export default function Capacitaciones({ workers, trainings, setTrainings, empresaId, empresa, role }) {
   const esComindustria = empresa?.nombre?.toLowerCase().includes('comindustria') || false;
+  // Empresas que usan el portal de Exámenes/Capacitaciones: Comindustria + Expertos en Café + Franquicias Unidas
+  const usaExamenes = esComindustria || (() => { const n = empresa?.nombre?.toLowerCase() || ""; return n.includes('expertos en cafe') || n.includes('expertos en café') || n.includes('franquicias unidas') || n.includes('multisel'); })();
   const [vistaCAP, setVistaCAP] = useState('capacitaciones'); // capacitaciones | examenes
   const [detail, setDetail] = useState(null);
   const [attendance, setAttendance] = useState({});
@@ -211,7 +213,7 @@ export default function Capacitaciones({ workers, trainings, setTrainings, empre
     );
   }
   // Si es Comindustria y está en pestaña Exámenes, delegar al módulo
-  if (esComindustria && vistaCAP === 'examenes') {
+  if (usaExamenes && vistaCAP === 'examenes') {
     return (
       <div>
         <div className="flex gap-2 mb-5 bg-gray-900/50 border border-gray-800 rounded-xl p-1.5 w-fit">
@@ -224,15 +226,15 @@ export default function Capacitaciones({ workers, trainings, setTrainings, empre
             📝 Exámenes
           </button>
         </div>
-        <ExamenModulo empresaId={empresaId} role={role} />
+        <ExamenModulo empresaId={empresaId} role={role} empresaNombre={empresa?.nombre || ''} />
       </div>
     );
   }
 
   return (
     <div>
-      {/* Pestañas — solo Comindustria */}
-      {esComindustria && (
+      {/* Pestañas — empresas con portal de exámenes */}
+      {usaExamenes && (
         <div className="flex gap-2 mb-5 bg-gray-900/50 border border-gray-800 rounded-xl p-1.5 w-fit">
           <button onClick={() => setVistaCAP('capacitaciones')}
             className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${vistaCAP === 'capacitaciones' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-200'}`}>
@@ -260,7 +262,9 @@ export default function Capacitaciones({ workers, trainings, setTrainings, empre
             <div className="flex-1 min-w-0"><div className="font-medium text-white text-sm">{t.nombre}</div><div className="text-xs text-gray-600 mt-0.5">{fmtFecha(t.fecha)}</div></div>
             <div className="flex items-center gap-3 w-48"><div className="flex-1"><ProgressBar value={pct} color={pct >= 80 ? "emerald" : pct >= 40 ? "amber" : "red"} /></div><span className="text-xs text-gray-500 whitespace-nowrap">{t.asistencia_count || 0}/{t.programados} ({pct}%)</span></div>
             <Btn size="sm" onClick={() => setDetail(t.id)}>Ver detalle <ChevronRight size={12} /></Btn>
-            <Btn size="sm" variant="danger" disabled={isDeleting === t.id} onClick={() => deleteTraining(t.id)}><Trash2 size={12} /></Btn>
+            {puedeEliminar() && (
+              <Btn size="sm" variant="danger" disabled={isDeleting === t.id} onClick={() => deleteTraining(t.id)}><Trash2 size={12} /></Btn>
+            )}
           </div>
         ); })}
         {trainings.length === 0 && <div className="text-center py-12 text-gray-600 text-sm">No hay capacitaciones registradas</div>}

@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from 'react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { fmtFecha, excelDateToISO } from '../../../lib/helpers.js';
-import { supabase } from '../../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../../lib/supabase.js';
 import { showToast } from '../../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia } from '../../../lib/helpers.js';
 import { VIG_GUIAS } from '../../../constants/vig-guias.js';
@@ -291,7 +291,7 @@ export default function DescansosMedicosModulo({ workers, empresaId }) {
                         <td className="px-4 py-3 font-mono text-xs text-gray-400 whitespace-nowrap">{(r.control_1 || r.control_2) ? <>{r.control_1 ? fmtFecha(r.control_1) : "—"}<span className="text-gray-700 mx-1">/</span>{r.control_2 ? fmtFecha(r.control_2) : "—"}</> : "—"}</td>
                         <td className="px-4 py-3"><Badge color={badgeColor(estado)}>{estado}</Badge></td>
                         <td className="px-4 py-3 text-gray-500 text-xs">{r.medico_responsable || "—"}</td>
-                        <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
+                        <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>{puedeEliminar() && (<button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>)}</div></td>
                       </tr>
                     );
                   })}

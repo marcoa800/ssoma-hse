@@ -40,9 +40,16 @@ export default function TriajeModulo({ empresaId, empresa }) {
     navigator.clipboard.writeText(triajUrl).catch(() => { const el = document.createElement("textarea"); el.value = triajUrl; document.body.appendChild(el); el.select(); document.execCommand("copy"); document.body.removeChild(el); });
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
+  const esComindustria = (empresa?.nombre || "").toLowerCase().includes("comindustria");
   const shareWhatsApp = (t) => {
-    const msg = encodeURIComponent(t.reporte_texto || `Triaje SSOMA — ${t.nombre}`);
-    window.open(`https://wa.me/51982762455?text=${msg}`, "_blank");
+    const texto = t.reporte_texto || `Triaje SSOMA — ${t.nombre}`;
+    if (esComindustria) {
+      navigator.clipboard?.writeText(texto).catch(() => {});
+      showToast("Reporte copiado: pégalo en el grupo de WhatsApp", "info");
+      window.open("https://chat.whatsapp.com/D4FdFqePRchGLRIPO7YrR9?mode=gi_t", "_blank", "noopener");
+    } else {
+      window.open(`https://wa.me/51982762455?text=${encodeURIComponent(texto)}`, "_blank");
+    }
   };
 
   const handleDelete = async (id, nombre) => {

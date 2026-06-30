@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../../lib/supabase.js';
 import { showToast } from '../../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia } from '../../../lib/helpers.js';
+import { fmtFecha, PERIODICIDADES, proximoControl, estadoControl } from '../../../lib/helpers.js';
 import { VIG_GUIAS } from '../../../constants/vig-guias.js';
 import { VigGuideModal } from './VigGuideModal.jsx';
+import SeguimientoPanel from './SeguimientoPanel.jsx';
+import CronogramaActividades from './CronogramaActividades.jsx';
 import { Badge } from '../../../components/ui/Badge.jsx';
 import { KpiCard } from '../../../components/ui/KpiCard.jsx';
 import { Modal } from '../../../components/ui/Modal.jsx';
@@ -21,8 +23,10 @@ export default function PsicosocialModulo({ workers, empresaId }) {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(null);
-  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], instrumento: "ISTAS21", puntaje: "", nivel_riesgo: "Medio", dimension_principal: "", derivacion: "No aplica", fecha_derivacion: "", seguimiento: "", medico_responsable: "", observaciones: "" };
+  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], instrumento: "ISTAS21", puntaje: "", nivel_riesgo: "Medio", dimension_principal: "", derivacion: "No aplica", fecha_derivacion: "", seguimiento: "", medico_responsable: "", periodicidad: "Anual", observaciones: "" };
   const [form, setForm] = useState(initForm);
+  const [subtab, setSubtab] = useState("eval");
+  const [showGuide, setShowGuide] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -51,7 +55,7 @@ export default function PsicosocialModulo({ workers, empresaId }) {
     return "purple";
   };
 
-  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, instrumento: r.instrumento || "ISTAS21", puntaje: r.puntaje != null ? String(r.puntaje) : "", nivel_riesgo: r.nivel_riesgo || "Medio", dimension_principal: r.dimension_principal || "", derivacion: r.derivacion || "No aplica", fecha_derivacion: r.fecha_derivacion || "", seguimiento: r.seguimiento || "", medico_responsable: r.medico_responsable || "", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, instrumento: r.instrumento || "ISTAS21", puntaje: r.puntaje != null ? String(r.puntaje) : "", nivel_riesgo: r.nivel_riesgo || "Medio", dimension_principal: r.dimension_principal || "", derivacion: r.derivacion || "No aplica", fecha_derivacion: r.fecha_derivacion || "", seguimiento: r.seguimiento || "", medico_responsable: r.medico_responsable || "", periodicidad: r.periodicidad || "Anual", observaciones: r.observaciones || "" }); setEditing(r.id); setShowModal(true); };
   const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
   const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_psicosocial").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
 
@@ -60,7 +64,7 @@ export default function PsicosocialModulo({ workers, empresaId }) {
       showToast("Selecciona trabajador y fecha", "error"); return;
     }
     setSaving(true);
-    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, instrumento: form.instrumento, puntaje: form.puntaje ? parseFloat(form.puntaje) : null, nivel_riesgo: form.nivel_riesgo, dimension_principal: form.dimension_principal, derivacion: form.derivacion, fecha_derivacion: form.fecha_derivacion || null, seguimiento: form.seguimiento, medico_responsable: form.medico_responsable, observaciones: form.observaciones };
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, instrumento: form.instrumento, puntaje: form.puntaje ? parseFloat(form.puntaje) : null, nivel_riesgo: form.nivel_riesgo, dimension_principal: form.dimension_principal, derivacion: form.derivacion, fecha_derivacion: form.fecha_derivacion || null, seguimiento: form.seguimiento, medico_responsable: form.medico_responsable, periodicidad: form.periodicidad, proximo_control: proximoControl(form.fecha_evaluacion, form.periodicidad), observaciones: form.observaciones };
     const { error } = editing ? await supabase.from("vigilancia_psicosocial").update(payload).eq("id", editing) : await supabase.from("vigilancia_psicosocial").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
@@ -80,18 +84,34 @@ export default function PsicosocialModulo({ workers, empresaId }) {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-5">
+      <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
         <div>
           <h3 className="text-white font-semibold text-sm mb-1">Riesgos Psicosociales y Salud Mental</h3>
           <p className="text-gray-500 text-xs max-w-xl">Evaluación de factores psicosociales laborales, estrés y bienestar mental. (RM 312-2011/MINSA)</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <span className="text-[10px] px-2 py-1 rounded bg-red-900/40 text-red-400 border border-red-800 font-mono">CONFIDENCIAL</span>
-          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Instrumento: r.instrumento, Puntaje: r.puntaje ?? "", "Nivel Riesgo": r.nivel_riesgo, "Dimensión Principal": r.dimension_principal || "", Derivación: r.derivacion || "", Médico: r.medico_responsable || "" }))} filename="psicosocial" />
-          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
+          <Btn size="sm" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>
+          {subtab === "eval" && <>
+            <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Instrumento: r.instrumento, Puntaje: r.puntaje ?? "", "Nivel Riesgo": r.nivel_riesgo, "Dimensión Principal": r.dimension_principal || "", Derivación: r.derivacion || "", "Próximo control": r.proximo_control || "", Médico: r.medico_responsable || "" }))} filename="psicosocial" />
+            <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
+          </>}
         </div>
       </div>
 
+      {/* Pestañas internas */}
+      <div className="flex gap-1.5 bg-gray-900/60 border border-gray-800 rounded-lg p-1 mb-5 w-fit flex-wrap">
+        {[["eval", "Evaluaciones"], ["controles", "Controles"], ["cronograma", "Cronograma de Actividades"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSubtab(k)} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${subtab === k ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-200"}`}>{l}</button>
+        ))}
+      </div>
+
+      {showGuide && <VigGuideModal titulo={VIG_GUIAS.psicosocial.titulo} campos={VIG_GUIAS.psicosocial.campos} onClose={() => setShowGuide(false)} />}
+
+      {subtab === "controles" && <SeguimientoPanel programa="psicosocial" empresaId={empresaId} workers={workers} />}
+      {subtab === "cronograma" && <CronogramaActividades programa="psicosocial" empresaId={empresaId} workers={workers} />}
+
+      {subtab === "eval" && <>
       <div className="grid grid-cols-3 gap-4 mb-5">
         <KpiCard label="Evaluaciones este mes" value={thisMes.length} sub="Registros del mes actual" accentColor="blue" />
         <KpiCard label="Riesgo Alto / Muy Alto" value={altoRiesgo.length} sub="Requieren intervención" accentColor="amber" />
@@ -110,35 +130,74 @@ export default function PsicosocialModulo({ workers, empresaId }) {
 
       <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* Móvil: tarjetas */}
+      <div className="md:hidden space-y-2.5">
+        {!loading && filtered.map(r => {
+          const ec = estadoControl(r.proximo_control);
+          return (
+            <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm leading-tight">{r.trabajadores?.nombre || "—"}</div>
+                  <div className="text-xs text-gray-500 font-mono mt-0.5">{fmtFecha(r.fecha_evaluacion)} · {r.instrumento}</div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400"><Pencil size={14} /></button>
+                  {puedeEliminar() && (
+                  <button onClick={() => handleDelete(r.id)} className="text-red-500/50 hover:text-red-400"><Trash2 size={14} /></button>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <Badge color={getNivelColor(r.nivel_riesgo)}>{r.nivel_riesgo}{r.puntaje != null ? ` (${r.puntaje})` : ""}</Badge>
+                <Badge color={getDerivacionColor(r.derivacion)}>{r.derivacion || "No aplica"}</Badge>
+                {ec && <Badge color={ec.color}>Control {ec.label}</Badge>}
+              </div>
+              {r.dimension_principal && <div className="text-xs text-gray-400">{r.dimension_principal}</div>}
+              {r.proximo_control && <div className="text-xs text-gray-400">Próximo control: <span className="font-mono">{fmtFecha(r.proximo_control)}</span></div>}
+            </div>
+          );
+        })}
+        {!loading && !filtered.length && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">{records.length ? "Sin resultados para el filtro." : "Sin evaluaciones registradas."}</div>}
+      </div>
+
+      {/* Escritorio: tabla */}
+      <div className="hidden md:block bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              {["Trabajador", "Fecha", "Instrumento", "Puntaje", "Nivel Riesgo", "Dimensión Principal", "Derivación", ""].map(h => (
+              {["Trabajador", "Fecha", "Instrumento", "Puntaje", "Nivel Riesgo", "Dimensión Principal", "Derivación", "Próximo Control", ""].map(h => (
                 <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
-            {!loading && filtered.map(r => (
+            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {!loading && filtered.map(r => {
+              const ec = estadoControl(r.proximo_control);
+              return (
               <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_evaluacion}</td>
+                <td className="px-4 py-3 font-medium text-white whitespace-nowrap">{r.trabajadores?.nombre || "—"}</td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{fmtFecha(r.fecha_evaluacion)}</td>
                 <td className="px-4 py-3"><Badge color="blue">{r.instrumento}</Badge></td>
                 <td className="px-4 py-3 font-mono font-bold text-gray-200">{r.puntaje ?? "—"}</td>
                 <td className="px-4 py-3"><Badge color={getNivelColor(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge></td>
                 <td className="px-4 py-3 text-gray-400 text-xs">{r.dimension_principal || "—"}</td>
                 <td className="px-4 py-3"><Badge color={getDerivacionColor(r.derivacion)}>{r.derivacion || "No aplica"}</Badge></td>
-                <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
+                <td className="px-4 py-3 whitespace-nowrap">{r.proximo_control ? <span className="flex items-center gap-1.5 text-xs"><span className="font-mono text-gray-400">{fmtFecha(r.proximo_control)}</span>{ec && <Badge color={ec.color}>{ec.label}</Badge>}</span> : <span className="text-gray-600 text-xs">—</span>}</td>
+                <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>{puedeEliminar() && (<button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>)}</div></td>
               </tr>
-            ))}
-            {!loading && !records.length && (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+            );
+            })}
+            {!loading && !filtered.length && (
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">{records.length ? "Sin resultados para el filtro aplicado." : "Sin evaluaciones. Usa \"Nueva Evaluación\" para comenzar."}</td></tr>
             )}
           </tbody>
         </table>
+        </div>
       </div>
+      </>}
 
       {showModal && (
         <Modal title={editing ? "Editar — Psicosocial / Salud Mental" : "Nueva Evaluación — Psicosocial / Salud Mental"} onClose={closeModal} wide>
@@ -208,6 +267,12 @@ export default function PsicosocialModulo({ workers, empresaId }) {
             </FormField>
             <FormField label="Plan de Seguimiento">
               <Input placeholder="Ej: Sesión mensual, intervención grupal..." value={form.seguimiento} onChange={e => setForm({ ...form, seguimiento: e.target.value })} />
+            </FormField>
+            <FormField label="Periodicidad del control">
+              <Select value={form.periodicidad} onChange={e => setForm({ ...form, periodicidad: e.target.value })}>
+                {PERIODICIDADES.map(p => <option key={p} value={p}>{p}</option>)}
+              </Select>
+              {form.periodicidad !== "Único" && form.fecha_evaluacion && <p className="text-xs text-blue-400 mt-1">Próximo control: {fmtFecha(proximoControl(form.fecha_evaluacion, form.periodicidad))}</p>}
             </FormField>
             <FormField label="Observaciones" confidential>
               <Input placeholder="Notas clínicas confidenciales..." value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} />

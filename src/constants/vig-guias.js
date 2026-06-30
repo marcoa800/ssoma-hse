@@ -116,4 +116,31 @@ export const VIG_GUIAS = {
       { campo: "Médico responsable", desc: "Profesional a cargo", ejemplo: "Dr. Marco Melgarejo", req: false },
     ]
   },
+  radiacion: {
+    titulo: "Radiación UV",
+    campos: [
+      { campo: "Trabajador", desc: "Selecciona el trabajador de la lista", ejemplo: "García López, Juan", req: true },
+      { campo: "Fecha evaluación", desc: "Fecha de la evaluación de exposición", ejemplo: "2026-05-10", req: true },
+      { campo: "Zona / Área de trabajo", desc: "Lugar donde se da la exposición", ejemplo: "Patio / Exterior", req: false },
+      { campo: "Horas de exposición/día", desc: "Promedio de horas expuesto al sol por día", ejemplo: "5", req: false },
+      { campo: "Índice UV", desc: "Índice UV de la zona (0–11+)", ejemplo: "9", req: false },
+      { campo: "EPP asignado", desc: "Protección entregada (sombrero, lentes, ropa UV)", ejemplo: "Gorro legionario, lentes UV", req: false },
+      { campo: "Fotoprotector", desc: "Bloqueador asignado / FPS", ejemplo: "FPS 50+", req: false },
+      { campo: "Observaciones", desc: "Notas o recomendaciones", ejemplo: "Reforzar uso de bloqueador", req: false },
+    ]
+  },
+  estilos: {
+    titulo: "Estilos de Vida",
+    campos: [
+      { campo: "Trabajador", desc: "Selecciona el trabajador de la lista", ejemplo: "García López, Juan", req: true },
+      { campo: "Fecha evaluación", desc: "Fecha de la evaluación", ejemplo: "2026-05-10", req: true },
+      { campo: "Peso / Talla / IMC", desc: "Datos antropométricos (el IMC se calcula)", ejemplo: "78 kg / 1.72 m → 26.4", req: false },
+      { campo: "Perímetro abdominal", desc: "Medida en cm", ejemplo: "92", req: false },
+      { campo: "Presión arterial", desc: "Sistólica / diastólica (mmHg)", ejemplo: "120 / 80", req: false },
+      { campo: "Glucosa en ayunas", desc: "Resultado en mg/dL", ejemplo: "95", req: false },
+      { campo: "Nivel de actividad física", desc: "Sedentario / Leve / Moderado / Intenso", ejemplo: "Moderado", req: false },
+      { campo: "Médico responsable", desc: "Profesional a cargo", ejemplo: "Dr. Marco Melgarejo", req: false },
+      { campo: "Observaciones / Recomendaciones", desc: "Plan o recomendaciones", ejemplo: "Plan nutricional, pausas activas", req: false },
+    ]
+  },
 };

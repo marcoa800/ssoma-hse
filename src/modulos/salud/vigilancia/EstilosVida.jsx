@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../../lib/supabase.js';
 import { showToast } from '../../../lib/toast.jsx';
-import { calcularEdad, calcularVigencia } from '../../../lib/helpers.js';
+import { fmtFecha, PERIODICIDADES, proximoControl, estadoControl } from '../../../lib/helpers.js';
 import { VIG_GUIAS } from '../../../constants/vig-guias.js';
 import { VigGuideModal } from './VigGuideModal.jsx';
+import SeguimientoPanel from './SeguimientoPanel.jsx';
+import CronogramaActividades from './CronogramaActividades.jsx';
 import { Badge } from '../../../components/ui/Badge.jsx';
 import { KpiCard } from '../../../components/ui/KpiCard.jsx';
 import { Modal } from '../../../components/ui/Modal.jsx';
@@ -21,8 +23,10 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(null);
-  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], peso: "", talla: "", perimetro_abdominal: "", presion_sistolica: "", presion_diastolica: "", glucosa: "", fumador: false, consume_alcohol: false, sedentario: false, nivel_actividad: "Moderado", observaciones: "", medico_responsable: "" };
+  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], peso: "", talla: "", perimetro_abdominal: "", presion_sistolica: "", presion_diastolica: "", glucosa: "", fumador: false, consume_alcohol: false, sedentario: false, nivel_actividad: "Moderado", periodicidad: "Anual", observaciones: "", medico_responsable: "" };
   const [form, setForm] = useState(initForm);
+  const [subtab, setSubtab] = useState("eval");
+  const [showGuide, setShowGuide] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -76,14 +80,14 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
     }
     const imc = calcIMC(form.peso, form.talla);
     setSaving(true);
-    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, peso: form.peso ? parseFloat(form.peso) : null, talla: form.talla ? parseFloat(form.talla) : null, imc: imc ? parseFloat(imc) : null, perimetro_abdominal: form.perimetro_abdominal ? parseFloat(form.perimetro_abdominal) : null, presion_sistolica: form.presion_sistolica ? parseInt(form.presion_sistolica) : null, presion_diastolica: form.presion_diastolica ? parseInt(form.presion_diastolica) : null, glucosa: form.glucosa ? parseFloat(form.glucosa) : null, fumador: form.fumador, consume_alcohol: form.consume_alcohol, sedentario: form.sedentario, nivel_actividad: form.nivel_actividad, observaciones: form.observaciones, medico_responsable: form.medico_responsable };
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, peso: form.peso ? parseFloat(form.peso) : null, talla: form.talla ? parseFloat(form.talla) : null, imc: imc ? parseFloat(imc) : null, perimetro_abdominal: form.perimetro_abdominal ? parseFloat(form.perimetro_abdominal) : null, presion_sistolica: form.presion_sistolica ? parseInt(form.presion_sistolica) : null, presion_diastolica: form.presion_diastolica ? parseInt(form.presion_diastolica) : null, glucosa: form.glucosa ? parseFloat(form.glucosa) : null, fumador: form.fumador, consume_alcohol: form.consume_alcohol, sedentario: form.sedentario, nivel_actividad: form.nivel_actividad, periodicidad: form.periodicidad, proximo_control: proximoControl(form.fecha_evaluacion, form.periodicidad), observaciones: form.observaciones, medico_responsable: form.medico_responsable };
     const { error } = editing ? await supabase.from("vigilancia_estilos_vida").update(payload).eq("id", editing) : await supabase.from("vigilancia_estilos_vida").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
     showToast(editing ? "Registro actualizado" : "Evaluación registrada", "success");
     closeModal(); load();
   };
-  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, peso: r.peso != null ? String(r.peso) : "", talla: r.talla != null ? String(r.talla) : "", perimetro_abdominal: r.perimetro_abdominal != null ? String(r.perimetro_abdominal) : "", presion_sistolica: r.presion_sistolica != null ? String(r.presion_sistolica) : "", presion_diastolica: r.presion_diastolica != null ? String(r.presion_diastolica) : "", glucosa: r.glucosa != null ? String(r.glucosa) : "", fumador: r.fumador || false, consume_alcohol: r.consume_alcohol || false, sedentario: r.sedentario || false, nivel_actividad: r.nivel_actividad || "Moderado", observaciones: r.observaciones || "", medico_responsable: r.medico_responsable || "" }); setEditing(r.id); setShowModal(true); };
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, peso: r.peso != null ? String(r.peso) : "", talla: r.talla != null ? String(r.talla) : "", perimetro_abdominal: r.perimetro_abdominal != null ? String(r.perimetro_abdominal) : "", presion_sistolica: r.presion_sistolica != null ? String(r.presion_sistolica) : "", presion_diastolica: r.presion_diastolica != null ? String(r.presion_diastolica) : "", glucosa: r.glucosa != null ? String(r.glucosa) : "", fumador: r.fumador || false, consume_alcohol: r.consume_alcohol || false, sedentario: r.sedentario || false, nivel_actividad: r.nivel_actividad || "Moderado", periodicidad: r.periodicidad || "Anual", observaciones: r.observaciones || "", medico_responsable: r.medico_responsable || "" }); setEditing(r.id); setShowModal(true); };
   const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
   const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_estilos_vida").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
 
@@ -99,17 +103,39 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-5">
+      <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
         <div>
           <h3 className="text-white font-semibold text-sm mb-1">Estilos de Vida Saludable</h3>
           <p className="text-gray-500 text-xs max-w-xl">IMC, presión arterial, glucosa y hábitos de riesgo. Cálculo automático de categorías según rangos clínicos.</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0 ml-4">
-          <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Peso: r.peso ?? "", Talla: r.talla ?? "", IMC: r.imc ?? "", "Perímetro Abd.": r.perimetro_abdominal ?? "", "PA Sistólica": r.presion_sistolica ?? "", "PA Diastólica": r.presion_diastolica ?? "", Glucosa: r.glucosa ?? "", Fumador: r.fumador ? "Sí" : "No", Alcohol: r.consume_alcohol ? "Sí" : "No", Sedentario: r.sedentario ? "Sí" : "No" }))} filename="estilos_vida" />
-          <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          <Btn size="sm" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>
+          {subtab === "eval" && <>
+            <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Peso: r.peso ?? "", Talla: r.talla ?? "", IMC: r.imc ?? "", "Perímetro Abd.": r.perimetro_abdominal ?? "", "PA Sistólica": r.presion_sistolica ?? "", "PA Diastólica": r.presion_diastolica ?? "", Glucosa: r.glucosa ?? "", Fumador: r.fumador ? "Sí" : "No", Alcohol: r.consume_alcohol ? "Sí" : "No", Sedentario: r.sedentario ? "Sí" : "No" }))} filename="estilos_vida" />
+            <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
+          </>}
         </div>
       </div>
 
+      {/* Pestañas internas */}
+      <div className="flex gap-1.5 bg-gray-900/60 border border-gray-800 rounded-lg p-1 mb-5 w-fit flex-wrap">
+        {[["eval", "Evaluaciones"], ["controles", "Controles"], ["cronograma", "Cronograma de Actividades"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSubtab(k)} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${subtab === k ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-200"}`}>{l}</button>
+        ))}
+      </div>
+
+      {showGuide && <VigGuideModal titulo={VIG_GUIAS.estilos.titulo} campos={VIG_GUIAS.estilos.campos} onClose={() => setShowGuide(false)} />}
+
+      {subtab === "controles" && <SeguimientoPanel programa="estilos" empresaId={empresaId} workers={workers} autoImc campos={[
+        { key: "peso", label: "Peso (kg)", type: "number", step: "0.1", suffix: " kg" },
+        { key: "talla", label: "Talla (m)", type: "number", step: "0.01", suffix: " m" },
+        { key: "presion", label: "Presión arterial", type: "text", placeholder: "120/80" },
+        { key: "glucosa", label: "Glucosa (mg/dL)", type: "number", suffix: " mg/dL" },
+        { key: "perimetro", label: "Perímetro abdominal (cm)", type: "number", suffix: " cm" },
+      ]} />}
+      {subtab === "cronograma" && <CronogramaActividades programa="estilos" empresaId={empresaId} workers={workers} />}
+
+      {subtab === "eval" && <>
       <div className="grid grid-cols-3 gap-4 mb-5">
         <KpiCard label="Evaluaciones este mes" value={thisMes.length} sub="Registros del mes actual" accentColor="blue" />
         <KpiCard label="Sobrepeso / Obesidad" value={conSobrepeso.length} sub="IMC ≥ 25" accentColor="amber" />
@@ -118,26 +144,66 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
 
       <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* Móvil: tarjetas */}
+      <div className="md:hidden space-y-2.5">
+        {!loading && filtered.map(r => {
+          const imcCat = getIMCCategoria(r.imc);
+          const presCat = getPresionCategoria(r.presion_sistolica, r.presion_diastolica);
+          const glucCat = getGlucosaCategoria(r.glucosa);
+          const habitos = [r.fumador && "Fumador", r.consume_alcohol && "Alcohol", r.sedentario && "Sedentario"].filter(Boolean);
+          const ec = estadoControl(r.proximo_control);
+          return (
+            <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="min-w-0">
+                  <div className="font-semibold text-white text-sm leading-tight">{r.trabajadores?.nombre || "—"}</div>
+                  <div className="text-xs text-gray-500 font-mono mt-0.5">{fmtFecha(r.fecha_evaluacion)}</div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400"><Pencil size={14} /></button>
+                  {puedeEliminar() && (
+                  <button onClick={() => handleDelete(r.id)} className="text-red-500/50 hover:text-red-400"><Trash2 size={14} /></button>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {r.imc != null && <Badge color={imcCat.color}>IMC {r.imc} · {imcCat.label}</Badge>}
+                {r.presion_sistolica && <Badge color={presCat.color}>{r.presion_sistolica}/{r.presion_diastolica} {presCat.label}</Badge>}
+                {r.glucosa && <Badge color={glucCat.color}>Glu {r.glucosa} {glucCat.label}</Badge>}
+                {ec && <Badge color={ec.color}>Control {ec.label}</Badge>}
+              </div>
+              {habitos.length > 0 && <div className="flex flex-wrap gap-1.5 mb-1">{habitos.map(h => <Badge key={h} color="orange">{h}</Badge>)}</div>}
+              {r.proximo_control && <div className="text-xs text-gray-400">Próximo control: <span className="font-mono">{fmtFecha(r.proximo_control)}</span></div>}
+              {r.observaciones && <div className="text-xs text-gray-500 mt-1">{r.observaciones}</div>}
+            </div>
+          );
+        })}
+        {!loading && !filtered.length && <div className="text-center text-gray-600 text-sm py-8 bg-gray-900 border border-gray-800 rounded-xl">{records.length ? "Sin resultados para el filtro." : "Sin evaluaciones registradas."}</div>}
+      </div>
+
+      {/* Escritorio: tabla */}
+      <div className="hidden md:block bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              {["Trabajador", "Fecha", "IMC", "Categoría", "Presión Art.", "Glucosa", "Hábitos Riesgo", ""].map(h => (
+              {["Trabajador", "Fecha", "IMC", "Categoría", "Presión Art.", "Glucosa", "Hábitos Riesgo", "Próximo Control", ""].map(h => (
                 <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
             {!loading && filtered.map(r => {
               const imcCat = getIMCCategoria(r.imc);
               const presCat = getPresionCategoria(r.presion_sistolica, r.presion_diastolica);
               const glucCat = getGlucosaCategoria(r.glucosa);
               const habitos = [r.fumador && "Fumador", r.consume_alcohol && "Alcohol", r.sedentario && "Sedentario"].filter(Boolean);
+              const ec = estadoControl(r.proximo_control);
               return (
                 <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                  <td className="px-4 py-3 font-medium text-white">{r.trabajadores?.nombre || "—"}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.fecha_evaluacion}</td>
+                  <td className="px-4 py-3 font-medium text-white whitespace-nowrap">{r.trabajadores?.nombre || "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{fmtFecha(r.fecha_evaluacion)}</td>
                   <td className="px-4 py-3 font-mono font-bold text-sm text-gray-200">{r.imc ?? "—"}</td>
                   <td className="px-4 py-3"><Badge color={imcCat.color}>{imcCat.label}</Badge></td>
                   <td className="px-4 py-3">
@@ -159,16 +225,19 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
                   <td className="px-4 py-3">
                     {habitos.length ? habitos.map(h => <Badge key={h} color="orange">{h}</Badge>) : <span className="text-gray-600 text-xs">Ninguno</span>}
                   </td>
-                  <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button><button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button></div></td>
+                  <td className="px-4 py-3 whitespace-nowrap">{r.proximo_control ? <span className="flex items-center gap-1.5 text-xs"><span className="font-mono text-gray-400">{fmtFecha(r.proximo_control)}</span>{ec && <Badge color={ec.color}>{ec.label}</Badge>}</span> : <span className="text-gray-600 text-xs">—</span>}</td>
+                  <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(r)} className="text-gray-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>{puedeEliminar() && (<button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>)}</div></td>
                 </tr>
               );
             })}
-            {!loading && !records.length && (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-600 text-sm">Sin evaluaciones. Usa "Nueva Evaluación" para comenzar.</td></tr>
+            {!loading && !filtered.length && (
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">{records.length ? "Sin resultados para el filtro aplicado." : "Sin evaluaciones. Usa \"Nueva Evaluación\" para comenzar."}</td></tr>
             )}
           </tbody>
         </table>
+        </div>
       </div>
+      </>}
 
       {showModal && (
         <Modal title={editing ? "Editar — Estilos de Vida Saludable" : "Nueva Evaluación — Estilos de Vida Saludable"} onClose={closeModal} wide>
@@ -244,6 +313,12 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
 
             <FormField label="Médico Responsable">
               <Input placeholder="Nombre del médico" value={form.medico_responsable} onChange={e => setForm({ ...form, medico_responsable: e.target.value })} />
+            </FormField>
+            <FormField label="Periodicidad del control">
+              <Select value={form.periodicidad} onChange={e => setForm({ ...form, periodicidad: e.target.value })}>
+                {PERIODICIDADES.map(p => <option key={p} value={p}>{p}</option>)}
+              </Select>
+              {form.periodicidad !== "Único" && form.fecha_evaluacion && <p className="text-xs text-blue-400 mt-1">Próximo control: {fmtFecha(proximoControl(form.fecha_evaluacion, form.periodicidad))}</p>}
             </FormField>
             <FormField label="Observaciones / Recomendaciones">
               <Input placeholder="Dieta, ejercicio, derivaciones..." value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} />

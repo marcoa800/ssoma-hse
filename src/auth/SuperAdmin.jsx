@@ -161,7 +161,7 @@ export default function SuperAdmin() {
     loadUsuarios();
   };
 
-  const rolColor = { SUPERADMIN: "orange", ADMIN: "purple", MEDICO: "green", SEGURIDAD: "amber", ADMINISTRATIVO: "emerald" };
+  const rolColor = { SUPERADMIN: "orange", ADMIN: "purple", MEDICO: "green", SEGURIDAD: "amber", ADMINISTRATIVO: "emerald", PREVENCIONISTA: "blue" };
 
   return (
     <div>
@@ -363,6 +363,7 @@ export default function SuperAdmin() {
               <option value="SEGURIDAD">SEGURIDAD — Jefe de Seguridad</option>
               <option value="MEDICO">MEDICO — Médico Ocupacional</option>
               <option value="ADMINISTRATIVO">ADMINISTRATIVO — Perfil Administrativo</option>
+              <option value="PREVENCIONISTA">PREVENCIONISTA — Igual que Seguridad, sin eliminar</option>
               <option value="ADMIN">ADMIN — Administrador</option>
               <option value="SUPERADMIN">SUPERADMIN — Super Administrador</option>
             </Select>
@@ -442,6 +443,7 @@ export default function SuperAdmin() {
               <option value="SEGURIDAD">SEGURIDAD — Jefe de Seguridad</option>
               <option value="MEDICO">MEDICO — Médico Ocupacional</option>
               <option value="ADMINISTRATIVO">ADMINISTRATIVO — Perfil Administrativo</option>
+              <option value="PREVENCIONISTA">PREVENCIONISTA — Igual que Seguridad, sin eliminar</option>
               <option value="ADMIN">ADMIN — Administrador</option>
             </Select>
           </FormField>

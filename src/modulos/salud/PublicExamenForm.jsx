@@ -5,6 +5,8 @@
 // ════════════════════════════════════════════════════════════════════
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { brandingEmpresa } from '../../lib/helpers.js';
+import { sedesDeEmpresa } from '../../constants/sedes.js';
 import { CheckCircle, XCircle, ClipboardList, Award } from 'lucide-react';
 
 const LETRAS = ['a','b','c','d'];
@@ -24,12 +26,45 @@ function BtnInstant({ onClick, disabled, className, children, style }) {
   );
 }
 
+// Convierte un link de YouTube a su URL de embed
+function ytEmbed(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/))([\w-]{11})/);
+  const id = m ? m[1] : (/^[\w-]{11}$/.test(url.trim()) ? url.trim() : null);
+  return id ? `https://www.youtube.com/embed/${id}` : null;
+}
+
+// Convierte un link de Google (Drive, Docs, Sheets, Slides) a su URL embebible (solo lectura)
+function driveEmbed(url) {
+  if (!url) return null;
+  // Documentos de Google: Docs / Sheets / Slides
+  let m = url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]+)/);
+  if (m) return `https://docs.google.com/${m[1]}/d/${m[2]}/preview`;
+  // Drive: archivo /file/d/ID/
+  m = url.match(/drive\.google\.com\/file\/d\/([\w-]+)/);
+  if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+  // Drive: open?id= / uc?id= / ...&id=
+  if (/drive\.google\.com|docs\.google\.com/.test(url)) {
+    m = url.match(/[?&]id=([\w-]+)/);
+    if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+  }
+  return null;
+}
+
+// Embed universal: YouTube o Drive (o null si no es embebible)
+function videoEmbed(url) {
+  return ytEmbed(url) || driveEmbed(url);
+}
+
 export default function PublicExamenForm({ empresaId }) {
   // Si viene con ?id=examenId, va directo a ese examen (sin elegir)
   const examenIdFijo = new URLSearchParams(window.location.search).get('id');
   const [paso, setPaso] = useState('dni');
   const [dni, setDni] = useState('');
   const [nombre, setNombre] = useState('');
+  const [sede, setSede] = useState('');
+  const [examenFijo, setExamenFijo] = useState(null);
+  const [empresaNombre, setEmpresaNombre] = useState('');
   const [examenes, setExamenes] = useState([]);
   const [examenSel, setExamenSel] = useState(null);
   const [preguntas, setPreguntas] = useState([]);
@@ -39,34 +74,60 @@ export default function PublicExamenForm({ empresaId }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // ── Branding por empresa (Gelarti / Comindustria / genérico) ──
+  const brand = brandingEmpresa(empresaNombre);
+  const [sedesDisponibles, setSedesDisponibles] = useState([]);
+  // Lista fija de sedes (Expertos / Franquicias). Si existe, manda sobre la del directorio.
+  const sedesPortal = sedesDeEmpresa(empresaNombre) || sedesDisponibles;
+  useEffect(() => {
+    if (!empresaId) return;
+    supabase.rpc('examen_empresa_nombre', { p_id: empresaId })
+      .then(({ data }) => setEmpresaNombre(data || ''));
+    // Sedes reales del directorio → para que el trabajador elija la ortografía exacta
+    supabase.from('trabajadores').select('sede').eq('empresa_id', empresaId)
+      .then(({ data }) => {
+        const lista = [...new Set((data || []).map(r => (r.sede || '').trim()).filter(Boolean))]
+          .sort((a, b) => a.localeCompare(b, 'es'));
+        setSedesDisponibles(lista);
+      });
+  }, [empresaId]);
+
+  // Continúa después de capturar la sede: va al examen fijo o a la lista
+  const continuarTrasSede = () => {
+    if (!sede.trim()) { setError('Indica tu sede para continuar'); return; }
+    setError('');
+    if (examenFijo) { elegirExamen(examenFijo); return; }
+    setPaso('examen');
+  };
+
   // ── Paso 1: buscar trabajador por DNI ──
   const buscarDNI = async () => {
-    if (!/^\d{8}$/.test(dni)) { setError('El DNI debe tener 8 dígitos numéricos'); return; }
+    if (!/^\d{8,12}$/.test(dni)) { setError('Ingresa tu DNI (8 dígitos) o carnet de extranjería (9 a 12 dígitos)'); return; }
     setLoading(true); setError('');
-    const { data } = await supabase.from('trabajadores').select('nombre,estado')
-      .eq('dni', dni).eq('empresa_id', empresaId).single();
-    const nombreDir = data?.nombre || '';
+    const { data: nombreRpc } = await supabase.rpc('examen_buscar_trabajador',
+      { p_empresa_id: empresaId, p_dni: dni });
+    const nombreDir = nombreRpc || '';
     setNombre(nombreDir);
 
     // Si viene con link directo a un examen específico
     if (examenIdFijo) {
-      const { data: ex } = await supabase.from('examenes').select('id,nombre,descripcion,puntaje_minimo')
+      const { data: ex } = await supabase.from('examenes').select('id,nombre,descripcion,puntaje_minimo,video_url')
         .eq('id', examenIdFijo).eq('activo', true).single();
       setLoading(false);
       if (!ex) { setError('Este examen no está disponible.'); return; }
-      if (!nombreDir) { setExamenes([ex]); setPaso('nombre'); return; }
-      await elegirExamen(ex, nombreDir);
+      setExamenFijo(ex);
+      // Sin nombre en directorio → pedir nombre; con nombre → pedir sede (manual)
+      setPaso(nombreDir ? 'sede' : 'nombre');
       return;
     }
 
-    const { data: exs } = await supabase.from('examenes').select('id,nombre,descripcion')
+    const { data: exs } = await supabase.from('examenes').select('id,nombre,descripcion,video_url')
       .eq('empresa_id', empresaId).eq('activo', true).order('created_at', { ascending: false });
     setExamenes(exs || []);
     setLoading(false);
     if (!exs?.length) { setError('No hay exámenes disponibles en este momento.'); return; }
-    // Si no está en el directorio, pedir nombre manualmente
-    if (!nombreDir) { setPaso('nombre'); return; }
-    setPaso('examen');
+    // Si no está en el directorio, pedir nombre manualmente; luego siempre la sede
+    setPaso(nombreDir ? 'sede' : 'nombre');
   };
 
   // ── Paso 2: seleccionar examen ──
@@ -88,7 +149,7 @@ export default function PublicExamenForm({ empresaId }) {
     setCorrectasMap(Object.fromEntries((ps||[]).map(p => [p.id, p.correcta])));
     setRespuestas({});
     setLoading(false);
-    setPaso('preguntas');
+    setPaso(ex.video_url ? 'video' : 'preguntas');
   };
 
   // ── Paso 3: enviar respuestas ──
@@ -104,7 +165,7 @@ export default function PublicExamenForm({ empresaId }) {
     // Guardar en BD en segundo plano
     supabase.from('examen_resultados').upsert({
       empresa_id: empresaId, examen_id: examenSel.id,
-      dni, nombre: nombre || null, puntaje, total_preguntas: preguntas.length,
+      dni, nombre: nombre || null, sede: sede || null, puntaje, total_preguntas: preguntas.length,
       aprobado, respuestas, fecha: new Date().toISOString(),
     }, { onConflict: 'examen_id,dni' }).then(({ error: err }) => {
       if (err) console.error('Error guardando resultado:', err.message);
@@ -116,28 +177,32 @@ export default function PublicExamenForm({ empresaId }) {
 
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg">
+      <div className={`w-full ${paso === 'sede' ? 'max-w-3xl' : 'max-w-lg'}`}>
 
         {/* Header */}
         <div className="text-center mb-6">
+          {brand.logo && (
+            <img src={brand.logo} alt={brand.marca} className="h-12 mx-auto mb-3 object-contain"
+              onError={e => { e.currentTarget.style.display = 'none'; }} />
+          )}
           <div className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold mb-3">
             <ClipboardList size={16}/> Examen de Capacitación
           </div>
-          <p className="text-gray-500 text-xs">Comindustria — Sistema de Evaluación SST</p>
+          <p className="text-gray-500 text-xs">{brand.marca} — Sistema de Evaluación SST</p>
         </div>
 
         {/* ── PASO 1: DNI ── */}
         {paso === 'dni' && (
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
-            <h2 className="text-white font-semibold text-lg text-center">Ingresa tu DNI</h2>
-            <p className="text-gray-500 text-sm text-center">Escribe tu número de documento (8 dígitos)</p>
-            <input value={dni} onChange={e=>setDni(e.target.value.replace(/\D/g,'').slice(0,8))}
+            <h2 className="text-white font-semibold text-lg text-center">Ingresa tu documento</h2>
+            <p className="text-gray-500 text-sm text-center">DNI (8 dígitos) o carnet de extranjería (9 a 12 dígitos)</p>
+            <input value={dni} onChange={e=>setDni(e.target.value.replace(/\D/g,'').slice(0,12))}
               onKeyDown={e=>e.key==='Enter'&&buscarDNI()}
-              placeholder="12345678" maxLength={8}
+              placeholder="N° de documento" maxLength={12}
               className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-2xl text-white text-center tracking-widest font-mono focus:outline-none focus:border-blue-500"/>
             {error && <p className="text-red-400 text-xs text-center">{error}</p>}
-            <BtnInstant onClick={buscarDNI} disabled={loading || dni.length !== 8}
-              className={`w-full py-3 font-semibold rounded-xl transition-colors text-white ${loading || dni.length !== 8 ? 'bg-blue-900/50 opacity-50' : 'bg-blue-600'}`}>
+            <BtnInstant onClick={buscarDNI} disabled={loading || dni.length < 8}
+              className={`w-full py-3 font-semibold rounded-xl transition-colors text-white ${loading || dni.length < 8 ? 'bg-blue-900/50 opacity-50' : 'bg-blue-600'}`}>
               {loading ? 'Buscando...' : 'Continuar →'}
             </BtnInstant>
           </div>
@@ -149,10 +214,10 @@ export default function PublicExamenForm({ empresaId }) {
             <h2 className="text-white font-semibold text-lg text-center">¿Cuál es tu nombre?</h2>
             <p className="text-gray-500 text-sm text-center">Tu DNI no está en el directorio. Escribe tu nombre completo para continuar.</p>
             <input value={nombre} onChange={e => setNombre(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && nombre.trim().length > 2 && setPaso('examen')}
+              onKeyDown={e => e.key === 'Enter' && nombre.trim().length > 2 && setPaso('sede')}
               placeholder="Apellidos y Nombres"
               className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500"/>
-            <BtnInstant onClick={() => { if (nombre.trim().length > 2) setPaso('examen'); }}
+            <BtnInstant onClick={() => { if (nombre.trim().length > 2) setPaso('sede'); }}
               disabled={nombre.trim().length < 3}
               className={`w-full py-3 font-semibold rounded-xl text-white transition-colors ${nombre.trim().length < 3 ? 'bg-blue-900/50 opacity-50' : 'bg-blue-600'}`}>
               Continuar →
@@ -161,6 +226,50 @@ export default function PublicExamenForm({ empresaId }) {
               className="w-full text-gray-600 text-xs text-center hover:text-gray-400 py-1">
               ← Cambiar DNI
             </BtnInstant>
+          </div>
+        )}
+
+        {/* ── PASO 1c: sede (manual, obligatoria) ── */}
+        {paso === 'sede' && (
+          <div className="grid md:grid-cols-2 gap-4 items-start">
+            {/* Columna: ingreso de sede */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+              <div className="text-center">
+                <p className="text-white font-semibold text-lg">{nombre || `Doc: ${dni}`}</p>
+                <p className="text-gray-500 text-sm mt-1">¿En qué sede trabajas?</p>
+              </div>
+              <input value={sede} onChange={e => setSede(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && continuarTrasSede()}
+                placeholder="Selecciónala de la lista →"
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500"/>
+              {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+              <BtnInstant onClick={continuarTrasSede} disabled={loading || !sede.trim()}
+                className={`w-full py-3 font-semibold rounded-xl text-white transition-colors ${loading || !sede.trim() ? 'bg-blue-900/50 opacity-50' : 'bg-blue-600'}`}>
+                {loading ? 'Cargando...' : 'Continuar →'}
+              </BtnInstant>
+              <BtnInstant onClick={() => { setPaso('dni'); setError(''); setSede(''); setExamenFijo(null); }}
+                className="w-full text-gray-600 text-xs text-center hover:text-gray-400 py-1">
+                ← Cambiar documento
+              </BtnInstant>
+            </div>
+            {/* Columna: listado de sedes (clic para autocompletar exacto) */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              <p className="text-gray-400 text-xs font-medium mb-1 px-1">Toca tu sede en la lista</p>
+              <p className="text-gray-600 text-[11px] mb-3 px-1">Elígela aquí para que quede escrita exactamente igual.</p>
+              {sedesPortal.length === 0
+                ? <p className="text-gray-600 text-xs px-1 py-3">No hay sedes registradas. Escríbela en el campo de la izquierda.</p>
+                : <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                    {sedesPortal.map(s => {
+                      const on = sede.trim().toLowerCase() === s.toLowerCase();
+                      return (
+                        <BtnInstant key={s} onClick={() => { setSede(s); setError(''); }}
+                          className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${on ? 'bg-blue-900/40 border-blue-600 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-blue-700'}`}>
+                          {on ? '✓ ' : ''}{s}
+                        </BtnInstant>
+                      );
+                    })}
+                  </div>}
+            </div>
           </div>
         )}
 
@@ -186,6 +295,26 @@ export default function PublicExamenForm({ empresaId }) {
               className="w-full text-gray-600 text-xs text-center hover:text-gray-400 py-1">
               ← Cambiar DNI
             </BtnInstant>
+          </div>
+        )}
+
+        {/* ── PASO 2b: video de capacitación (YouTube) ── */}
+        {paso === 'video' && examenSel && (
+          <div className="space-y-4">
+            <div className="text-center">
+              <h2 className="text-white font-semibold text-lg">{examenSel.nombre}</h2>
+              <p className="text-gray-500 text-sm mt-1">Revisa el material de capacitación antes de rendir el examen.</p>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+              {videoEmbed(examenSel.video_url)
+                ? <div className="relative w-full" style={{ paddingBottom: '70%' }}>
+                    <iframe className="absolute inset-0 w-full h-full" src={videoEmbed(examenSel.video_url)} title="Material de capacitación" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                  </div>
+                : <a href={examenSel.video_url} target="_blank" rel="noopener noreferrer" className="block p-6 text-center text-blue-400 underline">Abrir material de capacitación</a>}
+            </div>
+            <button onClick={() => setPaso('preguntas')} className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-base shadow-lg transition-colors">
+              Ya revisé el material — Comenzar examen →
+            </button>
           </div>
         )}
 

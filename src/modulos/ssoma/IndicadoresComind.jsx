@@ -5,7 +5,8 @@
 // ════════════════════════════════════════════════════════════════════
 import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { supabase } from '../../lib/supabase.js';
+import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { FormField } from '../../components/ui/FormField.jsx';
@@ -26,6 +27,8 @@ const AREAS = ["ADMINISTRATIVO", "PRODUCCION"];
 const calcIF = (acc, hh) => hh > 0 ? ((acc * 1_000_000) / hh) : 0;
 const calcIG = (dp, hh)  => hh > 0 ? ((dp  * 1_000_000) / hh) : 0;
 const calcIA = (IF, IG)  => IF > 0 && IG > 0 ? (IF * IG / 1_000) : 0;
+// Horas de capacitación del mes = (N° trabajadores × 10 × 26) / 60
+const calcCap = (trab) => +(((Number(trab) || 0) * 10 * 26) / 60).toFixed(2);
 const fmt2 = (n) => Number(n || 0).toFixed(2);
 const fmtN = (n) => Number(n || 0).toLocaleString("es-PE");
 
@@ -83,16 +86,28 @@ export default function IndicadoresComind({ empresaId }) {
       try {
         const wb = XLSX.read(ev.target.result, { type: "array", raw: true });
 
+        const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
         const extraer = (sheetName) => {
           const ws = wb.Sheets[sheetName];
           if (!ws) return { trabajadores: 0, hh: 0 };
           const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+          if (!rows.length) return { trabajadores: 0, hh: 0 };
+          const header = (rows[0] || []).map(norm);
+          // Columna de horas: priorizar "Total horas acumuladas"; si no existe, "Total horas lab."; fallback col 7
+          let colHoras = header.findIndex(h => h.includes("total horas acumulad"));
+          if (colHoras < 0) colHoras = header.findIndex(h => h.includes("horas") && h.includes("acumulad"));
+          if (colHoras < 0) colHoras = header.findIndex(h => h.includes("total horas") && h.includes("lab"));
+          if (colHoras < 0) colHoras = 7;
+          // Columna de nombre: "apellidos y nombres"; fallback col 1
+          let colNom = header.findIndex(h => h.includes("apellidos") || h.includes("nombre"));
+          if (colNom < 0) colNom = 1;
           let trab = 0, hh = 0;
           rows.forEach((r, i) => {
-            if (i === 0) return; // skip header
-            const nombre = String(r[1] || "").trim();
-            const horas = parseFloat(r[7]) || 0;
-            if (nombre) { trab++; hh += horas; }
+            if (i === 0) return; // header
+            const nombre = String(r[colNom] || "").trim();
+            if (!nombre || /total/i.test(nombre)) return; // ignora filas vacías y la de TOTAL
+            const horas = parseFloat(String(r[colHoras]).replace(/,/g, "")) || 0;
+            trab++; hh += horas;
           });
           return { trabajadores: trab, hh: parseFloat(hh.toFixed(2)) };
         };
@@ -103,9 +118,9 @@ export default function IndicadoresComind({ empresaId }) {
         // Guardar en BD (upsert)
         const upserts = [
           { ...filaVacia(anioDetectado, mesDetectado, "ADMINISTRATIVO", empresaId),
-            trabajadores: emp.trabajadores, hh_trabajadas: emp.hh },
+            trabajadores: emp.trabajadores, hh_trabajadas: emp.hh, hh_capacitacion: calcCap(emp.trabajadores) },
           { ...filaVacia(anioDetectado, mesDetectado, "PRODUCCION", empresaId),
-            trabajadores: obj.trabajadores, hh_trabajadas: obj.hh },
+            trabajadores: obj.trabajadores, hh_trabajadas: obj.hh, hh_capacitacion: calcCap(obj.trabajadores) },
         ];
 
         for (const u of upserts) {
@@ -115,7 +130,7 @@ export default function IndicadoresComind({ empresaId }) {
           if (existing) {
             // Solo actualiza trabajadores y hh_trabajadas, no sobreescribe los demás
             await supabase.from("indicadores_sst_comind")
-              .update({ trabajadores: u.trabajadores, hh_trabajadas: u.hh_trabajadas })
+              .update({ trabajadores: u.trabajadores, hh_trabajadas: u.hh_trabajadas, hh_capacitacion: u.hh_capacitacion })
               .eq("id", existing.id);
           } else {
             await supabase.from("indicadores_sst_comind").insert(u);
@@ -192,6 +207,20 @@ export default function IndicadoresComind({ empresaId }) {
   const mesesConDatos = [...new Set(records.map(r => r.mes))].sort((a,b)=>a-b);
   const byKey = {};
   records.forEach(r => { byKey[`${r.mes}-${r.area}`] = r; });
+
+  // Datos mensuales (combinando Admin + Producción) para los gráficos
+  const chartData = MESES.slice(1).map((nombre, idx) => {
+    const mes = idx + 1;
+    const datos = AREAS.map(a => byKey[`${mes}-${a}`]).filter(Boolean);
+    const trab = datos.reduce((s, r) => s + (Number(r.trabajadores) || 0), 0);
+    const hh   = datos.reduce((s, r) => s + (parseFloat(r.hh_trabajadas) || 0), 0);
+    const accI = datos.reduce((s, r) => s + ((r.acc_incapacitante || 0) + (r.acc_fatal || 0)), 0);
+    const dp   = datos.reduce((s, r) => s + (parseFloat(r.dias_perdidos) || 0), 0);
+    const IF = +calcIF(accI, hh).toFixed(2);
+    const IG = +calcIG(dp, hh).toFixed(2);
+    const IA = +calcIA(IF, IG).toFixed(2);
+    return { mes: nombre.slice(0, 3).toUpperCase(), trabajadores: trab, IF, IG, IA };
+  });
 
   const setEF = (k, v) => setEditForm(f => ({ ...f, [k]: v }));
   const efHH   = parseFloat(editForm.hh_trabajadas) || 0;
@@ -299,6 +328,33 @@ export default function IndicadoresComind({ empresaId }) {
         </div>
       )}
 
+      {/* ── Gráficos mensuales (doble eje: Trabajadores + Índice) ── */}
+      {records.length > 0 && (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 mb-5">
+          {[
+            { key: "IF", titulo: "Índice de Frecuencia Mensual", color: "#ef4444", label: "Frecuencia" },
+            { key: "IG", titulo: "Índice de Gravedad Mensual", color: "#f97316", label: "Gravedad" },
+            { key: "IA", titulo: "Índice de Accidentabilidad Mensual", color: "#dc2626", label: "Accidentabilidad" },
+          ].map(cfg => (
+            <div key={cfg.key} className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+              <p className="text-center text-xs font-semibold text-white mb-2">{cfg.titulo} {anio}</p>
+              <ResponsiveContainer width="100%" height={240}>
+                <ComposedChart data={chartData} margin={{ top: 5, right: 6, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                  <XAxis dataKey="mes" tick={{ fill: "#9ca3af", fontSize: 9 }} interval={0} angle={-45} textAnchor="end" height={42} />
+                  <YAxis yAxisId="left" domain={[0, 500]} ticks={[0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500]} allowDecimals={false} tick={{ fill: "#60a5fa", fontSize: 10 }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fill: cfg.color, fontSize: 10 }} />
+                  <ChartTooltip contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 11 }} />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Line yAxisId="left" type="linear" dataKey="trabajadores" name="Trabajadores" stroke="#2563eb" strokeWidth={2} dot={{ r: 2.5 }} />
+                  <Line yAxisId="right" type="linear" dataKey={cfg.key} name={cfg.label} stroke={cfg.color} strokeWidth={2} dot={{ r: 2.5 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ── Tabla mensual ── */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
         <table className="text-xs border-collapse w-full">
@@ -327,9 +383,11 @@ export default function IndicadoresComind({ empresaId }) {
             {loading && <tr><td colSpan={17} className="px-4 py-8 text-center text-gray-600">Cargando...</td></tr>}
             {!loading && MESES.slice(1).map((nombreMes, idx) => {
               const mes = idx + 1;
-              return AREAS.map((area, ai) => {
+              if (mesesConDatos.length > 0 && !mesesConDatos.includes(mes)) return null;
+              const mesTieneDatos = AREAS.some(a => byKey[`${mes}-${a}`]);
+              const monthSpan = mesTieneDatos ? 3 : 2;
+              const filas = AREAS.map((area, ai) => {
                 const r = byKey[`${mes}-${area}`];
-                if (!r && mesesConDatos.length > 0 && !mesesConDatos.includes(mes)) return null;
                 const hh   = r ? (parseFloat(r.hh_trabajadas) || 0) : 0;
                 const accI = r ? ((r.acc_incapacitante||0) + (r.acc_fatal||0)) : 0;
                 const dp   = r ? (parseFloat(r.dias_perdidos) || 0) : 0;
@@ -341,7 +399,7 @@ export default function IndicadoresComind({ empresaId }) {
                     className={`border-b border-gray-800/40 hover:bg-gray-800/20 ${!r ? "opacity-40" : ""}`}>
                     {ai === 0 && (
                       <td className="px-3 py-2 font-medium text-gray-300 sticky left-0 bg-gray-900 whitespace-nowrap"
-                        rowSpan={2}>{nombreMes}</td>
+                        rowSpan={monthSpan}>{nombreMes}</td>
                     )}
                     <td className="px-3 py-2">
                       <Badge color={area === "ADMINISTRATIVO" ? "blue" : "emerald"}>
@@ -366,7 +424,9 @@ export default function IndicadoresComind({ empresaId }) {
                       <div className="flex gap-1">
                         {r
                           ? <><button onClick={() => abrirEditar(r)} className="text-gray-500 hover:text-blue-400"><Pencil size={12} /></button>
-                              <button onClick={() => eliminar(r.id)} className="text-red-500/40 hover:text-red-400"><Trash2 size={12} /></button></>
+                              {puedeEliminar() && (
+                                <button onClick={() => eliminar(r.id)} className="text-red-500/40 hover:text-red-400"><Trash2 size={12} /></button>
+                              )}</>
                           : <button onClick={() => crearFila(mes, area)} className="text-gray-700 hover:text-emerald-400 text-[10px]">+ Agregar</button>
                         }
                       </div>
@@ -374,6 +434,22 @@ export default function IndicadoresComind({ empresaId }) {
                   </tr>
                 );
               });
+              if (mesTieneDatos) {
+                const datos = AREAS.map(a => byKey[`${mes}-${a}`]).filter(Boolean);
+                const tTrab = datos.reduce((s, r) => s + (Number(r.trabajadores) || 0), 0);
+                const tHH   = datos.reduce((s, r) => s + (parseFloat(r.hh_trabajadas) || 0), 0);
+                const tCap  = datos.reduce((s, r) => s + (parseFloat(r.hh_capacitacion) || 0), 0);
+                filas.push(
+                  <tr key={`${mes}-total`} className="border-b border-gray-700/60 bg-gray-800/30">
+                    <td className="px-3 py-1.5 text-[11px] text-gray-400 font-semibold">Total mes</td>
+                    <td className="px-3 py-1.5 text-center text-gray-100 font-bold">{fmtN(tTrab)}</td>
+                    <td className="px-3 py-1.5 text-center font-mono text-gray-100 font-bold">{fmtN(tHH)}</td>
+                    <td className="px-3 py-1.5 text-center font-mono text-gray-300">{fmtN(tCap)}</td>
+                    <td colSpan={12}></td>
+                  </tr>
+                );
+              }
+              return filas;
             })}
             {!loading && records.length === 0 && (
               <tr><td colSpan={17} className="px-4 py-12 text-center text-gray-600">
@@ -448,7 +524,7 @@ export default function IndicadoresComind({ empresaId }) {
                     {[
                       ["Trabajadores",     "N° de trabajadores del área",             "Auto — del Excel HH"],
                       ["HH Trabajadas",    "Total horas hombre trabajadas",            "Auto — del Excel HH"],
-                      ["HH Capacitación",  "Horas de capacitación del mes",            "Manual"],
+                      ["HH Capacitación",  "Horas de capacitación: (trab × 10 × 26) ÷ 60", "Auto — fórmula"],
                       ["Acc. Leve",        "Accidentes sin incapacidad",               "Manual"],
                       ["Acc. Incap.",      "Accidentes con incapacidad temporal",      "Manual"],
                       ["Acc. Fatal",       "Accidentes fatales",                       "Manual"],
@@ -508,10 +584,13 @@ export default function IndicadoresComind({ empresaId }) {
           onClose={() => setEditModal(null)}>
           <div className="grid grid-cols-2 gap-3 mb-2">
             <div className="col-span-2 grid grid-cols-2 gap-3">
-              <FormField label="Trabajadores"><Input type="number" min="0" value={editForm.trabajadores || ""} onChange={e => setEF("trabajadores", e.target.value)} /></FormField>
+              <FormField label="Trabajadores"><Input type="number" min="0" value={editForm.trabajadores || ""} onChange={e => setEditForm(f => ({ ...f, trabajadores: e.target.value, hh_capacitacion: calcCap(e.target.value) }))} /></FormField>
               <FormField label="HH Trabajadas"><Input type="number" step="0.01" min="0" value={editForm.hh_trabajadas || ""} onChange={e => setEF("hh_trabajadas", e.target.value)} /></FormField>
             </div>
-            <FormField label="HH Capacitación"><Input type="number" step="0.01" min="0" value={editForm.hh_capacitacion || ""} onChange={e => setEF("hh_capacitacion", e.target.value)} /></FormField>
+            <FormField label="HH Capacitación">
+              <Input type="number" step="0.01" min="0" value={editForm.hh_capacitacion || ""} onChange={e => setEF("hh_capacitacion", e.target.value)} />
+              <p className="text-[10px] text-gray-500 mt-1">Auto: (trab × 10 × 26) ÷ 60 = <span className="text-gray-300 font-mono">{calcCap(editForm.trabajadores)}</span>. Editable.</p>
+            </FormField>
             <div className="col-span-2 border-t border-gray-700 pt-2">
               <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Accidentes</p>
               <div className="grid grid-cols-3 gap-2">

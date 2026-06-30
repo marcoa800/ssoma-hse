@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BookOpen, FileText, BarChart2, Stethoscope,
   AlertTriangle, CheckCircle, Plus, Download, ChevronRight, Lock, FileDown,
   ClipboardList, ShieldAlert, Shield, Activity, Home, HeartPulse,
-  Microscope, Settings, Building2, DollarSign, TrendingUp
+  Microscope, Settings, Building2, DollarSign, TrendingUp, Sparkles
 } from 'lucide-react';
 
 export default function HomeModulo({ profile, role, platform, setPlatform, navigate, setPage, empresa }) {
@@ -16,6 +16,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
   const esMultisel     = empresa?.nombre?.toLowerCase().includes("multisel")     || false;
   const esHydroGlobal  = empresa?.nombre?.toLowerCase().includes("hydro")        || false;
   const esComindustria = empresa?.nombre?.toLowerCase().includes("comindustria") || false;
+  const esDemo         = empresa?.nombre?.toLowerCase().includes("demo")         || false;
   const esEntregaEmo   = (() => { const n = empresa?.nombre?.toLowerCase() || ""; return n.includes("expertos en cafe") || n.includes("expertos en café") || n.includes("franquicias unidas"); })();
   const esOilGas       = empresa?.nombre?.toLowerCase().includes("oil")          || false;
   const HYDRO_SALUD_PERMITIDOS = new Set(["dashboard", "directorio", "capacitaciones", "documentos", "accidentes", "epps", "monitoreo", "reportes"]);
@@ -32,16 +33,14 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     { id: "capacitaciones",  label: "Capacitaciones",            desc: "Registro y seguimiento de cursos",        Icon: BookOpen,        color: "purple" },
     { id: "vigilancia",      label: "Vigilancia Médica",         desc: "Programas de vigilancia activos",         Icon: HeartPulse,      color: "red",    locked: !canMedico, requiredRole: "MEDICO" },
     { id: "caracterizacion", label: "Caracterización de Riesgo", desc: "Evaluación ergonómica RM-375",            Icon: Microscope,      color: "orange" },
-    { id: "accidentes",      label: "Accidentes",                desc: "Registro de incidentes y accidentes",     Icon: ShieldAlert,     color: "rose" },
     { id: "seguimiento",     label: "Seguimiento Médico",        desc: "Control y seguimiento de casos",          Icon: ClipboardList,   color: "blue" },
-    { id: "epps",            label: "Control de EPPs",           desc: "Equipos de protección personal",          Icon: Shield,          color: "green" },
-    { id: "monitoreo",       label: "Monitoreo",                 desc: "Monitoreo de agentes ocupacionales",      Icon: Activity,        color: "cyan" },
     { id: "documentos",      label: "Documentos",                desc: "Centro documental y normativa",           Icon: FileText,        color: "gray" },
     { id: "kpis",            label: "KPIs",                      desc: "Indicadores de gestión y desempeño",      Icon: BarChart2,       color: "yellow" },
     { id: "topico",          label: "Tópico",                    desc: "Atenciones médicas del tópico",           Icon: HeartPulse,      color: "rose" },
     { id: "reportes",        label: "Reportes PDF",              desc: "Generación de informes y reportes",       Icon: FileDown,        color: "gray" },
     ...(esMultisel ? [{ id: "plan_so", label: "Plan SO Anual", desc: "Programa Anual de Salud Ocupacional 2026", Icon: ClipboardList, color: "blue" }] : []),
     ...(esEntregaEmo ? [{ id: "emo_entregas", label: "Entrega de EMO", desc: "Entrega y firma digital de exámenes médicos", Icon: FileText, color: "blue" }] : []),
+    ...(esComindustria ? [{ id: "pendientes", label: "Pendientes / Actividades", desc: "Tablero de tareas: responsables, estado y alertas", Icon: ClipboardList, color: "violet" }] : []),
   ];
 
   const SSOMA_CARDS = [
@@ -59,7 +58,21 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
     { id: "inversion",        label: "Inversión SST",       desc: "Costos de seguridad y plan vs real",  Icon: DollarSign,      color: "emerald" },
     { id: "indicadores",      label: "Indicadores SST",     desc: "IF, IG, IA — estadística de accidentabilidad", Icon: TrendingUp, color: "blue" },
     { id: "reportes_ssoma",   label: "Reportes PDF",        desc: "Generación de informes SSOMA",        Icon: FileDown,        color: "gray" },
+    ...((esComindustria || esMultisel || esDemo) ? [
+      { id: "mintra", label: "Cumplimiento MINTRA", desc: "Checklist SST (RM 050-2013-TR) en tiempo real", Icon: Shield, color: "green" },
+    ] : []),
+    ...((esComindustria || esDemo) ? [
+      { id: "comite", label: "Comité de SST", desc: "Miembros y libro de actas del comité", Icon: Users, color: "blue" },
+    ] : []),
+    ...(esComindustria ? [
+      { id: "investigaciones", label: "Investigación Accidentes", desc: "Causas y medidas correctivas", Icon: AlertTriangle, color: "red" },
+      { id: "acciones", label: "Acciones Correctivas", desc: "No conformidades y su seguimiento", Icon: CheckCircle, color: "amber" },
+    ] : []),
+    ...((esComindustria || esDemo) ? [
+      { id: "programa_sst", label: "Programa Anual SST", desc: "PASST — link del documento del año", Icon: ClipboardList, color: "violet" },
+    ] : []),
     ...(esHydroGlobal ? [{ id: "hallazgos_hgp", label: "Reporte de Hallazgos",  desc: "Seguimiento de hallazgos FR-039", Icon: AlertTriangle, color: "orange" }] : []),
+    ...(esDemo ? [{ id: "asistente_ia", label: "Asistente IA SSOMA", desc: "Genera análisis SST con IA (IPERC) — normativa peruana", Icon: Sparkles, color: "blue" }] : []),
   ];
 
   const CM = {

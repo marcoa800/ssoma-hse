@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { fmtFecha } from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
@@ -481,7 +481,9 @@ export default function MonitoreoComind({ empresaId }) {
                       <button onClick={() => setDetalle(r)} className="text-gray-500 hover:text-emerald-400" title="Ver"><Eye size={13} /></button>
                       <button onClick={() => generarPDF(r)} className="text-gray-500 hover:text-blue-400" title="PDF"><FileDown size={13} /></button>
                       <button onClick={() => abrirEditar(r)} className="text-gray-500 hover:text-blue-400" title="Editar"><Pencil size={13} /></button>
-                      <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400" title="Eliminar"><Trash2 size={13} /></button>
+                      {puedeEliminar() && (
+                        <button onClick={() => handleDelete(r.id)} className="text-red-500/40 hover:text-red-400" title="Eliminar"><Trash2 size={13} /></button>
+                      )}
                     </div>
                   </td>
                 </tr>

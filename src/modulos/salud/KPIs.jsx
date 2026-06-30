@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { supabase } from '../../lib/supabase.js';
+import { supabase, puedeEliminar } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia, excelDateToISO, fmtFecha} from '../../lib/helpers.js';
 import { Badge } from '../../components/ui/Badge.jsx';
@@ -68,7 +68,9 @@ export default function KPIs({ kpis, setKpis, empresaId }) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         {filtered.map(k => { const val = k.real ?? k.valor_real ?? 0; const ok = isKpiMet(k); return (
           <div key={k.id} className={`bg-gray-900 border border-gray-800 border-l-4 rounded-xl p-4 relative ${ok ? "border-l-emerald-500" : "border-l-red-500"}`}>
-            <button onClick={() => deleteKpi(k.id)} disabled={isDeleting === k.id} className="absolute top-2 right-2 text-gray-700 hover:text-red-400"><Trash2 size={12} /></button>
+            {puedeEliminar() && (
+              <button onClick={() => deleteKpi(k.id)} disabled={isDeleting === k.id} className="absolute top-2 right-2 text-gray-700 hover:text-red-400"><Trash2 size={12} /></button>
+            )}
             <div className="text-xs text-gray-500 mb-1 pr-4">{k.nombre}</div>
             <div className={`text-2xl font-semibold ${ok ? "text-emerald-400" : "text-red-400"}`}>{val}{k.unidad}</div>
             <div className="text-xs text-gray-600 mt-0.5">Meta: {k.meta}{k.unidad}</div>
