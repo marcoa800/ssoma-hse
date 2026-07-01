@@ -72,6 +72,7 @@ export default function PsicosocialModulo({ workers, empresaId }) {
     closeModal(); load();
   };
 
+  const [sort, setSort] = useState("fecha");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
 
@@ -80,7 +81,13 @@ export default function PsicosocialModulo({ workers, empresaId }) {
   const altoRiesgo = records.filter(r => r.nivel_riesgo === "Alto" || r.nivel_riesgo === "Muy Alto");
   const derivados = records.filter(r => r.derivacion && r.derivacion !== "No aplica");
 
-  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo));
+  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo)).sort((a, b) => {
+      if (sort === "az" || sort === "za") {
+        const na = (a.trabajadores?.nombre || "").toLowerCase(), nb = (b.trabajadores?.nombre || "").toLowerCase();
+        return sort === "az" ? na.localeCompare(nb, "es") : nb.localeCompare(na, "es");
+      }
+      return 0;
+    });
 
   return (
     <div>
@@ -128,7 +135,7 @@ export default function PsicosocialModulo({ workers, empresaId }) {
         </div>
       )}
 
-      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} sort={sort} onSort={setSort} />
 
       {/* Móvil: tarjetas */}
       <div className="md:hidden space-y-2.5">

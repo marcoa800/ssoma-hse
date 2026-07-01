@@ -50,6 +50,7 @@ export default function ProteccionRespiratoriaModulo({ workers, empresaId }) {
   const now = new Date();
   const delMes = records.filter(r => { const f = new Date(r.fecha_evaluacion + "T00:00:00"); return f.getMonth() === now.getMonth() && f.getFullYear() === now.getFullYear(); });
 
+  const [sort, setSort] = useState("fecha");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
 
@@ -71,7 +72,13 @@ export default function ProteccionRespiratoriaModulo({ workers, empresaId }) {
   };
   const handleDelete = async (id) => { if (!confirm("¿Eliminar?")) return; await supabase.from("vigilancia_respiratoria").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
 
-  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo));
+  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo)).sort((a, b) => {
+      if (sort === "az" || sort === "za") {
+        const na = (a.trabajadores?.nombre || "").toLowerCase(), nb = (b.trabajadores?.nombre || "").toLowerCase();
+        return sort === "az" ? na.localeCompare(nb, "es") : nb.localeCompare(na, "es");
+      }
+      return 0;
+    });
 
   return (
     <div>
@@ -108,7 +115,7 @@ export default function ProteccionRespiratoriaModulo({ workers, empresaId }) {
         <KpiCard label="Espirometría pendiente" value={espiroPendiente} sub="requieren evaluación pulmonar" accentColor="amber" />
       </div>
 
-      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} sort={sort} onSort={setSort} />
 
       {/* Móvil: tarjetas */}
       <div className="md:hidden space-y-2.5">

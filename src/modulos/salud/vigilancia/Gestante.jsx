@@ -72,6 +72,7 @@ export default function GestanteModulo({ workers, empresaId }) {
     closeModal(); load();
   };
 
+  const [sort, setSort] = useState("fecha");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
 
@@ -86,7 +87,13 @@ export default function GestanteModulo({ workers, empresaId }) {
     return d !== null && d >= 0 && d <= 30;
   });
 
-  const filtered = records.filter(r => (!fFrom || r.fecha_registro >= fFrom) && (!fTo || r.fecha_registro <= fTo));
+  const filtered = records.filter(r => (!fFrom || r.fecha_registro >= fFrom) && (!fTo || r.fecha_registro <= fTo)).sort((a, b) => {
+      if (sort === "az" || sort === "za") {
+        const na = (a.trabajadores?.nombre || "").toLowerCase(), nb = (b.trabajadores?.nombre || "").toLowerCase();
+        return sort === "az" ? na.localeCompare(nb, "es") : nb.localeCompare(na, "es");
+      }
+      return 0;
+    });
 
   return (
     <div>
@@ -133,7 +140,7 @@ export default function GestanteModulo({ workers, empresaId }) {
         </div>
       )}
 
-      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} sort={sort} onSort={setSort} />
 
       {/* Móvil: tarjetas */}
       <div className="md:hidden space-y-2.5">

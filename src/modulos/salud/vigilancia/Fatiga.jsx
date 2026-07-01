@@ -25,6 +25,7 @@ export default function FatigaModulo({ workers, empresaId }) {
   const [editing, setEditing] = useState(null);
   const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], turno: "Día", score_epworth: "", horas_sueno_promedio: "", nivel_actividad: "Moderado", periodicidad: "Anual", observaciones: "", medico_responsable: "" };
   const [form, setForm] = useState(initForm);
+  const [sort, setSort] = useState("fecha");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [subtab, setSubtab] = useState("eval");   // eval | seguimiento
@@ -72,7 +73,13 @@ export default function FatigaModulo({ workers, empresaId }) {
   const severos = records.filter(r => r.score_epworth >= 17);
   const moderados = records.filter(r => r.score_epworth >= 11 && r.score_epworth <= 16);
   const thisMes = records.filter(r => { const d = new Date(r.fecha_evaluacion); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
-  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo));
+  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo)).sort((a, b) => {
+      if (sort === "az" || sort === "za") {
+        const na = (a.trabajadores?.nombre || "").toLowerCase(), nb = (b.trabajadores?.nombre || "").toLowerCase();
+        return sort === "az" ? na.localeCompare(nb, "es") : nb.localeCompare(na, "es");
+      }
+      return 0;
+    });
 
   return (
     <div>
@@ -119,7 +126,7 @@ export default function FatigaModulo({ workers, empresaId }) {
         </div>
       )}
 
-      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} sort={sort} onSort={setSort} />
 
       {/* Móvil: tarjetas */}
       <div className="md:hidden space-y-2.5">

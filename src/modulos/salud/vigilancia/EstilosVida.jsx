@@ -23,7 +23,11 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(null);
-  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], peso: "", talla: "", perimetro_abdominal: "", presion_sistolica: "", presion_diastolica: "", frecuencia_cardiaca: "", glucosa: "", fumador: false, consume_alcohol: false, sedentario: false, nivel_actividad: "Moderado", periodicidad: "Anual", observaciones: "", medico_responsable: "" };
+  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], peso: "", talla: "", perimetro_abdominal: "", presion_sistolica: "", presion_diastolica: "", frecuencia_cardiaca: "", glucosa: "", fumador: false, tabaco_frecuencia: "", tabaco_cantidad: "", consume_alcohol: false, alcohol_tipo: "", alcohol_frecuencia: "", sedentario: false, nivel_actividad: "Moderado", actividad_frecuencia: "", periodicidad: "Anual", observaciones: "", medico_responsable: "" };
+  const TABACO_FREC = ["Diario", "Ocasional", "Social", "Ex-fumador"];
+  const ALCOHOL_TIPO = ["Cerveza", "Vino", "Licores / Destilados", "Mixto"];
+  const ALCOHOL_FREC = ["Diario", "Semanal", "Quincenal", "Ocasional", "Social"];
+  const ACT_FREC = ["No realiza", "1-2 veces/semana", "3-4 veces/semana", "5+ veces/semana"];
   const [form, setForm] = useState(initForm);
   const [subtab, setSubtab] = useState("eval");
   const [showGuide, setShowGuide] = useState(false);
@@ -97,6 +101,8 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
   const imcPreview = calcIMC(form.peso, form.talla);
   const selWorker = workers.find(w => w.id === form.trabajador_id);
   const cinturaPreview = getCinturaRiesgo(form.perimetro_abdominal, selWorker?.genero);
+  // Género vigente del directorio (no la copia del join), para que se refleje al instante
+  const generoDe = (r) => workers.find(w => w.id === r.trabajador_id)?.genero || r.trabajadores?.genero;
 
   const handleSave = async () => {
     if (!form.trabajador_id || !form.fecha_evaluacion) {
@@ -104,17 +110,18 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
     }
     const imc = calcIMC(form.peso, form.talla);
     setSaving(true);
-    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, peso: form.peso ? parseFloat(form.peso) : null, talla: form.talla ? parseFloat(form.talla) : null, imc: imc ? parseFloat(imc) : null, perimetro_abdominal: form.perimetro_abdominal ? parseFloat(form.perimetro_abdominal) : null, presion_sistolica: form.presion_sistolica ? parseInt(form.presion_sistolica) : null, presion_diastolica: form.presion_diastolica ? parseInt(form.presion_diastolica) : null, frecuencia_cardiaca: form.frecuencia_cardiaca ? parseInt(form.frecuencia_cardiaca) : null, glucosa: form.glucosa ? parseFloat(form.glucosa) : null, fumador: form.fumador, consume_alcohol: form.consume_alcohol, sedentario: form.sedentario, nivel_actividad: form.nivel_actividad, periodicidad: form.periodicidad, proximo_control: proximoControl(form.fecha_evaluacion, form.periodicidad), observaciones: form.observaciones, medico_responsable: form.medico_responsable };
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, peso: form.peso ? parseFloat(form.peso) : null, talla: form.talla ? parseFloat(form.talla) : null, imc: imc ? parseFloat(imc) : null, perimetro_abdominal: form.perimetro_abdominal ? parseFloat(form.perimetro_abdominal) : null, presion_sistolica: form.presion_sistolica ? parseInt(form.presion_sistolica) : null, presion_diastolica: form.presion_diastolica ? parseInt(form.presion_diastolica) : null, frecuencia_cardiaca: form.frecuencia_cardiaca ? parseInt(form.frecuencia_cardiaca) : null, glucosa: form.glucosa ? parseFloat(form.glucosa) : null, fumador: form.fumador, tabaco_frecuencia: form.fumador ? (form.tabaco_frecuencia || null) : null, tabaco_cantidad: form.fumador ? (form.tabaco_cantidad || null) : null, consume_alcohol: form.consume_alcohol, alcohol_tipo: form.consume_alcohol ? (form.alcohol_tipo || null) : null, alcohol_frecuencia: form.consume_alcohol ? (form.alcohol_frecuencia || null) : null, sedentario: form.sedentario, nivel_actividad: form.nivel_actividad, actividad_frecuencia: form.actividad_frecuencia || null, periodicidad: form.periodicidad, proximo_control: proximoControl(form.fecha_evaluacion, form.periodicidad), observaciones: form.observaciones, medico_responsable: form.medico_responsable };
     const { error } = editing ? await supabase.from("vigilancia_estilos_vida").update(payload).eq("id", editing) : await supabase.from("vigilancia_estilos_vida").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
     showToast(editing ? "Registro actualizado" : "Evaluación registrada", "success");
     closeModal(); load();
   };
-  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, peso: r.peso != null ? String(r.peso) : "", talla: r.talla != null ? String(r.talla) : "", perimetro_abdominal: r.perimetro_abdominal != null ? String(r.perimetro_abdominal) : "", presion_sistolica: r.presion_sistolica != null ? String(r.presion_sistolica) : "", presion_diastolica: r.presion_diastolica != null ? String(r.presion_diastolica) : "", frecuencia_cardiaca: r.frecuencia_cardiaca != null ? String(r.frecuencia_cardiaca) : "", glucosa: r.glucosa != null ? String(r.glucosa) : "", fumador: r.fumador || false, consume_alcohol: r.consume_alcohol || false, sedentario: r.sedentario || false, nivel_actividad: r.nivel_actividad || "Moderado", periodicidad: r.periodicidad || "Anual", observaciones: r.observaciones || "", medico_responsable: r.medico_responsable || "" }); setEditing(r.id); setShowModal(true); };
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, peso: r.peso != null ? String(r.peso) : "", talla: r.talla != null ? String(r.talla) : "", perimetro_abdominal: r.perimetro_abdominal != null ? String(r.perimetro_abdominal) : "", presion_sistolica: r.presion_sistolica != null ? String(r.presion_sistolica) : "", presion_diastolica: r.presion_diastolica != null ? String(r.presion_diastolica) : "", frecuencia_cardiaca: r.frecuencia_cardiaca != null ? String(r.frecuencia_cardiaca) : "", glucosa: r.glucosa != null ? String(r.glucosa) : "", fumador: r.fumador || false, tabaco_frecuencia: r.tabaco_frecuencia || "", tabaco_cantidad: r.tabaco_cantidad || "", consume_alcohol: r.consume_alcohol || false, alcohol_tipo: r.alcohol_tipo || "", alcohol_frecuencia: r.alcohol_frecuencia || "", sedentario: r.sedentario || false, nivel_actividad: r.nivel_actividad || "Moderado", actividad_frecuencia: r.actividad_frecuencia || "", periodicidad: r.periodicidad || "Anual", observaciones: r.observaciones || "", medico_responsable: r.medico_responsable || "" }); setEditing(r.id); setShowModal(true); };
   const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
   const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_estilos_vida").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
 
+  const [sort, setSort] = useState("fecha");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
 
@@ -123,7 +130,14 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
   const conSobrepeso = records.filter(r => r.imc && r.imc >= 25);
   const conHabitos = records.filter(r => r.fumador || r.consume_alcohol);
 
-  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo));
+  const filtered = records.filter(r => (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo))
+    .sort((a, b) => {
+      if (sort === "az" || sort === "za") {
+        const na = (a.trabajadores?.nombre || "").toLowerCase(), nb = (b.trabajadores?.nombre || "").toLowerCase();
+        return sort === "az" ? na.localeCompare(nb, "es") : nb.localeCompare(na, "es");
+      }
+      return 0;
+    });
 
   return (
     <div>
@@ -135,7 +149,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <Btn size="sm" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>
           {subtab === "eval" && <>
-            <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Peso: r.peso ?? "", Talla: r.talla ?? "", IMC: r.imc ?? "", "Categoría IMC": getIMCCategoria(r.imc).label, "Perímetro Abd.": r.perimetro_abdominal ?? "", "Riesgo Cintura (OMS)": getCinturaRiesgo(r.perimetro_abdominal, r.trabajadores?.genero).label, "PA Sistólica": r.presion_sistolica ?? "", "PA Diastólica": r.presion_diastolica ?? "", "Frec. Cardíaca": r.frecuencia_cardiaca ?? "", Glucosa: r.glucosa ?? "", Fumador: r.fumador ? "Sí" : "No", Alcohol: r.consume_alcohol ? "Sí" : "No", Sedentario: r.sedentario ? "Sí" : "No" }))} filename="estilos_vida" />
+            <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Peso: r.peso ?? "", Talla: r.talla ?? "", IMC: r.imc ?? "", "Categoría IMC": getIMCCategoria(r.imc).label, "Perímetro Abd.": r.perimetro_abdominal ?? "", "Riesgo Cintura (OMS)": getCinturaRiesgo(r.perimetro_abdominal, generoDe(r)).label, "PA Sistólica": r.presion_sistolica ?? "", "PA Diastólica": r.presion_diastolica ?? "", "Frec. Cardíaca": r.frecuencia_cardiaca ?? "", Glucosa: r.glucosa ?? "", Fumador: r.fumador ? "Sí" : "No", "Tabaco frec.": r.tabaco_frecuencia || "", "Cigarrillos/día": r.tabaco_cantidad || "", Alcohol: r.consume_alcohol ? "Sí" : "No", "Alcohol tipo": r.alcohol_tipo || "", "Alcohol frec.": r.alcohol_frecuencia || "", "Actividad física": r.nivel_actividad || "", "Frec. actividad": r.actividad_frecuencia || "", Sedentario: r.sedentario ? "Sí" : "No" }))} filename="estilos_vida" />
             <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
           </>}
         </div>
@@ -166,7 +180,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
         <KpiCard label="Con hábitos de riesgo" value={conHabitos.length} sub="Fumador y/o alcohol" accentColor="red" />
       </div>
 
-      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} sort={sort} onSort={setSort} />
 
       {/* Móvil: tarjetas */}
       <div className="md:hidden space-y-2.5">
@@ -174,9 +188,13 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
           const imcCat = getIMCCategoria(r.imc);
           const presCat = getPresionCategoria(r.presion_sistolica, r.presion_diastolica);
           const glucCat = getGlucosaCategoria(r.glucosa);
-          const cintCat = getCinturaRiesgo(r.perimetro_abdominal, r.trabajadores?.genero);
+          const cintCat = getCinturaRiesgo(r.perimetro_abdominal, generoDe(r));
           const fcCat = getFCCategoria(r.frecuencia_cardiaca);
-          const habitos = [r.fumador && "Fumador", r.consume_alcohol && "Alcohol", r.sedentario && "Sedentario"].filter(Boolean);
+          const habitos = [
+            r.fumador && ("Fumador" + (r.tabaco_frecuencia || r.tabaco_cantidad ? ` (${[r.tabaco_frecuencia, r.tabaco_cantidad && `${r.tabaco_cantidad}/día`].filter(Boolean).join(", ")})` : "")),
+            r.consume_alcohol && ("Alcohol" + (r.alcohol_tipo || r.alcohol_frecuencia ? ` (${[r.alcohol_tipo, r.alcohol_frecuencia].filter(Boolean).join(", ")})` : "")),
+            r.sedentario && "Sedentario",
+          ].filter(Boolean);
           const ec = estadoControl(r.proximo_control);
           return (
             <div key={r.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
@@ -226,9 +244,13 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
               const imcCat = getIMCCategoria(r.imc);
               const presCat = getPresionCategoria(r.presion_sistolica, r.presion_diastolica);
               const glucCat = getGlucosaCategoria(r.glucosa);
-              const cintCat = getCinturaRiesgo(r.perimetro_abdominal, r.trabajadores?.genero);
+              const cintCat = getCinturaRiesgo(r.perimetro_abdominal, generoDe(r));
               const fcCat = getFCCategoria(r.frecuencia_cardiaca);
-              const habitos = [r.fumador && "Fumador", r.consume_alcohol && "Alcohol", r.sedentario && "Sedentario"].filter(Boolean);
+              const habitos = [
+            r.fumador && ("Fumador" + (r.tabaco_frecuencia || r.tabaco_cantidad ? ` (${[r.tabaco_frecuencia, r.tabaco_cantidad && `${r.tabaco_cantidad}/día`].filter(Boolean).join(", ")})` : "")),
+            r.consume_alcohol && ("Alcohol" + (r.alcohol_tipo || r.alcohol_frecuencia ? ` (${[r.alcohol_tipo, r.alcohol_frecuencia].filter(Boolean).join(", ")})` : "")),
+            r.sedentario && "Sedentario",
+          ].filter(Boolean);
               const ec = estadoControl(r.proximo_control);
               return (
                 <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
@@ -354,21 +376,71 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
 
             <div className="col-span-2">
               <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">Hábitos y Estilo de Vida</p>
-              <div className="grid grid-cols-2 gap-3">
+
+              {/* Actividad física */}
+              <div className="grid grid-cols-2 gap-3 mb-3">
                 <FormField label="Nivel de Actividad Física">
                   <Select value={form.nivel_actividad} onChange={e => setForm({ ...form, nivel_actividad: e.target.value })}>
                     <option>Sedentario</option><option>Leve</option><option>Moderado</option><option>Intenso</option>
                   </Select>
                 </FormField>
-                <div className="flex flex-col justify-end gap-2 pb-1">
-                  {[["fumador", "Fumador"], ["consume_alcohol", "Consume alcohol"], ["sedentario", "Sedentario"]].map(([key, label]) => (
-                    <label key={key} className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={form[key]} onChange={e => setForm({ ...form, [key]: e.target.checked })} className="w-3.5 h-3.5 rounded accent-blue-500" />
-                      <span className="text-xs text-gray-400">{label}</span>
-                    </label>
-                  ))}
-                </div>
+                <FormField label="Frecuencia de actividad">
+                  <Select value={form.actividad_frecuencia} onChange={e => setForm({ ...form, actividad_frecuencia: e.target.value })}>
+                    <option value="">Sin especificar</option>
+                    {ACT_FREC.map(o => <option key={o} value={o}>{o}</option>)}
+                  </Select>
+                </FormField>
               </div>
+
+              {/* Tabaco */}
+              <div className="bg-gray-800/40 border border-gray-800 rounded-lg p-3 mb-3">
+                <label className="flex items-center gap-2 cursor-pointer mb-1">
+                  <input type="checkbox" checked={form.fumador} onChange={e => setForm({ ...form, fumador: e.target.checked })} className="w-3.5 h-3.5 rounded accent-blue-500" />
+                  <span className="text-sm text-gray-300 font-medium">Tabaco / Fumador</span>
+                </label>
+                {form.fumador && (
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <FormField label="Frecuencia">
+                      <Select value={form.tabaco_frecuencia} onChange={e => setForm({ ...form, tabaco_frecuencia: e.target.value })}>
+                        <option value="">Seleccionar...</option>
+                        {TABACO_FREC.map(o => <option key={o} value={o}>{o}</option>)}
+                      </Select>
+                    </FormField>
+                    <FormField label="Cigarrillos por día">
+                      <Input type="number" min="0" placeholder="Ej. 5" value={form.tabaco_cantidad} onChange={e => setForm({ ...form, tabaco_cantidad: e.target.value })} />
+                    </FormField>
+                  </div>
+                )}
+              </div>
+
+              {/* Alcohol */}
+              <div className="bg-gray-800/40 border border-gray-800 rounded-lg p-3 mb-3">
+                <label className="flex items-center gap-2 cursor-pointer mb-1">
+                  <input type="checkbox" checked={form.consume_alcohol} onChange={e => setForm({ ...form, consume_alcohol: e.target.checked })} className="w-3.5 h-3.5 rounded accent-blue-500" />
+                  <span className="text-sm text-gray-300 font-medium">Consume alcohol</span>
+                </label>
+                {form.consume_alcohol && (
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <FormField label="Tipo de bebida">
+                      <Select value={form.alcohol_tipo} onChange={e => setForm({ ...form, alcohol_tipo: e.target.value })}>
+                        <option value="">Seleccionar...</option>
+                        {ALCOHOL_TIPO.map(o => <option key={o} value={o}>{o}</option>)}
+                      </Select>
+                    </FormField>
+                    <FormField label="Frecuencia">
+                      <Select value={form.alcohol_frecuencia} onChange={e => setForm({ ...form, alcohol_frecuencia: e.target.value })}>
+                        <option value="">Seleccionar...</option>
+                        {ALCOHOL_FREC.map(o => <option key={o} value={o}>{o}</option>)}
+                      </Select>
+                    </FormField>
+                  </div>
+                )}
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.sedentario} onChange={e => setForm({ ...form, sedentario: e.target.checked })} className="w-3.5 h-3.5 rounded accent-blue-500" />
+                <span className="text-xs text-gray-400">Sedentario</span>
+              </label>
             </div>
 
             <FormField label="Médico Responsable">

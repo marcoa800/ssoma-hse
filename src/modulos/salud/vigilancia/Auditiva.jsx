@@ -80,6 +80,7 @@ export default function AuditivaModulo({ workers, empresaId }) {
     closeModal(); load();
   };
 
+  const [sort, setSort] = useState("fecha");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [fArea, setFArea] = useState("");
@@ -89,7 +90,13 @@ export default function AuditivaModulo({ workers, empresaId }) {
   const altoRiesgo = records.filter(r => r.db_exposicion >= 95);
   const areaOptsA = [...new Set(records.map(r => r.area_puesto).filter(Boolean))].sort();
   const filtered = records.filter(r =>
-    (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo) && (!fArea || r.area_puesto === fArea));
+    (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo) && (!fArea || r.area_puesto === fArea)).sort((a, b) => {
+      if (sort === "az" || sort === "za") {
+        const na = (a.trabajadores?.nombre || "").toLowerCase(), nb = (b.trabajadores?.nombre || "").toLowerCase();
+        return sort === "az" ? na.localeCompare(nb, "es") : nb.localeCompare(na, "es");
+      }
+      return 0;
+    });
 
   return (
     <div>
@@ -136,7 +143,7 @@ export default function AuditivaModulo({ workers, empresaId }) {
         </div>
       )}
 
-      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} area={fArea} onArea={setFArea} areaOptions={areaOptsA} />
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} area={fArea} onArea={setFArea} areaOptions={areaOptsA} sort={sort} onSort={setSort} />
 
       {/* Móvil: tarjetas */}
       <div className="md:hidden space-y-2.5">

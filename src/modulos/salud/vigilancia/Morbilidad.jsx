@@ -54,6 +54,7 @@ export default function MorbilidadModulo({ workers, empresaId }) {
     return top ? top[0].substring(0, 20) + (top[0].length > 20 ? "…" : "") : "—";
   })();
 
+  const [sort, setSort] = useState("fecha");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
 
@@ -85,7 +86,13 @@ export default function MorbilidadModulo({ workers, empresaId }) {
   const tipoColor = (t) => t === "Accidente de trabajo" ? "red" : t === "Laboral" ? "amber" : "blue";
   const atencionColor = (t) => t === "Hospitalización" ? "red" : t === "Emergencia" ? "amber" : "green";
 
-  const filtered = records.filter(r => (!fFrom || r.fecha_consulta >= fFrom) && (!fTo || r.fecha_consulta <= fTo));
+  const filtered = records.filter(r => (!fFrom || r.fecha_consulta >= fFrom) && (!fTo || r.fecha_consulta <= fTo)).sort((a, b) => {
+      if (sort === "az" || sort === "za") {
+        const na = (a.trabajadores?.nombre || "").toLowerCase(), nb = (b.trabajadores?.nombre || "").toLowerCase();
+        return sort === "az" ? na.localeCompare(nb, "es") : nb.localeCompare(na, "es");
+      }
+      return 0;
+    });
 
   return (
     <div>
@@ -106,7 +113,7 @@ export default function MorbilidadModulo({ workers, empresaId }) {
         <KpiCard label="Días perdidos (mes)" value={diasPerdidosMes} sub="días de reposo acumulados" accentColor="red" />
       </div>
 
-      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} />
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} sort={sort} onSort={setSort} />
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {loading ? (

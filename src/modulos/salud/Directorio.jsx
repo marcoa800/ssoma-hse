@@ -801,7 +801,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                 {w.celular && <div><span className="text-gray-600">Cel:</span> <span className="text-gray-400 font-mono">{w.celular}</span></div>}
                 {w.email && <div className="truncate"><span className="text-gray-600">Correo:</span> <a href={`mailto:${w.email}`} className="text-blue-400">{w.email}</a></div>}
                 {esGrupoCafe && w.sede && <div><span className="text-gray-600">Sede:</span> <span className="text-gray-400">{w.sede}</span></div>}
-                {esGrupoCafe && w.genero && <div><span className="text-gray-600">Género:</span> <span className="text-gray-400">{w.genero}</span></div>}
+                {(esGrupoCafe || esComindustria) && w.genero && <div><span className="text-gray-600">Género:</span> <span className="text-gray-400">{w.genero}</span></div>}
                 {esGrupoCafe && w.tipo_documento && <div><span className="text-gray-600">Tipo doc:</span> <span className="text-gray-400">{w.tipo_documento}</span></div>}
                 {esComindustria && w.fecha_ingreso && <div><span className="text-gray-600">Ingreso:</span> <span className="text-gray-400 font-mono">{fmtFecha(w.fecha_ingreso)}</span></div>}
               </div>
@@ -829,7 +829,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
             <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-800">
-                {["Apellido y Nombre", "F. Nac / Edad", ...(esGrupoCafe ? ["Género"] : []), "DNI", ...(esGrupoCafe ? ["Tipo Doc"] : []), "Puesto", ...(esComindustria ? ["F. Ingreso"] : []), ...(esGrupoCafe ? ["Sede"] : []), ...(esMultisel ? ["Vinculación", "Área"] : []), "Celular", "Correo", "Última EMO", "Duración", "Vigente Hasta", "Estado", "Aptitud", ...(!esGrupoCafe ? ["EPP"] : []), "Lectura EMO", ...(canSeeMedical ? ["Restricción"] : []), ""].map((h, i) => (
+                {["Apellido y Nombre", "F. Nac / Edad", ...((esGrupoCafe || esComindustria) ? ["Género"] : []), "DNI", ...(esGrupoCafe ? ["Tipo Doc"] : []), "Puesto", ...(esComindustria ? ["F. Ingreso"] : []), ...(esGrupoCafe ? ["Sede"] : []), ...(esMultisel ? ["Vinculación", "Área"] : []), "Celular", "Correo", "Última EMO", "Duración", "Vigente Hasta", "Estado", "Aptitud", ...(!esGrupoCafe ? ["EPP"] : []), "Lectura EMO", ...(canSeeMedical ? ["Restricción"] : []), ""].map((h, i) => (
                   <th key={h} className={`text-left text-xs text-gray-600 font-medium px-3 py-3 uppercase tracking-wide whitespace-nowrap sticky top-0 bg-gray-900 ${i === 0 ? "left-0 z-30 shadow-[2px_0_6px_rgba(0,0,0,0.4)]" : "z-20"}`}>{h}</th>
                 ))}
               </tr>
@@ -845,7 +845,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                   <tr key={w.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors group">
                     <td className="px-3 py-3 font-medium text-white whitespace-nowrap sticky left-0 z-10 bg-gray-900 group-hover:bg-gray-800/30 shadow-[2px_0_6px_rgba(0,0,0,0.4)]">{w.nombre}</td>
                     <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap font-mono">{fmtFecha(w.fecha_nacimiento)}{edad ? <div className="text-gray-600">{edad} años</div> : null}</td>
-                    {esGrupoCafe && <td className="px-3 py-3 text-gray-400 whitespace-nowrap">{w.genero || "—"}</td>}
+                    {(esGrupoCafe || esComindustria) && <td className="px-3 py-3 text-gray-400 whitespace-nowrap">{w.genero || "—"}</td>}
                     <td className="px-3 py-3 font-mono text-xs text-gray-500">{w.dni}</td>
                     {esGrupoCafe && <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">{w.tipo_documento || "—"}</td>}
                     <td className="px-3 py-3 text-gray-400 whitespace-nowrap">{w.cargo || "—"}</td>

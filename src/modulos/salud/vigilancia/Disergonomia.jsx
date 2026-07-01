@@ -66,6 +66,7 @@ export default function DisergonomiaModulo({ workers, empresaId }) {
     closeModal(); load();
   };
 
+  const [sort, setSort] = useState("fecha");
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [fArea, setFArea] = useState("");
@@ -75,7 +76,13 @@ export default function DisergonomiaModulo({ workers, empresaId }) {
   const sinMedidas = records.filter(r => (r.nivel_riesgo === "Alto" || r.nivel_riesgo === "Muy Alto") && !r.medidas_adoptadas);
   const areaOptsD = [...new Set(records.map(r => r.area_puesto).filter(Boolean))].sort();
   const filtered = records.filter(r =>
-    (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo) && (!fArea || r.area_puesto === fArea));
+    (!fFrom || r.fecha_evaluacion >= fFrom) && (!fTo || r.fecha_evaluacion <= fTo) && (!fArea || r.area_puesto === fArea)).sort((a, b) => {
+      if (sort === "az" || sort === "za") {
+        const na = (a.trabajadores?.nombre || "").toLowerCase(), nb = (b.trabajadores?.nombre || "").toLowerCase();
+        return sort === "az" ? na.localeCompare(nb, "es") : nb.localeCompare(na, "es");
+      }
+      return 0;
+    });
 
   return (
     <div>
@@ -122,7 +129,7 @@ export default function DisergonomiaModulo({ workers, empresaId }) {
         </div>
       )}
 
-      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} area={fArea} onArea={setFArea} areaOptions={areaOptsD} />
+      <FilterBar dateFrom={fFrom} dateTo={fTo} onDateFrom={setFFrom} onDateTo={setFTo} area={fArea} onArea={setFArea} areaOptions={areaOptsD} sort={sort} onSort={setSort} />
 
       {/* Móvil: tarjetas */}
       <div className="md:hidden space-y-2.5">
