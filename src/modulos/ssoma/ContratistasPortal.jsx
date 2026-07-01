@@ -109,7 +109,8 @@ function RevisionCliente({ r, revisor, onSaved }) {
 
 // ── Programación y revisión de tareas (lado cliente / SSOMA) ──
 const FRECUENCIAS = [["semanal", "Semanal"], ["quincenal", "Quincenal"], ["mensual", "Mensual"]];
-const nuevaTareaDraft = () => ({ titulo: "", descripcion: "", tipo: "puntual", fecha_limite: "", frecuencia: "mensual", veces: 6, fecha_base: new Date().toISOString().slice(0, 10) });
+const nuevaTareaDraft = () => ({ titulo: "", descripcion: "", tipo: "puntual", fecha_limite: "", frecuencia: "mensual", veces: 6, fecha_base: new Date().toISOString().slice(0, 10), tipo_relacion: "" });
+const REL_LBL = { hallazgo: "Hallazgo", inspeccion: "Inspección", documento: "Documento" };
 
 function TareaCampos({ v, set }) {
   return (
@@ -132,6 +133,14 @@ function TareaCampos({ v, set }) {
           <FormField label="1ra fecha"><Input type="date" value={v.fecha_base} onChange={e => set({ ...v, fecha_base: e.target.value })} /></FormField>
         </div>
       )}
+      <FormField label="Relacionar con un entregable (opcional)">
+        <Select value={v.tipo_relacion || ""} onChange={e => set({ ...v, tipo_relacion: e.target.value })}>
+          <option value="">Ninguno</option>
+          <option value="hallazgo">Hallazgo</option>
+          <option value="inspeccion">Inspección</option>
+          <option value="documento">Documento</option>
+        </Select>
+      </FormField>
     </div>
   );
 }
@@ -143,6 +152,7 @@ async function crearTareaRPC(empresaId, contratistaId, d) {
     p_frecuencia: d.tipo === "periodica" ? d.frecuencia : null,
     p_veces: d.tipo === "periodica" ? (parseInt(d.veces) || 1) : 1,
     p_fecha_base: (d.tipo === "periodica" ? d.fecha_base : d.fecha_limite) || null,
+    p_tipo_relacion: d.tipo_relacion || null,
   });
 }
 
@@ -221,6 +231,7 @@ function TareaClienteCard({ t, revisor, onChange }) {
           <div className="text-[11px] mt-1 flex items-center gap-2 flex-wrap">
             <span className={`font-mono ${vencida ? "text-red-400" : "text-gray-600"}`}>{t.fecha_limite ? "Límite: " + t.fecha_limite : "Sin fecha"}{vencida ? " · vencida" : ""}</span>
             {t.tipo === "periodica" && <span className="text-gray-600">· {t.ocurrencia}/{t.total} ({t.frecuencia})</span>}
+            {t.tipo_relacion && <span className="px-1.5 py-0.5 rounded bg-purple-900/30 border border-purple-900/50 text-purple-300">🔗 {REL_LBL[t.tipo_relacion] || t.tipo_relacion}</span>}
           </div>
         </div>
         <span className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 ${TAREA_COLOR[t.estado]}`}>{t.estado}</span>

@@ -69,8 +69,9 @@ export default function PublicContratista({ empresaId }) {
   // Resumen global (todos los tipos) para el dashboard del contratista
   const cargarResumen = useCallback(async () => {
     if (!contratista) return;
-    const { data } = await supabase.from("contratista_registros").select("revision,tipo")
-      .eq("contratista_id", contratista.id);
+    const { data } = await supabase.from("contratista_registros")
+      .select("id,tipo,titulo,descripcion,foto_urls,archivo_url,fecha,revision")
+      .eq("contratista_id", contratista.id).order("created_at", { ascending: false });
     setResumen(data || []);
   }, [contratista]);
   useEffect(() => { cargarResumen(); }, [cargarResumen]);
@@ -156,7 +157,7 @@ export default function PublicContratista({ empresaId }) {
         {tab === "resumen" ? (
           <ResumenContratista contratista={contratista} resumen={resumen} stats={stats} tareas={tareas} />
         ) : tab === "tareas" ? (
-          <TareasContratista tareas={tareas} onUpdated={recargar} />
+          <TareasContratista tareas={tareas} registros={resumen} onUpdated={recargar} />
         ) : (
           <>
             {!showForm && (
@@ -302,7 +303,8 @@ function Dato({ lbl, val }) {
 }
 
 // ── Buzón de tareas del contratista ──
-function TareasContratista({ tareas, onUpdated }) {
+const REL_LBL_PUB = { hallazgo: "Hallazgo", inspeccion: "Inspección", documento: "Documento" };
+function TareasContratista({ tareas, registros = [], onUpdated }) {
   if (!tareas.length) return <p className="text-gray-600 text-sm text-center py-10">SSOMA aún no te ha asignado tareas.</p>;
   const grupos = [
     ["Por hacer", tareas.filter(t => t.estado === "Pendiente" || t.estado === "Rechazada")],
@@ -314,28 +316,39 @@ function TareasContratista({ tareas, onUpdated }) {
       {grupos.filter(([, items]) => items.length).map(([titulo, items]) => (
         <div key={titulo}>
           <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">{titulo} ({items.length})</div>
-          <div className="space-y-3">{items.map(t => <TareaCard key={t.id} t={t} onUpdated={onUpdated} />)}</div>
+          <div className="space-y-3">{items.map(t => <TareaCard key={t.id} t={t} registros={registros} onUpdated={onUpdated} />)}</div>
         </div>
       ))}
     </div>
   );
 }
-function TareaCard({ t, onUpdated }) {
+function TareaCard({ t, registros = [], onUpdated }) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState(null);
   const [nota, setNota] = useState("");
+  const [regSel, setRegSel] = useState(t.registro_id || "");
   const [saving, setSaving] = useState(false);
   const accionable = t.estado === "Pendiente" || t.estado === "Rechazada";
   const hoy = new Date().toISOString().slice(0, 10);
   const vencida = t.fecha_limite && accionable && t.fecha_limite < hoy;
+  const opciones = t.tipo_relacion ? registros.filter(r => r.tipo === t.tipo_relacion) : [];
   const resolver = async () => {
-    if (!file && !(t.evidencia_urls || []).length) { alert("Adjunta una evidencia (foto o documento)."); return; }
     setSaving(true);
     try {
-      let urls = t.evidencia_urls || [];
+      let urls = t.evidencia_urls || [], nota_final = nota || t.evidencia_nota || null, registro_id = null;
+      if (t.tipo_relacion) {
+        if (!regSel) { alert(`Selecciona el/la ${REL_LBL_PUB[t.tipo_relacion].toLowerCase()} correspondiente.`); setSaving(false); return; }
+        const r = registros.find(x => x.id === regSel);
+        registro_id = regSel;
+        const evid = (r?.foto_urls?.length ? r.foto_urls : (r?.archivo_url ? [r.archivo_url] : []));
+        if (evid.length) urls = evid;
+        nota_final = nota || r?.titulo || r?.descripcion || nota_final;
+      } else if (!file && !(t.evidencia_urls || []).length) {
+        alert("Adjunta una evidencia (foto o documento)."); setSaving(false); return;
+      }
       if (file) { const url = await subirArchivo(t.contratista_id, file); urls = [...urls, url]; }
       const { error } = await supabase.from("contratista_tareas").update({
-        estado: "En revisión", evidencia_urls: urls, evidencia_nota: nota || t.evidencia_nota || null,
+        estado: "En revisión", evidencia_urls: urls, evidencia_nota: nota_final, registro_id,
         resuelto_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }).eq("id", t.id);
       if (error) throw error;
@@ -352,6 +365,7 @@ function TareaCard({ t, onUpdated }) {
           <div className="text-[11px] mt-1 flex items-center gap-2 flex-wrap">
             <span className={`font-mono ${vencida ? "text-red-400" : "text-gray-600"}`}>{t.fecha_limite ? "Límite: " + t.fecha_limite : "Sin fecha"}{vencida ? " · vencida" : ""}</span>
             {t.tipo === "periodica" && <span className="text-gray-600">· {t.ocurrencia}/{t.total} ({t.frecuencia})</span>}
+            {t.tipo_relacion && <span className="px-1.5 py-0.5 rounded bg-purple-900/30 border border-purple-900/50 text-purple-300">🔗 {REL_LBL_PUB[t.tipo_relacion]}</span>}
           </div>
         </div>
         <span className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 ${TAREA_COLOR[t.estado]}`}>{t.estado}</span>
@@ -371,8 +385,22 @@ function TareaCard({ t, onUpdated }) {
       )}
       {accionable && open && (
         <div className="mt-3 space-y-2 border-t border-gray-800 pt-3">
+          {t.tipo_relacion ? (
+            <div>
+              <label className="block text-[11px] text-purple-300 mb-1">Selecciona el/la {REL_LBL_PUB[t.tipo_relacion]} que resuelve esta tarea</label>
+              {opciones.length === 0 ? (
+                <p className="text-[11px] text-amber-400">Aún no tienes {REL_LBL_PUB[t.tipo_relacion].toLowerCase()}s. Créalo primero en la pestaña "{REL_LBL_PUB[t.tipo_relacion]}s" y vuelve aquí.</p>
+              ) : (
+                <select value={regSel} onChange={e => setRegSel(e.target.value)} className={inp}>
+                  <option value="">— Elegir —</option>
+                  {opciones.map(r => <option key={r.id} value={r.id}>{(r.titulo || r.descripcion || "Registro").slice(0, 50)}{r.fecha ? ` · ${r.fecha}` : ""}</option>)}
+                </select>
+              )}
+              <p className="text-[10px] text-gray-600 mt-1">También puedes adjuntar un archivo extra abajo (opcional).</p>
+            </div>
+          ) : null}
           <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-700 text-gray-300 text-xs cursor-pointer hover:border-purple-500">
-            <Camera size={13} /> {file ? "1 archivo seleccionado" : "Adjuntar foto o documento"}
+            <Camera size={13} /> {file ? "1 archivo seleccionado" : (t.tipo_relacion ? "Adjuntar archivo extra (opcional)" : "Adjuntar foto o documento")}
             <input type="file" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
           </label>
           <textarea rows={2} value={nota} onChange={e => setNota(e.target.value)} placeholder="Nota (opcional)" className={inp + " resize-none"} />
