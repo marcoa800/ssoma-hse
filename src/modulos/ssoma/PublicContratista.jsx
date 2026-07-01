@@ -371,13 +371,13 @@ function TareaCard({ t, onUpdated }) {
       {t.estado === "Cerrada" && <p className="text-[11px] text-green-400 mt-2">Aprobada por SSOMA.{t.revisado_por ? ` (${t.revisado_por})` : ""}</p>}
       {accionable && t.tipo_relacion && (
         <div className="mt-2 text-[11px] text-purple-300 bg-purple-900/15 border border-purple-900/40 rounded-lg p-2.5 flex items-start gap-1.5">
-          <Upload size={12} className="shrink-0 mt-0.5" /> Para resolver, ve a la pestaña <b className="text-purple-200">{REL_LBL_PUB[t.tipo_relacion]}s</b>, crea el/la {REL_LBL_PUB[t.tipo_relacion].toLowerCase()} y en el formulario selecciona esta tarea.
+          <Upload size={12} className="shrink-0 mt-0.5" /> Opcional: crea el/la {REL_LBL_PUB[t.tipo_relacion].toLowerCase()} en la pestaña <b className="text-purple-200">{REL_LBL_PUB[t.tipo_relacion]}s</b> y selecciona esta tarea. O sube la evidencia directamente aquí abajo.
         </div>
       )}
-      {accionable && !t.tipo_relacion && !open && (
+      {accionable && !open && (
         <button onClick={() => setOpen(true)} className="mt-2 text-xs text-purple-300 hover:text-purple-200 flex items-center gap-1"><Upload size={12} /> {t.estado === "Rechazada" ? "Corregir y reenviar" : "Subir evidencia y resolver"}</button>
       )}
-      {accionable && !t.tipo_relacion && open && (
+      {accionable && open && (
         <div className="mt-3 space-y-2 border-t border-gray-800 pt-3">
           <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-700 text-gray-300 text-xs cursor-pointer hover:border-purple-500">
             <Camera size={13} /> {file ? "1 archivo seleccionado" : "Adjuntar foto o documento"}

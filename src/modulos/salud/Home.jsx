@@ -240,7 +240,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
                 <Leaf size={16} /> Ambiental
               </button>
             )}
-            {esDemo && (
+            {(esDemo || esComindustria) && (
               <button onClick={() => setPlatform("calidad")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                   platform === "calidad"
@@ -250,7 +250,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
                 <Award size={16} /> Calidad
               </button>
             )}
-            {esDemo && (
+            {(esDemo || esComindustria) && (
               <button onClick={() => setPlatform("rse")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                   platform === "rse"
@@ -260,7 +260,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
                 <HeartHandshake size={16} /> Responsabilidad Social
               </button>
             )}
-            {(esOilGas || esDemo) && (
+            {(esOilGas || esDemo || esComindustria) && (
               <button onClick={() => setPlatform("sig")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                   platform === "sig"
