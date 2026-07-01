@@ -122,7 +122,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
   }, [paged.length, esMultisel, canSeeMedical, vistaDir, pageSafe]);
 
   const openModal = (worker = null) => {
-    setForm(worker || { nombre: "", dni: "", cargo: "", celular: "", email: "", sede: "Lima", estado: "Activo", fecha_nacimiento: "", fecha_ingreso: "", ultima_emo: "", duracion_emo: "Anual", aptitud: "No evaluado", restriccion_medica: "Ninguna", lectura_emo: "", epp_recibido: false, epp_detalle: "", epp_fecha: "", fecha_cese: "", motivo_cese: "" });
+    setForm(worker || { nombre: "", dni: "", cargo: "", genero: "", celular: "", email: "", sede: "Lima", estado: "Activo", fecha_nacimiento: "", fecha_ingreso: "", ultima_emo: "", duracion_emo: "Anual", aptitud: "No evaluado", restriccion_medica: "Ninguna", lectura_emo: "", epp_recibido: false, epp_detalle: "", epp_fecha: "", fecha_cese: "", motivo_cese: "" });
     setModal(worker ? "edit" : "new");
   };
 
@@ -131,7 +131,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
     setIsSaving(true);
     const vigencia = calcularVigencia(form.ultima_emo, form.duracion_emo);
     const edad = calcularEdad(form.fecha_nacimiento);
-    const payload = { nombre: form.nombre, dni: form.dni, cargo: form.cargo || "", celular: form.celular || null, email: form.email || null, sede: esGrupoCafe ? (form.sede || "Lima") : "Lima", estado: form.estado || "Activo", fecha_nacimiento: form.fecha_nacimiento || null, fecha_ingreso: form.fecha_ingreso || null, edad, ultima_emo: form.ultima_emo || null, duracion_emo: form.duracion_emo || "Anual", vencimiento_emo: vigencia, lectura_emo: form.lectura_emo || null, aptitud: form.aptitud || "No evaluado", restriccion_medica: form.restriccion_medica || "Ninguna", epp_recibido: form.epp_recibido || false, epp_detalle: form.epp_detalle || null, epp_fecha: form.epp_fecha || null, fecha_cese: form.estado === "Cesado" ? (form.fecha_cese || null) : null, motivo_cese: form.estado === "Cesado" ? (form.motivo_cese || null) : null, empresa_id: empresaId };
+    const payload = { nombre: form.nombre, dni: form.dni, cargo: form.cargo || "", genero: form.genero || null, celular: form.celular || null, email: form.email || null, sede: esGrupoCafe ? (form.sede || "Lima") : "Lima", estado: form.estado || "Activo", fecha_nacimiento: form.fecha_nacimiento || null, fecha_ingreso: form.fecha_ingreso || null, edad, ultima_emo: form.ultima_emo || null, duracion_emo: form.duracion_emo || "Anual", vencimiento_emo: vigencia, lectura_emo: form.lectura_emo || null, aptitud: form.aptitud || "No evaluado", restriccion_medica: form.restriccion_medica || "Ninguna", epp_recibido: form.epp_recibido || false, epp_detalle: form.epp_detalle || null, epp_fecha: form.epp_fecha || null, fecha_cese: form.estado === "Cesado" ? (form.fecha_cese || null) : null, motivo_cese: form.estado === "Cesado" ? (form.motivo_cese || null) : null, empresa_id: empresaId };
     if (modal === "edit") {
       const { error } = await supabase.from("trabajadores").update(payload).eq("id", form.id);
       if (error) { showToast("Error: " + error.message, "error"); setIsSaving(false); return; }
@@ -1004,6 +1004,13 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
             <FormField label="Celular"><Input value={form.celular || ""} maxLength={12} onChange={e => { const val = e.target.value.replace(/\D/g, ""); setForm(f => ({ ...f, celular: val })); }} placeholder="999888777" /></FormField>
             <FormField label="Correo electrónico"><Input type="email" value={form.email || ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="nombre@empresa.com" /></FormField>
             <FormField label="Puesto / Cargo"><Input value={form.cargo || ""} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))} /></FormField>
+            <FormField label="Género">
+              <Select value={form.genero || ""} onChange={e => setForm(f => ({ ...f, genero: e.target.value }))}>
+                <option value="">Sin especificar</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Femenino">Femenino</option>
+              </Select>
+            </FormField>
             {esMultisel && (
               <FormField label="Vinculación">
                 <Select value={form.tipo_vinculacion || ""} onChange={e => setForm(f => ({ ...f, tipo_vinculacion: e.target.value }))}>

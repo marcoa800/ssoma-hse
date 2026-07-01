@@ -230,7 +230,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
               }`}>
               <ShieldAlert size={16} /> {esDemo ? "Seguridad" : "SSOMA"}
             </button>
-            {esDemo && (
+            {(esDemo || esComindustria) && (
               <button onClick={() => setPlatform("ambiental")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                   platform === "ambiental"

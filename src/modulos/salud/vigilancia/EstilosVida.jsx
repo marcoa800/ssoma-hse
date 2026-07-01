@@ -23,7 +23,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(null);
-  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], peso: "", talla: "", perimetro_abdominal: "", presion_sistolica: "", presion_diastolica: "", glucosa: "", fumador: false, consume_alcohol: false, sedentario: false, nivel_actividad: "Moderado", periodicidad: "Anual", observaciones: "", medico_responsable: "" };
+  const initForm = { trabajador_id: "", fecha_evaluacion: new Date().toISOString().split("T")[0], peso: "", talla: "", perimetro_abdominal: "", presion_sistolica: "", presion_diastolica: "", frecuencia_cardiaca: "", glucosa: "", fumador: false, consume_alcohol: false, sedentario: false, nivel_actividad: "Moderado", periodicidad: "Anual", observaciones: "", medico_responsable: "" };
   const [form, setForm] = useState(initForm);
   const [subtab, setSubtab] = useState("eval");
   const [showGuide, setShowGuide] = useState(false);
@@ -32,7 +32,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
     setLoading(true);
     const { data } = await supabase
       .from("vigilancia_estilos_vida")
-      .select("*, trabajadores(nombre)")
+      .select("*, trabajadores(nombre, genero)")
       .eq("empresa_id", empresaId)
       .order("fecha_evaluacion", { ascending: false });
     setRecords(data || []);
@@ -53,7 +53,29 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
     if (v < 18.5) return { label: "Bajo peso", color: "blue" };
     if (v < 25) return { label: "Normal", color: "green" };
     if (v < 30) return { label: "Sobrepeso", color: "amber" };
-    return { label: "Obesidad", color: "red" };
+    if (v < 35) return { label: "Obesidad grado I", color: "orange" };
+    if (v < 40) return { label: "Obesidad grado II", color: "red" };
+    return { label: "Obesidad grado III", color: "red" };
+  };
+
+  // Riesgo metabólico por circunferencia abdominal (OMS), según género
+  const esFemenino = (g) => { const s = (g || "").trim().toLowerCase(); return s === "f" || s.startsWith("fem") || s.startsWith("muj"); };
+  const getCinturaRiesgo = (cm, genero) => {
+    const v = parseFloat(cm);
+    if (!v) return { label: "—", color: "gray" };
+    if (!genero) return { label: "Registrar género", color: "gray" };
+    const f = esFemenino(genero);
+    if (v >= (f ? 88 : 102)) return { label: "Riesgo muy aumentado", color: "red" };
+    if (v >= (f ? 80 : 94))  return { label: "Riesgo aumentado", color: "amber" };
+    return { label: "Bajo riesgo", color: "green" };
+  };
+
+  const getFCCategoria = (fc) => {
+    const v = parseInt(fc);
+    if (!v) return { label: "—", color: "gray" };
+    if (v < 60) return { label: "Bradicardia", color: "amber" };
+    if (v > 100) return { label: "Taquicardia", color: "amber" };
+    return { label: "Normal", color: "green" };
   };
 
   const getPresionCategoria = (sis, dia) => {
@@ -73,6 +95,8 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
   };
 
   const imcPreview = calcIMC(form.peso, form.talla);
+  const selWorker = workers.find(w => w.id === form.trabajador_id);
+  const cinturaPreview = getCinturaRiesgo(form.perimetro_abdominal, selWorker?.genero);
 
   const handleSave = async () => {
     if (!form.trabajador_id || !form.fecha_evaluacion) {
@@ -80,14 +104,14 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
     }
     const imc = calcIMC(form.peso, form.talla);
     setSaving(true);
-    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, peso: form.peso ? parseFloat(form.peso) : null, talla: form.talla ? parseFloat(form.talla) : null, imc: imc ? parseFloat(imc) : null, perimetro_abdominal: form.perimetro_abdominal ? parseFloat(form.perimetro_abdominal) : null, presion_sistolica: form.presion_sistolica ? parseInt(form.presion_sistolica) : null, presion_diastolica: form.presion_diastolica ? parseInt(form.presion_diastolica) : null, glucosa: form.glucosa ? parseFloat(form.glucosa) : null, fumador: form.fumador, consume_alcohol: form.consume_alcohol, sedentario: form.sedentario, nivel_actividad: form.nivel_actividad, periodicidad: form.periodicidad, proximo_control: proximoControl(form.fecha_evaluacion, form.periodicidad), observaciones: form.observaciones, medico_responsable: form.medico_responsable };
+    const payload = { empresa_id: empresaId, trabajador_id: form.trabajador_id, fecha_evaluacion: form.fecha_evaluacion, peso: form.peso ? parseFloat(form.peso) : null, talla: form.talla ? parseFloat(form.talla) : null, imc: imc ? parseFloat(imc) : null, perimetro_abdominal: form.perimetro_abdominal ? parseFloat(form.perimetro_abdominal) : null, presion_sistolica: form.presion_sistolica ? parseInt(form.presion_sistolica) : null, presion_diastolica: form.presion_diastolica ? parseInt(form.presion_diastolica) : null, frecuencia_cardiaca: form.frecuencia_cardiaca ? parseInt(form.frecuencia_cardiaca) : null, glucosa: form.glucosa ? parseFloat(form.glucosa) : null, fumador: form.fumador, consume_alcohol: form.consume_alcohol, sedentario: form.sedentario, nivel_actividad: form.nivel_actividad, periodicidad: form.periodicidad, proximo_control: proximoControl(form.fecha_evaluacion, form.periodicidad), observaciones: form.observaciones, medico_responsable: form.medico_responsable };
     const { error } = editing ? await supabase.from("vigilancia_estilos_vida").update(payload).eq("id", editing) : await supabase.from("vigilancia_estilos_vida").insert(payload);
     setSaving(false);
     if (error) { showToast("Error: " + error.message, "error"); return; }
     showToast(editing ? "Registro actualizado" : "Evaluación registrada", "success");
     closeModal(); load();
   };
-  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, peso: r.peso != null ? String(r.peso) : "", talla: r.talla != null ? String(r.talla) : "", perimetro_abdominal: r.perimetro_abdominal != null ? String(r.perimetro_abdominal) : "", presion_sistolica: r.presion_sistolica != null ? String(r.presion_sistolica) : "", presion_diastolica: r.presion_diastolica != null ? String(r.presion_diastolica) : "", glucosa: r.glucosa != null ? String(r.glucosa) : "", fumador: r.fumador || false, consume_alcohol: r.consume_alcohol || false, sedentario: r.sedentario || false, nivel_actividad: r.nivel_actividad || "Moderado", periodicidad: r.periodicidad || "Anual", observaciones: r.observaciones || "", medico_responsable: r.medico_responsable || "" }); setEditing(r.id); setShowModal(true); };
+  const openEdit = (r) => { setForm({ trabajador_id: r.trabajador_id, fecha_evaluacion: r.fecha_evaluacion, peso: r.peso != null ? String(r.peso) : "", talla: r.talla != null ? String(r.talla) : "", perimetro_abdominal: r.perimetro_abdominal != null ? String(r.perimetro_abdominal) : "", presion_sistolica: r.presion_sistolica != null ? String(r.presion_sistolica) : "", presion_diastolica: r.presion_diastolica != null ? String(r.presion_diastolica) : "", frecuencia_cardiaca: r.frecuencia_cardiaca != null ? String(r.frecuencia_cardiaca) : "", glucosa: r.glucosa != null ? String(r.glucosa) : "", fumador: r.fumador || false, consume_alcohol: r.consume_alcohol || false, sedentario: r.sedentario || false, nivel_actividad: r.nivel_actividad || "Moderado", periodicidad: r.periodicidad || "Anual", observaciones: r.observaciones || "", medico_responsable: r.medico_responsable || "" }); setEditing(r.id); setShowModal(true); };
   const closeModal = () => { setShowModal(false); setEditing(null); setForm(initForm); };
   const handleDelete = async (id) => { if (!confirm("¿Eliminar este registro?")) return; await supabase.from("vigilancia_estilos_vida").delete().eq("id", id); showToast("Eliminado", "info"); load(); };
 
@@ -111,7 +135,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <Btn size="sm" onClick={() => setShowGuide(true)}><HelpCircle size={13} /> Guía</Btn>
           {subtab === "eval" && <>
-            <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Peso: r.peso ?? "", Talla: r.talla ?? "", IMC: r.imc ?? "", "Perímetro Abd.": r.perimetro_abdominal ?? "", "PA Sistólica": r.presion_sistolica ?? "", "PA Diastólica": r.presion_diastolica ?? "", Glucosa: r.glucosa ?? "", Fumador: r.fumador ? "Sí" : "No", Alcohol: r.consume_alcohol ? "Sí" : "No", Sedentario: r.sedentario ? "Sí" : "No" }))} filename="estilos_vida" />
+            <ExportBtn data={records.map(r => ({ Trabajador: r.trabajadores?.nombre || "", Fecha: r.fecha_evaluacion, Peso: r.peso ?? "", Talla: r.talla ?? "", IMC: r.imc ?? "", "Categoría IMC": getIMCCategoria(r.imc).label, "Perímetro Abd.": r.perimetro_abdominal ?? "", "Riesgo Cintura (OMS)": getCinturaRiesgo(r.perimetro_abdominal, r.trabajadores?.genero).label, "PA Sistólica": r.presion_sistolica ?? "", "PA Diastólica": r.presion_diastolica ?? "", "Frec. Cardíaca": r.frecuencia_cardiaca ?? "", Glucosa: r.glucosa ?? "", Fumador: r.fumador ? "Sí" : "No", Alcohol: r.consume_alcohol ? "Sí" : "No", Sedentario: r.sedentario ? "Sí" : "No" }))} filename="estilos_vida" />
             <Btn size="sm" variant="primary" onClick={() => { setEditing(null); setForm(initForm); setShowModal(true); }}><Plus size={13} /> Nueva Evaluación</Btn>
           </>}
         </div>
@@ -150,6 +174,8 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
           const imcCat = getIMCCategoria(r.imc);
           const presCat = getPresionCategoria(r.presion_sistolica, r.presion_diastolica);
           const glucCat = getGlucosaCategoria(r.glucosa);
+          const cintCat = getCinturaRiesgo(r.perimetro_abdominal, r.trabajadores?.genero);
+          const fcCat = getFCCategoria(r.frecuencia_cardiaca);
           const habitos = [r.fumador && "Fumador", r.consume_alcohol && "Alcohol", r.sedentario && "Sedentario"].filter(Boolean);
           const ec = estadoControl(r.proximo_control);
           return (
@@ -168,7 +194,9 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
               </div>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {r.imc != null && <Badge color={imcCat.color}>IMC {r.imc} · {imcCat.label}</Badge>}
+                {r.perimetro_abdominal != null && <Badge color={cintCat.color}>Cintura {r.perimetro_abdominal} · {cintCat.label}</Badge>}
                 {r.presion_sistolica && <Badge color={presCat.color}>{r.presion_sistolica}/{r.presion_diastolica} {presCat.label}</Badge>}
+                {r.frecuencia_cardiaca && <Badge color={fcCat.color}>FC {r.frecuencia_cardiaca} {fcCat.label}</Badge>}
                 {r.glucosa && <Badge color={glucCat.color}>Glu {r.glucosa} {glucCat.label}</Badge>}
                 {ec && <Badge color={ec.color}>Control {ec.label}</Badge>}
               </div>
@@ -187,17 +215,19 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800">
-              {["Trabajador", "Fecha", "IMC", "Categoría", "Presión Art.", "Glucosa", "Hábitos Riesgo", "Próximo Control", ""].map(h => (
+              {["Trabajador", "Fecha", "IMC", "Categoría", "Cintura", "Presión Art.", "FC", "Glucosa", "Hábitos Riesgo", "Próximo Control", ""].map(h => (
                 <th key={h} className="text-left text-xs text-gray-600 font-medium px-4 py-3 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
+            {loading && <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-600 text-sm">Cargando...</td></tr>}
             {!loading && filtered.map(r => {
               const imcCat = getIMCCategoria(r.imc);
               const presCat = getPresionCategoria(r.presion_sistolica, r.presion_diastolica);
               const glucCat = getGlucosaCategoria(r.glucosa);
+              const cintCat = getCinturaRiesgo(r.perimetro_abdominal, r.trabajadores?.genero);
+              const fcCat = getFCCategoria(r.frecuencia_cardiaca);
               const habitos = [r.fumador && "Fumador", r.consume_alcohol && "Alcohol", r.sedentario && "Sedentario"].filter(Boolean);
               const ec = estadoControl(r.proximo_control);
               return (
@@ -207,10 +237,26 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
                   <td className="px-4 py-3 font-mono font-bold text-sm text-gray-200">{r.imc ?? "—"}</td>
                   <td className="px-4 py-3"><Badge color={imcCat.color}>{imcCat.label}</Badge></td>
                   <td className="px-4 py-3">
+                    {r.perimetro_abdominal != null ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs text-gray-300">{r.perimetro_abdominal}</span>
+                        <Badge color={cintCat.color}>{cintCat.label}</Badge>
+                      </span>
+                    ) : <span className="text-gray-600">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
                     {r.presion_sistolica ? (
                       <span className="flex items-center gap-1.5">
                         <span className="font-mono text-xs text-gray-300">{r.presion_sistolica}/{r.presion_diastolica}</span>
                         <Badge color={presCat.color}>{presCat.label}</Badge>
+                      </span>
+                    ) : <span className="text-gray-600">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.frecuencia_cardiaca ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs text-gray-300">{r.frecuencia_cardiaca}</span>
+                        <Badge color={fcCat.color}>{fcCat.label}</Badge>
                       </span>
                     ) : <span className="text-gray-600">—</span>}
                   </td>
@@ -231,7 +277,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
               );
             })}
             {!loading && !filtered.length && (
-              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-600 text-sm">{records.length ? "Sin resultados para el filtro aplicado." : "Sin evaluaciones. Usa \"Nueva Evaluación\" para comenzar."}</td></tr>
+              <tr><td colSpan={11} className="px-4 py-12 text-center text-gray-600 text-sm">{records.length ? "Sin resultados para el filtro aplicado." : "Sin evaluaciones. Usa \"Nueva Evaluación\" para comenzar."}</td></tr>
             )}
           </tbody>
         </table>
@@ -272,19 +318,33 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
                   </div>
                 </FormField>
               </div>
-              <FormField label="Perímetro Abdominal (cm)">
-                <Input type="number" step="0.5" placeholder="90" value={form.perimetro_abdominal} onChange={e => setForm({ ...form, perimetro_abdominal: e.target.value })} />
-              </FormField>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <FormField label="Perímetro Abdominal (cm)">
+                  <Input type="number" step="0.5" placeholder="90" value={form.perimetro_abdominal} onChange={e => setForm({ ...form, perimetro_abdominal: e.target.value })} />
+                </FormField>
+                <FormField label="Riesgo metabólico (OMS · según género)">
+                  <div className="flex items-center gap-2 h-9 px-3 bg-gray-800 border border-gray-700 rounded-lg">
+                    {form.perimetro_abdominal ? <Badge color={cinturaPreview.color}>{cinturaPreview.label}</Badge> : <span className="text-gray-600 text-sm">—</span>}
+                    {selWorker?.genero && <span className="text-[11px] text-gray-500">{esFemenino(selWorker.genero) ? "♀ mujer" : "♂ hombre"}</span>}
+                  </div>
+                </FormField>
+              </div>
             </div>
 
             <div className="col-span-2">
               <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">Signos Vitales / Laboratorio</p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <FormField label="Presión Sistólica (mmHg)">
                   <Input type="number" placeholder="120" value={form.presion_sistolica} onChange={e => setForm({ ...form, presion_sistolica: e.target.value })} />
                 </FormField>
                 <FormField label="Presión Diastólica (mmHg)">
                   <Input type="number" placeholder="80" value={form.presion_diastolica} onChange={e => setForm({ ...form, presion_diastolica: e.target.value })} />
+                </FormField>
+                <FormField label="Frecuencia Cardíaca (lpm)">
+                  <div className="flex items-center gap-2">
+                    <Input type="number" placeholder="72" value={form.frecuencia_cardiaca} onChange={e => setForm({ ...form, frecuencia_cardiaca: e.target.value })} />
+                    {form.frecuencia_cardiaca && <Badge color={getFCCategoria(form.frecuencia_cardiaca).color}>{getFCCategoria(form.frecuencia_cardiaca).label}</Badge>}
+                  </div>
                 </FormField>
                 <FormField label="Glucosa en Ayunas (mg/dL)">
                   <Input type="number" placeholder="90" value={form.glucosa} onChange={e => setForm({ ...form, glucosa: e.target.value })} />
