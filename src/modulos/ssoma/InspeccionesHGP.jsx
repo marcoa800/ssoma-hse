@@ -102,7 +102,7 @@ export default function InspeccionesHGP({ empresaId, empresaInfo = EMPRESA_HGP, 
   if (vista === "form" && plantillaActiva) {
     const cerrar = () => { setVista("dashboard"); setPlantillaActiva(null); setEditando(null); };
     const props = {
-      empresaId, plantilla: plantillaActiva, registro: editando,
+      empresaId, plantilla: plantillaActiva, registro: editando, empresaInfo,
       onCancel: cerrar,
       onSaved: () => { cerrar(); load(); },
     };
@@ -143,7 +143,7 @@ export default function InspeccionesHGP({ empresaId, empresaInfo = EMPRESA_HGP, 
                         : <Badge color="gray">Próximamente</Badge>}
                   </div>
                   <p className="text-sm text-gray-200 font-medium leading-snug">{c.nombre}</p>
-                  <p className="text-[11px] text-gray-600 font-mono mt-1">{c.codigo}</p>
+                  <p className="text-[11px] text-gray-600 font-mono mt-1">{codFmt(c.codigo, empresaInfo)}</p>
                 </button>
               ))}
             </div>
@@ -228,7 +228,7 @@ export default function InspeccionesHGP({ empresaId, empresaInfo = EMPRESA_HGP, 
 
       {/* Modal detalle */}
       {detalle && (
-        <DetalleModal registro={detalle} plantilla={getPlantilla(detalle.plantilla_codigo)} onClose={() => setDetalle(null)} />
+        <DetalleModal registro={detalle} plantilla={getPlantilla(detalle.plantilla_codigo)} empresaInfo={empresaInfo} onClose={() => setDetalle(null)} />
       )}
     </div>
   );
@@ -276,7 +276,7 @@ function contarNC(r) {
 // ════════════════════════════════════════════════════════════════════
 //  FORMULARIO — Patrón "activos"
 // ════════════════════════════════════════════════════════════════════
-function FormularioActivos({ empresaId, plantilla, registro, onCancel, onSaved }) {
+function FormularioActivos({ empresaId, plantilla, registro, empresaInfo, onCancel, onSaved }) {
   const hoy = new Date().toISOString().split("T")[0];
   const initCab = () => {
     const c = {};
@@ -297,6 +297,11 @@ function FormularioActivos({ empresaId, plantilla, registro, onCancel, onSaved }
   const setCel = (idx, key, val) => setFilas(fs => fs.map((f, i) => i === idx ? { ...f, [key]: val } : f));
   const addFila = () => setFilas(fs => [...fs, filaVacia(plantilla, fs.length + 1)]);
   const delFila = (idx) => setFilas(fs => fs.filter((_, i) => i !== idx).map((f, i) => ({ ...f, item: i + 1 })));
+  // Rellenar hacia abajo (como arrastrar en Excel): copia el valor de esta celda
+  // a todas las filas siguientes en la misma columna.
+  const fillDown = (idx, key) => setFilas(fs => { const v = fs[idx]?.[key] ?? ""; return fs.map((f, i) => i >= idx ? { ...f, [key]: v } : f); });
+  // Marcar toda la columna con un valor (ej. todo "C").
+  const fillAll = (key, val) => setFilas(fs => fs.map(f => ({ ...f, [key]: val })));
 
   const guardar = async () => {
     if (!cabecera.inspector?.trim()) { showToast("Indica quién realizó la inspección", "error"); return; }
@@ -335,7 +340,7 @@ function FormularioActivos({ empresaId, plantilla, registro, onCancel, onSaved }
       <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
         <div>
           <h3 className="text-white font-semibold text-sm">{plantilla.titulo}</h3>
-          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{plantilla.codigo}</p>
+          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{codFmt(plantilla.codigo, empresaInfo)}</p>
         </div>
         <div className="flex gap-2">
           <Btn size="sm" variant="ghost" onClick={onCancel}>Cancelar</Btn>
@@ -365,7 +370,15 @@ function FormularioActivos({ empresaId, plantilla, registro, onCancel, onSaved }
               ))}
               {plantilla.puntos.map(p => (
                 <th key={p.key} className="px-1 py-2 text-gray-600 font-medium text-center" title={p.label}>
-                  <span className="text-[10px]">{p.short}</span>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[10px]">{p.short}</span>
+                    <select value="" title="Marcar todos los ítems"
+                      onChange={e => { if (e.target.value) { fillAll(p.key, e.target.value); e.target.value = ""; } }}
+                      className="bg-gray-800 border border-gray-700 rounded text-[9px] text-gray-400 px-0.5 py-0.5 focus:outline-none focus:border-blue-500">
+                      <option value="">todo…</option>
+                      {CALIF_OPCIONES.map(o => <option key={o} value={o === "N.T." ? "N.T." : o}>{o}</option>)}
+                    </select>
+                  </div>
                 </th>
               ))}
               <th className="px-2 py-2 text-gray-600 font-medium text-left">{plantilla.observacionPorFila.label}</th>
@@ -387,11 +400,18 @@ function FormularioActivos({ empresaId, plantilla, registro, onCancel, onSaved }
                 ))}
                 {plantilla.puntos.map(p => (
                   <td key={p.key} className="px-0.5 py-1">
-                    <select value={f[p.key] || ""} onChange={e => setCel(idx, p.key, e.target.value)}
-                      className={`w-full rounded px-0.5 py-1 text-[11px] text-center font-bold focus:outline-none border ${califClass(f[p.key])}`}>
-                      <option value=""></option>
-                      {CALIF_OPCIONES.map(o => <option key={o} value={o === "N.T." ? "N.T." : o}>{o}</option>)}
-                    </select>
+                    <div className="flex items-center gap-0.5">
+                      <select value={f[p.key] || ""} onChange={e => setCel(idx, p.key, e.target.value)}
+                        className={`w-full rounded px-0.5 py-1 text-[11px] text-center font-bold focus:outline-none border ${califClass(f[p.key])}`}>
+                        <option value=""></option>
+                        {CALIF_OPCIONES.map(o => <option key={o} value={o === "N.T." ? "N.T." : o}>{o}</option>)}
+                      </select>
+                      {f[p.key] && idx < filas.length - 1 && (
+                        <button type="button" title="Rellenar este valor hacia abajo"
+                          onClick={() => fillDown(idx, p.key)}
+                          className="shrink-0 text-gray-500 hover:text-blue-400 text-[11px] leading-none px-0.5">↓</button>
+                      )}
+                    </div>
                   </td>
                 ))}
                 <td className="px-1 py-1">
@@ -439,7 +459,7 @@ const secCalifClass = (v) => VERDICT_CLASS[calVerdict(v)];
 // Color de badge para una calificación de secciones (vista detalle)
 const secCalColor = (v) => VERDICT_COLOR[calVerdict(v)];
 
-function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved }) {
+function FormularioSecciones({ empresaId, plantilla, registro, empresaInfo, onCancel, onSaved }) {
   const hoy = new Date().toISOString().split("T")[0];
   const initCab = () => {
     const c = {};
@@ -457,6 +477,10 @@ function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved
   const calLabel = plantilla.calLabel || "Clasif.";
 
   const setItem = (idx, key, val) => setItems(its => its.map((it, i) => i === idx ? { ...it, [key]: val } : it));
+  // Rellenar hacia abajo (como Excel): copia el valor a todos los ítems siguientes.
+  const fillDown = (idx, key) => setItems(its => { const v = its[idx]?.[key] ?? ""; return its.map((it, i) => i >= idx ? { ...it, [key]: v } : it); });
+  // Marcar todos los ítems con un valor (ej. todo "B"/"C").
+  const fillAll = (key, val) => setItems(its => its.map(it => ({ ...it, [key]: val })));
 
   const guardar = async () => {
     if (!cabecera.inspector?.trim()) { showToast("Indica quién realizó la inspección", "error"); return; }
@@ -492,7 +516,7 @@ function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved
       <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
         <div>
           <h3 className="text-white font-semibold text-sm">{plantilla.titulo}</h3>
-          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{plantilla.codigo}</p>
+          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{codFmt(plantilla.codigo, empresaInfo)}</p>
         </div>
         <div className="flex gap-2">
           <Btn size="sm" variant="ghost" onClick={onCancel}>Cancelar</Btn>
@@ -581,7 +605,7 @@ function FormularioSecciones({ empresaId, plantilla, registro, onCancel, onSaved
 const matCalifClass = (v) => VERDICT_CLASS[calVerdict(v)];
 const matCalColor = (v) => VERDICT_COLOR[calVerdict(v)];
 
-function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved }) {
+function FormularioMatriz({ empresaId, plantilla, registro, empresaInfo, onCancel, onSaved }) {
   const hoy = new Date().toISOString().split("T")[0];
   const initCab = () => {
     const c = {};
@@ -607,6 +631,11 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
 
   const setVal = (idx, eq, val) =>
     setItems(its => its.map((it, i) => i === idx ? { ...it, vals: { ...it.vals, [eq]: val } } : it));
+  // Rellenar la columna (mismo equipo) hacia abajo: copia el valor a los ítems siguientes.
+  const fillDownCol = (idx, eq) => setItems(its => {
+    const v = its[idx]?.vals?.[eq] ?? "";
+    return its.map((it, i) => i >= idx ? { ...it, vals: { ...it.vals, [eq]: v } } : it);
+  });
   const setEquipo = (eq, val) => setEquipos(es => es.map((e, i) => i === eq ? { ...e, [ek]: val } : e));
   const addEquipo = () => {
     if (equipos.length >= (plantilla.equiposMax || 12)) { showToast(`Máximo ${plantilla.equiposMax} equipos`, "info"); return; }
@@ -660,7 +689,7 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
       <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
         <div>
           <h3 className="text-white font-semibold text-sm">{plantilla.titulo}</h3>
-          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{plantilla.codigoPdf || plantilla.codigo}</p>
+          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{codFmt(plantilla.codigoPdf || plantilla.codigo, empresaInfo)}</p>
         </div>
         <div className="flex gap-2">
           <Btn size="sm" variant="ghost" onClick={onCancel}>Cancelar</Btn>
@@ -733,11 +762,18 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
                       {extra && <td className="px-2 py-1.5 text-gray-500 text-center">{row.cantidad ?? it.cantidad ?? ""}</td>}
                       {Array.from({ length: nCols }).map((_, eq) => (
                         <td key={eq} className="px-1 py-1 border-l border-gray-800/40">
-                          <select value={row.vals?.[eq] || ""} onChange={e => setVal(i, eq, e.target.value)}
-                            className={`w-full rounded px-0.5 py-1 text-[11px] text-center font-bold focus:outline-none border ${matCalifClass(row.vals?.[eq])}`}>
-                            <option value=""></option>
-                            {plantilla.calificaciones.map(o => <option key={o} value={o}>{o}</option>)}
-                          </select>
+                          <div className="flex items-center gap-0.5">
+                            <select value={row.vals?.[eq] || ""} onChange={e => setVal(i, eq, e.target.value)}
+                              className={`w-full rounded px-0.5 py-1 text-[11px] text-center font-bold focus:outline-none border ${matCalifClass(row.vals?.[eq])}`}>
+                              <option value=""></option>
+                              {plantilla.calificaciones.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                            {row.vals?.[eq] && i < items.length - 1 && (
+                              <button type="button" title="Rellenar esta columna hacia abajo"
+                                onClick={() => fillDownCol(i, eq)}
+                                className="shrink-0 text-gray-500 hover:text-blue-400 text-[11px] leading-none px-0.5">↓</button>
+                            )}
+                          </div>
                         </td>
                       ))}
                     </tr>
@@ -764,7 +800,7 @@ function FormularioMatriz({ empresaId, plantilla, registro, onCancel, onSaved })
 // ════════════════════════════════════════════════════════════════════
 //  FORMULARIO — Patrón "evento" (RACS)
 // ════════════════════════════════════════════════════════════════════
-function FormularioEvento({ empresaId, plantilla, registro, onCancel, onSaved }) {
+function FormularioEvento({ empresaId, plantilla, registro, empresaInfo, onCancel, onSaved }) {
   const hoy = new Date().toISOString().split("T")[0];
   const cab0 = registro?.cabecera || {};
   const [categoria, setCategoria] = useState(cab0.categoria || "SST");   // SST | MA
@@ -842,7 +878,7 @@ function FormularioEvento({ empresaId, plantilla, registro, onCancel, onSaved })
       <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
         <div>
           <h3 className="text-white font-semibold text-sm">{plantilla.titulo}</h3>
-          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{plantilla.codigo}</p>
+          <p className="text-[11px] text-gray-600 font-mono mt-0.5">{codFmt(plantilla.codigo, empresaInfo)}</p>
         </div>
       </div>
 
@@ -922,7 +958,7 @@ function FormularioEvento({ empresaId, plantilla, registro, onCancel, onSaved })
 // ════════════════════════════════════════════════════════════════════
 //  MODAL DETALLE (vista rápida)
 // ════════════════════════════════════════════════════════════════════
-function DetalleModal({ registro, plantilla, onClose }) {
+function DetalleModal({ registro, plantilla, empresaInfo, onClose }) {
   const filas = Array.isArray(registro.filas) ? registro.filas : [];
   return (
     <Modal title={`${registro.plantilla_nombre} — ${fmtFecha(registro.fecha)}`} onClose={onClose} wide>
@@ -1119,7 +1155,7 @@ function dibujarEncabezado(doc, plantilla, registro, W, M, logo, empresa = EMPRE
 
   doc.setFontSize(6).setFont(undefined, "normal");
   const cx = M + c1 + c2 + 2;
-  doc.text(`Código: ${plantilla.codigoPdf || plantilla.codigo}`, cx, hY + 5);
+  doc.text(`Código: ${codFmt(plantilla.codigoPdf || plantilla.codigo, empresa)}`, cx, hY + 5);
   doc.text(`Fecha: ${registro.fecha || ""}`, cx, hY + 9);
   doc.text(`Rev. ${plantilla.rev || "00"}   Página 01 de 01`, cx, hY + 13);
 
@@ -1150,8 +1186,15 @@ function dibujarFirmas(doc, plantilla, W, M, fy) {
   return fy;
 }
 
-function guardarPDF(doc, plantilla, registro) {
-  const nombre = `${plantilla.codigo}_${registro.fecha || "inspeccion"}.pdf`.replace(/[^\w.-]/g, "_");
+// Reemplaza el prefijo del código del formato (DEMO usa uno genérico, sin "HGP-SGIII")
+function codFmt(codigo, empresa) {
+  if (!codigo || !empresa?.codigoPrefix) return codigo;
+  return codigo.replace(/^HGP-SGIII/i, empresa.codigoPrefix).replace(/^HGP/i, empresa.codigoPrefix);
+}
+
+function guardarPDF(doc, plantilla, registro, empresa) {
+  const cod = codFmt(plantilla.codigo, empresa);
+  const nombre = `${cod}_${registro.fecha || "inspeccion"}.pdf`.replace(/[^\w.-]/g, "_");
   doc.save(nombre);
 }
 
@@ -1173,7 +1216,7 @@ export async function generarPDF(registro, plantilla, empresa = EMPRESA_HGP) {
   if (plantilla.patron === "secciones") pdfSecciones(doc, plantilla, registro, W, M, y);
   else if (plantilla.patron === "matriz") pdfMatriz(doc, plantilla, registro, W, M, y);
   else pdfActivos(doc, plantilla, registro, W, M, y);
-  guardarPDF(doc, plantilla, registro);
+  guardarPDF(doc, plantilla, registro, empresa);
 }
 
 // ── PDF para patrón "evento" (RACS FR-018) — formato vertical oficial ──

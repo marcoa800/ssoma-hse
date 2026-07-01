@@ -43,7 +43,7 @@ export default function InspeccionesModulo({ empresaId, empresa }) {
   // Multisel usa los formatos SIG (R.0X-IN-SST) llenados en la app
   if (esMultisel) return <InspeccionesSIG empresaId={empresaId} empresa={empresa} />;
   // DEMO usa el motor de formatos oficiales (mismo que HydroGlobal) pero SIN logo
-  if (esDemo) return <InspeccionesHGP empresaId={empresaId} empresaInfo={{ nombre: "Empresa DEMO", proyecto: "Plataforma de demostración SSOMA", logo: null }} />;
+  if (esDemo) return <InspeccionesHGP empresaId={empresaId} empresaInfo={{ nombre: "Empresa DEMO", proyecto: "Plataforma de demostración SSOMA", logo: null, codigoPrefix: "DEMO" }} />;
 
   return <InspeccionesGenerico empresaId={empresaId} />;
 }

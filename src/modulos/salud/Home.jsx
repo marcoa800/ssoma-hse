@@ -206,16 +206,16 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
         }}>
         <div className="absolute inset-0 opacity-[0.035]"
           style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "22px 22px" }} />
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative">
           <div>
             <div className="text-sm text-gray-500 mb-1 font-mono uppercase tracking-widest">{empresa?.nombre || "Medicloud Safety"}</div>
             <h1 className="text-2xl md:text-3xl font-bold text-white">Bienvenido, {profile?.nombre || "Usuario"}</h1>
             <p className="text-gray-400 text-base mt-1">¿A dónde quieres ir hoy?</p>
             <div className="text-sm text-gray-600 mt-2 capitalize">{today}</div>
           </div>
-          <div className={`flex gap-3 shrink-0 flex-wrap ${isAdministrativo ? "hidden" : ""}`}>
+          <div className={`flex gap-2 flex-wrap mt-5 ${isAdministrativo ? "hidden" : ""}`}>
             <button onClick={() => setPlatform("salud")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                 platform === "salud"
                   ? "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/25"
                   : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
@@ -223,7 +223,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
               <Stethoscope size={16} /> Salud Ocupacional
             </button>
             <button onClick={() => setPlatform("ssoma")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                 platform === "ssoma"
                   ? "bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-500/25"
                   : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
@@ -232,7 +232,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
             </button>
             {esDemo && (
               <button onClick={() => setPlatform("ambiental")}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                   platform === "ambiental"
                     ? "bg-green-600 text-white border-green-500 shadow-lg shadow-green-500/25"
                     : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
@@ -242,7 +242,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
             )}
             {esDemo && (
               <button onClick={() => setPlatform("calidad")}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                   platform === "calidad"
                     ? "bg-cyan-600 text-white border-cyan-500 shadow-lg shadow-cyan-500/25"
                     : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
@@ -252,7 +252,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
             )}
             {esDemo && (
               <button onClick={() => setPlatform("rse")}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                   platform === "rse"
                     ? "bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-500/25"
                     : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
@@ -262,7 +262,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
             )}
             {(esOilGas || esDemo) && (
               <button onClick={() => setPlatform("sig")}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                   platform === "sig"
                     ? "bg-violet-600 text-white border-violet-500 shadow-lg shadow-violet-500/25"
                     : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"
@@ -272,7 +272,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
             )}
             {esComindustria && (
               <button onClick={() => setPlatform("administrativo")}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-base font-medium transition-all border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                   platform === "administrativo"
                     ? "bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-500/25"
                     : "bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200"

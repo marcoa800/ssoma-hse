@@ -637,7 +637,7 @@ export default function App() {
           {page === "reportes_ssoma" && <ReportesSSOMAModulo empresaId={empresaId} empresa={empresa} workers={workers} />}
           {page === "plan_so" && esMultisel && <PlanSOModulo empresaId={empresaId} />}
           {page === "contratistas" && (esDemo
-            ? <ContratistasPortal empresaId={empresaId} empresa={empresa} />
+            ? <ContratistasPortal empresaId={empresaId} empresa={empresa} profile={profile} />
             : <ContratistasModulo empresaId={empresaId} />)}
           {page === "inversion" && <InversionSST empresaId={empresaId} />}
           {page === "indicadores" && (esComindustria || esDemo) && <IndicadoresComind empresaId={empresaId} />}

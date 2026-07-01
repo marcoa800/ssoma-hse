@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { supabase } from '../../lib/supabase.js';
 import { showToast } from '../../lib/toast.jsx';
 import { calcularEdad, calcularVigencia, fmtFecha} from '../../lib/helpers.js';
@@ -22,8 +21,9 @@ import {
   Filter, HelpCircle, Lock, Shield, ClipboardList, ShieldAlert,
   Activity, FileText, Users, LayoutDashboard, Stethoscope, Search,
   ChevronRight, ChevronLeft, Phone, QrCode, Eye, EyeOff, X, Copy, FileDown,
-  Building2, Settings
+  Building2, Settings, ListChecks, XCircle, Clock
 } from 'lucide-react';
+import { ScoreBadge, TAREA_COLOR } from '../../components/ScoreBadge.jsx';
 
 const TIPO_LBL = { hallazgo: "Hallazgo", inspeccion: "Inspección", documento: "Documento" };
 const REG_COLS = [{ wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 45 }, { wch: 18 }, { wch: 12 }, { wch: 40 }, { wch: 45 }];
@@ -62,11 +62,204 @@ function pdfRegistrosPortal(regs, nombreDe, titulo, filename) {
   doc.save(filename);
 }
 
-export default function ContratistasModulo({ empresaId }) {
+// Control de revisión del cliente sobre cada item subido por el contratista
+const REV_COLOR = { Pendiente: "gray", Aprobado: "green", Observado: "amber", Rechazado: "red" };
+function RevisionCliente({ r, revisor, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [obs, setObs] = useState(r.revision_obs || "");
+  const [saving, setSaving] = useState(false);
+  const rev = r.revision || "Pendiente";
+  const guardar = async (nuevo) => {
+    if ((nuevo === "Observado" || nuevo === "Rechazado") && !obs.trim()) { showToast("Escribe una observación para el contratista", "error"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("contratista_registros").update({
+      revision: nuevo,
+      revision_obs: nuevo === "Aprobado" ? null : (obs.trim() || null),
+      revisado_por: revisor || "Seguridad",
+      revisado_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("id", r.id);
+    setSaving(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast(`Marcado como ${nuevo}`, "success"); setOpen(false); onSaved?.();
+  };
+  return (
+    <div className="mt-2 pt-2 border-t border-gray-800">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[11px] text-gray-500">Revisión:</span>
+        <Badge color={REV_COLOR[rev]}>{rev}</Badge>
+        {r.revisado_por && <span className="text-[10px] text-gray-600">por {r.revisado_por}</span>}
+        <button onClick={() => setOpen(o => !o)} className="text-[11px] text-blue-400 hover:text-blue-300 ml-auto">{open ? "Cerrar" : "Revisar"}</button>
+      </div>
+      {r.revision_obs && !open && <p className="text-[11px] text-amber-400/90 mt-1">Obs.: {r.revision_obs}</p>}
+      {open && (
+        <div className="mt-2 space-y-2">
+          <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2} placeholder="Observación para el contratista (requerida si Observas o Rechazas)"
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-none" />
+          <div className="flex gap-2">
+            <button disabled={saving} onClick={() => guardar("Aprobado")} className="flex-1 text-xs py-1.5 rounded-lg bg-green-700/80 hover:bg-green-700 text-white disabled:opacity-50">✓ Aprobar</button>
+            <button disabled={saving} onClick={() => guardar("Observado")} className="flex-1 text-xs py-1.5 rounded-lg bg-amber-700/80 hover:bg-amber-700 text-white disabled:opacity-50">⚠ Observar</button>
+            <button disabled={saving} onClick={() => guardar("Rechazado")} className="flex-1 text-xs py-1.5 rounded-lg bg-red-700/80 hover:bg-red-700 text-white disabled:opacity-50">✗ Rechazar</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Programación y revisión de tareas (lado cliente / SSOMA) ──
+const FRECUENCIAS = [["semanal", "Semanal"], ["quincenal", "Quincenal"], ["mensual", "Mensual"]];
+const nuevaTareaDraft = () => ({ titulo: "", descripcion: "", tipo: "puntual", fecha_limite: "", frecuencia: "mensual", veces: 6, fecha_base: new Date().toISOString().slice(0, 10) });
+
+function TareaCampos({ v, set }) {
+  return (
+    <div className="space-y-2">
+      <Input value={v.titulo} onChange={e => set({ ...v, titulo: e.target.value })} placeholder="Título (ej. Enviar reporte mensual de SST)" />
+      <textarea rows={2} value={v.descripcion} onChange={e => set({ ...v, descripcion: e.target.value })} placeholder="Instrucciones (opcional)"
+        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 resize-none" />
+      <div className="flex gap-2">
+        {[["puntual", "Puntual"], ["periodica", "Periódica"]].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => set({ ...v, tipo: k })}
+            className={`flex-1 text-xs py-1.5 rounded-lg border ${v.tipo === k ? "bg-amber-600 text-white border-amber-500" : "border-gray-700 text-gray-400"}`}>{l}</button>
+        ))}
+      </div>
+      {v.tipo === "puntual" ? (
+        <FormField label="Fecha límite"><Input type="date" value={v.fecha_limite} onChange={e => set({ ...v, fecha_limite: e.target.value })} /></FormField>
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          <FormField label="Frecuencia"><Select value={v.frecuencia} onChange={e => set({ ...v, frecuencia: e.target.value })}>{FRECUENCIAS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></FormField>
+          <FormField label="N° veces"><Input type="number" min={1} max={52} value={v.veces} onChange={e => set({ ...v, veces: e.target.value })} /></FormField>
+          <FormField label="1ra fecha"><Input type="date" value={v.fecha_base} onChange={e => set({ ...v, fecha_base: e.target.value })} /></FormField>
+        </div>
+      )}
+    </div>
+  );
+}
+
+async function crearTareaRPC(empresaId, contratistaId, d) {
+  return supabase.rpc("generar_tareas_contratista", {
+    p_empresa: empresaId, p_contratista: contratistaId, p_titulo: d.titulo.trim(),
+    p_descripcion: d.descripcion || null, p_tipo: d.tipo,
+    p_frecuencia: d.tipo === "periodica" ? d.frecuencia : null,
+    p_veces: d.tipo === "periodica" ? (parseInt(d.veces) || 1) : 1,
+    p_fecha_base: (d.tipo === "periodica" ? d.fecha_base : d.fecha_limite) || null,
+  });
+}
+
+function TareasCliente({ contratista, tareas, empresaId, revisor, onChange }) {
+  const [showForm, setShowForm] = useState(false);
+  const [draft, setDraft] = useState(nuevaTareaDraft());
+  const [saving, setSaving] = useState(false);
+  const crear = async () => {
+    if (!draft.titulo.trim()) { showToast("Indica un título", "error"); return; }
+    setSaving(true);
+    const { error } = await crearTareaRPC(empresaId, contratista.id, draft);
+    setSaving(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast("Tarea asignada", "success"); setDraft(nuevaTareaDraft()); setShowForm(false); onChange?.();
+  };
+  const grupos = [
+    ["Por hacer", tareas.filter(t => ["Pendiente", "Rechazada"].includes(t.estado))],
+    ["En revisión (por auditar)", tareas.filter(t => t.estado === "En revisión")],
+    ["Cerradas", tareas.filter(t => t.estado === "Cerrada")],
+  ];
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-3">
+        <p className="text-xs text-gray-500">{tareas.length} tarea(s)</p>
+        <Btn size="sm" variant="primary" onClick={() => setShowForm(s => !s)}><Plus size={13} /> Asignar tarea</Btn>
+      </div>
+      {showForm && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 mb-4 space-y-3">
+          <TareaCampos v={draft} set={setDraft} />
+          <div className="flex justify-end gap-2">
+            <Btn size="sm" variant="ghost" onClick={() => setShowForm(false)}>Cancelar</Btn>
+            <Btn size="sm" variant="primary" disabled={saving} onClick={crear}>{saving ? "Creando…" : "Crear tarea"}</Btn>
+          </div>
+        </div>
+      )}
+      {!tareas.length ? (
+        <div className="py-10 text-center text-gray-600 text-sm bg-gray-900 border border-gray-800 rounded-xl">Sin tareas. Usa "Asignar tarea".</div>
+      ) : (
+        <div className="space-y-4">
+          {grupos.filter(([, it]) => it.length).map(([titulo, items]) => (
+            <div key={titulo}>
+              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">{titulo} ({items.length})</div>
+              <div className="space-y-2">{items.map(t => <TareaClienteCard key={t.id} t={t} revisor={revisor} onChange={onChange} />)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TareaClienteCard({ t, revisor, onChange }) {
+  const [obs, setObs] = useState("");
+  const [rej, setRej] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const vencida = t.fecha_limite && ["Pendiente", "Rechazada"].includes(t.estado) && t.fecha_limite < hoy;
+  const revisar = async (nuevo) => {
+    if (nuevo === "Rechazada" && !obs.trim()) { showToast("Escribe el motivo del rechazo", "error"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("contratista_tareas").update({
+      estado: nuevo, revision_obs: nuevo === "Rechazada" ? obs.trim() : null,
+      revisado_por: revisor || "Seguridad", revisado_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }).eq("id", t.id);
+    setSaving(false);
+    if (error) { showToast("Error: " + error.message, "error"); return; }
+    showToast(nuevo === "Cerrada" ? "Tarea aprobada" : "Tarea rechazada", "success"); setRej(false); setObs(""); onChange?.();
+  };
+  const del = async () => { if (!confirm("¿Eliminar esta tarea?")) return; await supabase.from("contratista_tareas").delete().eq("id", t.id); showToast("Eliminada", "info"); onChange?.(); };
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm text-gray-200 font-medium">{t.titulo}</div>
+          {t.descripcion && <div className="text-xs text-gray-500 mt-0.5">{t.descripcion}</div>}
+          <div className="text-[11px] mt-1 flex items-center gap-2 flex-wrap">
+            <span className={`font-mono ${vencida ? "text-red-400" : "text-gray-600"}`}>{t.fecha_limite ? "Límite: " + t.fecha_limite : "Sin fecha"}{vencida ? " · vencida" : ""}</span>
+            {t.tipo === "periodica" && <span className="text-gray-600">· {t.ocurrencia}/{t.total} ({t.frecuencia})</span>}
+          </div>
+        </div>
+        <span className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 ${TAREA_COLOR[t.estado]}`}>{t.estado}</span>
+      </div>
+      {t.evidencia_nota && <p className="text-xs text-gray-500 mt-1">Nota: {t.evidencia_nota}</p>}
+      {(t.evidencia_urls || []).length > 0 && <div className="flex flex-wrap gap-2 mt-2">{t.evidencia_urls.map((u, i) => <a key={i} href={u} target="_blank" rel="noreferrer" className="text-xs text-purple-400 underline flex items-center gap-1"><FileText size={12} /> Evidencia {i + 1}</a>)}</div>}
+      {t.estado === "Rechazada" && t.revision_obs && <p className="text-[11px] text-red-400 mt-1">Motivo: {t.revision_obs}</p>}
+      {t.estado === "En revisión" && (
+        <div className="mt-2 pt-2 border-t border-gray-800">
+          {!rej ? (
+            <div className="flex gap-2">
+              <button disabled={saving} onClick={() => revisar("Cerrada")} className="flex-1 text-xs py-1.5 rounded-lg bg-green-700/80 hover:bg-green-700 text-white disabled:opacity-50">✓ Aprobar (cerrar)</button>
+              <button disabled={saving} onClick={() => setRej(true)} className="flex-1 text-xs py-1.5 rounded-lg bg-red-700/80 hover:bg-red-700 text-white disabled:opacity-50">✗ Rechazar</button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} placeholder="Motivo del rechazo (lo verá el contratista)"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-red-500 resize-none" />
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => { setRej(false); setObs(""); }} className="px-3 py-1 text-xs text-gray-400">Cancelar</button>
+                <button disabled={saving} onClick={() => revisar("Rechazada")} className="px-3 py-1 text-xs rounded-lg bg-red-700 text-white">Confirmar rechazo</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {t.estado !== "En revisión" && (
+        <button onClick={del} className="mt-2 text-[11px] text-red-500/50 hover:text-red-400 flex items-center gap-1"><Trash2 size={11} /> Eliminar</button>
+      )}
+    </div>
+  );
+}
+
+export default function ContratistasModulo({ empresaId, empresa, profile }) {
   const [contratistas, setContratistas] = useState([]);
   const [personal, setPersonal]         = useState([]);
   const [trabajos, setTrabajos]         = useState([]);
   const [portalRegs, setPortalRegs]     = useState([]); // reportes subidos vía portal público
+  const [tareas, setTareas]             = useState([]); // tareas asignadas a contratistas
   const [expContratista, setExpContratista] = useState(false); // export por período de un contratista
   const [expGlobal, setExpGlobal]       = useState(false);      // export por período de todos
   const [loading, setLoading]           = useState(true);
@@ -82,7 +275,7 @@ export default function ContratistasModulo({ empresaId }) {
   const [editingT, setEditingT]         = useState(null);
   const [saving, setSaving]             = useState(false);
 
-  const initC = { nombre:"", ruc:"", rubro:"", representante:"", telefono:"", email:"", estado:"Activo", sctr_empresa_venc:"", poliza_rc_venc:"", poliza_vida_venc:"", plan_sst_venc:"", iper_venc:"", observaciones:"", codigo_acceso:"" };
+  const initC = { nombre:"", ruc:"", rubro:"", representante:"", telefono:"", email:"", estado:"Activo", sctr_empresa_venc:"", poliza_rc_venc:"", poliza_vida_venc:"", plan_sst_venc:"", iper_venc:"", observaciones:"", codigo_acceso:"", sctr_aplica:true, poliza_rc_aplica:true, poliza_vida_aplica:true, plan_sst_aplica:true, iper_aplica:true };
   const initP = {
     // Datos personales
     nombre:"", dni:"", fecha_nacimiento:"", genero:"M",
@@ -103,19 +296,29 @@ export default function ContratistasModulo({ empresaId }) {
   };
   const initT = { descripcion:"", area:"", fecha_inicio:"", fecha_fin:"", estado:"Programado", nivel_riesgo:"Medio", responsable_obra:"", personal_asignado:[], observaciones:"" };
   const [formC, setFormC] = useState(initC);
+  const [formTareas, setFormTareas] = useState([]); // tareas a programar al crear/editar contratista
   const [formP, setFormP] = useState(initP);
   const [formT, setFormT] = useState(initT);
 
   const load = async () => {
     setLoading(true);
-    const [{ data: cs }, { data: ps }, { data: ts }, { data: rg }] = await Promise.all([
+    // Carga primero lo esencial para la lista y la edición (rápido)
+    const [{ data: cs }, { data: ps }, { data: ts }] = await Promise.all([
       supabase.from("contratistas").select("*").eq("empresa_id", empresaId).order("nombre"),
       supabase.from("contratista_personal").select("*").eq("empresa_id", empresaId).order("nombre"),
       supabase.from("contratista_trabajos").select("*").eq("empresa_id", empresaId).order("created_at", { ascending: false }),
-      supabase.from("contratista_registros").select("*").eq("empresa_id", empresaId).order("created_at", { ascending: false }),
     ]);
-    setContratistas(cs || []); setPersonal(ps || []); setTrabajos(ts || []); setPortalRegs(rg || []);
+    setContratistas(cs || []); setPersonal(ps || []); setTrabajos(ts || []);
     setLoading(false);
+    // Los registros del portal (con fotos) se cargan en segundo plano — no bloquean la lista ni la edición
+    supabase.from("contratista_registros").select("*").eq("empresa_id", empresaId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setPortalRegs(data || []));
+    cargarTareas();
+  };
+  const cargarTareas = async () => {
+    const { data } = await supabase.from("contratista_tareas").select("*").eq("empresa_id", empresaId).order("fecha_limite", { ascending: true });
+    setTareas(data || []);
   };
   useEffect(() => { if (empresaId) load(); }, [empresaId]);
 
@@ -157,19 +360,29 @@ export default function ContratistasModulo({ empresaId }) {
     if (!formC.nombre.trim()) { showToast("El nombre es obligatorio", "error"); return; }
     setSaving(true);
     const payload = cleanDates({ ...formC, empresa_id: empresaId }, ["sctr_empresa_venc","poliza_rc_venc","poliza_vida_venc","plan_sst_venc","iper_venc"]);
-    const { error } = editingC
-      ? await supabase.from("contratistas").update(payload).eq("id", editingC.id)
-      : await supabase.from("contratistas").insert(payload);
-    if (error) { showToast("Error: " + error.message, "error"); }
-    else {
-      showToast(editingC ? "Contratista actualizado" : "Contratista registrado", "success");
-      setShowModalC(false);
-      if (editingC && selected?.id === editingC.id) {
-        const { data } = await supabase.from("contratistas").select("*").eq("id", editingC.id).single();
-        if (data) setSelected(data);
-      }
-      load();
+    let contratistaId = editingC?.id;
+    let error;
+    if (editingC) {
+      ({ error } = await supabase.from("contratistas").update(payload).eq("id", editingC.id));
+    } else {
+      const res = await supabase.from("contratistas").insert(payload).select("id").single();
+      error = res.error; contratistaId = res.data?.id;
     }
+    if (error) { showToast("Error: " + error.message, "error"); setSaving(false); return; }
+
+    // Programar tareas iniciales (puntuales o periódicas)
+    const drafts = formTareas.filter(d => d.titulo.trim());
+    if (contratistaId && drafts.length) {
+      for (const d of drafts) { await crearTareaRPC(empresaId, contratistaId, d); }
+    }
+
+    showToast(editingC ? "Contratista actualizado" : "Contratista registrado", "success");
+    setShowModalC(false); setFormTareas([]);
+    if (editingC && selected?.id === editingC.id) {
+      const { data } = await supabase.from("contratistas").select("*").eq("id", editingC.id).single();
+      if (data) setSelected(data);
+    }
+    load();
     setSaving(false);
   };
 
@@ -205,6 +418,7 @@ export default function ContratistasModulo({ empresaId }) {
   const travEstColor = { Programado:"blue","En ejecución":"amber",Completado:"green",Suspendido:"red" };
   const selPersonal = selected ? personal.filter(p => p.contratista_id === selected.id) : [];
   const selTrabajos = selected ? trabajos.filter(t => t.contratista_id === selected.id) : [];
+  const selTareas   = selected ? tareas.filter(t => t.contratista_id === selected.id) : [];
 
   // ── Sub-componente: chip de fecha ──
   const DateChip = ({ fecha }) => {
@@ -215,9 +429,17 @@ export default function ContratistasModulo({ empresaId }) {
   };
 
   // ── Sub-componente: fila de documento ──
-  const DocRow = ({ label, fecha }) => {
+  const DocRow = ({ label, fecha, aplica = true }) => {
     const st = docStatus(fecha);
     const d  = docDays(fecha);
+    if (aplica === false) {
+      return (
+        <div className="flex items-center justify-between py-3 border-b border-gray-800 last:border-0 opacity-60">
+          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full shrink-0 bg-gray-700" /><span className="text-sm text-gray-500">{label}</span></div>
+          <span className="text-xs px-2 py-0.5 rounded-full border border-gray-700 text-gray-500">No aplica</span>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-between py-3 border-b border-gray-800 last:border-0">
         <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full shrink-0 ${dotCls[st]}`} /><span className="text-sm text-gray-300">{label}</span></div>
@@ -266,11 +488,12 @@ export default function ContratistasModulo({ empresaId }) {
                 {selected.ruc && <span className="text-xs text-gray-500 font-mono">RUC {selected.ruc}</span>}
                 {selected.rubro && <span className="text-xs text-gray-600">{selected.rubro}</span>}
                 <Badge color={selected.estado === "Activo" ? "green" : selected.estado === "Suspendido" ? "amber" : "red"}>{selected.estado}</Badge>
+                <ScoreBadge tareas={selTareas} />
               </div>
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Btn size="sm" variant="ghost" onClick={() => { const d={...initC,...selected}; ["sctr_empresa_venc","poliza_rc_venc","poliza_vida_venc","plan_sst_venc","iper_venc"].forEach(k=>{ d[k]=selected[k]||""; }); setFormC(d); setEditingC(selected); setShowModalC(true); }}><Pencil size={13}/> Editar</Btn>
+            <Btn size="sm" variant="ghost" onClick={() => { const d={...initC,...selected}; ["sctr_empresa_venc","poliza_rc_venc","poliza_vida_venc","plan_sst_venc","iper_venc"].forEach(k=>{ d[k]=selected[k]||""; }); setFormC(d); setFormTareas([]); setEditingC(selected); setShowModalC(true); }}><Pencil size={13}/> Editar</Btn>
             <button onClick={() => deleteContratista(selected.id)} className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500/60 hover:text-red-400 border border-red-900/40 hover:border-red-800 rounded-lg transition-colors"><Trash2 size={13}/></button>
           </div>
         </div>
@@ -296,7 +519,7 @@ export default function ContratistasModulo({ empresaId }) {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-5 bg-gray-900 border border-gray-800 rounded-xl p-1">
-          {[["docs","📋 Documentación empresa"],["personal","👷 Personal"],["trabajos","🔧 Trabajos"]].map(([tab,label]) => (
+          {[["docs","📋 Documentación empresa"],["personal","👷 Personal"],["trabajos","🔧 Trabajos"],["tareas",`✅ Tareas${selTareas.filter(t=>t.estado==="En revisión").length?` (${selTareas.filter(t=>t.estado==="En revisión").length})`:""}`]].map(([tab,label]) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${activeTab===tab ? "bg-amber-600 text-white shadow":"text-gray-500 hover:text-gray-200"}`}>{label}</button>
           ))}
@@ -307,13 +530,13 @@ export default function ContratistasModulo({ empresaId }) {
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Documentos de empresa contratista</p>
-              <Btn size="sm" variant="ghost" onClick={() => { const d={...initC,...selected}; ["sctr_empresa_venc","poliza_rc_venc","poliza_vida_venc","plan_sst_venc","iper_venc"].forEach(k=>{ d[k]=selected[k]||""; }); setFormC(d); setEditingC(selected); setShowModalC(true); }}><Pencil size={13}/> Actualizar</Btn>
+              <Btn size="sm" variant="ghost" onClick={() => { const d={...initC,...selected}; ["sctr_empresa_venc","poliza_rc_venc","poliza_vida_venc","plan_sst_venc","iper_venc"].forEach(k=>{ d[k]=selected[k]||""; }); setFormC(d); setFormTareas([]); setEditingC(selected); setShowModalC(true); }}><Pencil size={13}/> Actualizar</Btn>
             </div>
-            <DocRow label="SCTR Pensión + Salud" fecha={selected.sctr_empresa_venc} />
-            <DocRow label="Póliza de Responsabilidad Civil Extracontractual" fecha={selected.poliza_rc_venc} />
-            <DocRow label="Póliza de Seguro de Vida / Vida Ley" fecha={selected.poliza_vida_venc} />
-            <DocRow label="IPERC específico para las actividades" fecha={selected.iper_venc} />
-            <DocRow label="Plan de SST aprobado" fecha={selected.plan_sst_venc} />
+            <DocRow label="SCTR Pensión + Salud" fecha={selected.sctr_empresa_venc} aplica={selected.sctr_aplica !== false} />
+            <DocRow label="Póliza de Responsabilidad Civil Extracontractual" fecha={selected.poliza_rc_venc} aplica={selected.poliza_rc_aplica !== false} />
+            <DocRow label="Póliza de Seguro de Vida / Vida Ley" fecha={selected.poliza_vida_venc} aplica={selected.poliza_vida_aplica !== false} />
+            <DocRow label="IPERC específico para las actividades" fecha={selected.iper_venc} aplica={selected.iper_aplica !== false} />
+            <DocRow label="Plan de SST aprobado" fecha={selected.plan_sst_venc} aplica={selected.plan_sst_aplica !== false} />
             {selected.observaciones && <div className="mt-4 pt-3 border-t border-gray-800"><p className="text-xs text-gray-600 mb-1">Observaciones</p><p className="text-sm text-gray-400">{selected.observaciones}</p></div>}
           </div>
         )}
@@ -561,6 +784,11 @@ export default function ContratistasModulo({ empresaId }) {
           </div>
         )}
 
+        {/* ── Tab: Tareas ── */}
+        {activeTab === "tareas" && (
+          <TareasCliente contratista={selected} tareas={selTareas} empresaId={empresaId} revisor={profile?.nombre} onChange={cargarTareas} />
+        )}
+
         {/* ── Reportes del portal (subidos por el contratista) ── */}
         <div className="mt-6">
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
@@ -599,6 +827,7 @@ export default function ContratistasModulo({ empresaId }) {
                   {r.foto_cierre_url && <a href={r.foto_cierre_url} target="_blank" rel="noreferrer"><img src={r.foto_cierre_url} className="w-14 h-14 object-cover rounded-lg border border-emerald-800" title="Evidencia de cierre" /></a>}
                   {r.archivo_url && <a href={r.archivo_url} target="_blank" rel="noreferrer" className="text-xs text-purple-400 underline flex items-center gap-1"><FileText size={12} /> Ver archivo</a>}
                 </div>
+                <RevisionCliente r={r} revisor={profile?.nombre} onSaved={load} />
               </div>
             ))}</div>;
           })()}
@@ -873,7 +1102,7 @@ export default function ContratistasModulo({ empresaId }) {
         </div>
         <div className="flex gap-2 shrink-0">
           <ExportBtn data={contratistas.map(c=>({ Nombre:c.nombre, RUC:c.ruc||"", Rubro:c.rubro||"", Estado:c.estado, "SCTR venc.":c.sctr_empresa_venc||"", "Póliza RC":c.poliza_rc_venc||"", "Póliza Vida":c.poliza_vida_venc||"", "IPERC venc.":c.iper_venc||"", "Personal":personal.filter(p=>p.contratista_id===c.id).length, "Trabajos":trabajos.filter(t=>t.contratista_id===c.id).length }))} filename="contratistas" />
-          <Btn size="sm" variant="primary" onClick={() => { setFormC(initC); setEditingC(null); setShowModalC(true); }}><Plus size={13}/> Nuevo contratista</Btn>
+          <Btn size="sm" variant="primary" onClick={() => { setFormC(initC); setFormTareas([]); setEditingC(null); setShowModalC(true); }}><Plus size={13}/> Nuevo contratista</Btn>
         </div>
       </div>
 
@@ -1001,13 +1230,50 @@ export default function ContratistasModulo({ empresaId }) {
               </FormField>
             </div>
             <div className="pt-2 border-t border-gray-800">
-              <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-3">Vencimientos de documentos de empresa</p>
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="SCTR Pensión + Salud — Venc."><Input type="date" value={formC.sctr_empresa_venc} onChange={e=>setFormC(p=>({...p,sctr_empresa_venc:e.target.value}))} /></FormField>
-                <FormField label="Póliza Responsabilidad Civil — Venc."><Input type="date" value={formC.poliza_rc_venc} onChange={e=>setFormC(p=>({...p,poliza_rc_venc:e.target.value}))} /></FormField>
-                <FormField label="Póliza Seguro de Vida — Venc."><Input type="date" value={formC.poliza_vida_venc} onChange={e=>setFormC(p=>({...p,poliza_vida_venc:e.target.value}))} /></FormField>
-                <FormField label="IPERC de actividades — Venc."><Input type="date" value={formC.iper_venc} onChange={e=>setFormC(p=>({...p,iper_venc:e.target.value}))} /></FormField>
-                <FormField label="Plan de SST — Venc." className="col-span-2"><Input type="date" value={formC.plan_sst_venc} onChange={e=>setFormC(p=>({...p,plan_sst_venc:e.target.value}))} /></FormField>
+              <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-1">Documentos de empresa</p>
+              <p className="text-[11px] text-gray-600 mb-3">Marca los documentos que el contratista debe presentar e indica su vencimiento.</p>
+              <div className="space-y-2">
+                {[
+                  { venc:"sctr_empresa_venc", aplica:"sctr_aplica",       label:"SCTR Pensión + Salud" },
+                  { venc:"poliza_rc_venc",    aplica:"poliza_rc_aplica",   label:"Póliza de Responsabilidad Civil" },
+                  { venc:"poliza_vida_venc",  aplica:"poliza_vida_aplica", label:"Póliza de Seguro de Vida" },
+                  { venc:"plan_sst_venc",     aplica:"plan_sst_aplica",     label:"Plan de SST" },
+                  { venc:"iper_venc",         aplica:"iper_aplica",         label:"IPERC de actividades" },
+                ].map(d => {
+                  const on = formC[d.aplica] !== false;
+                  return (
+                    <div key={d.venc} className="flex items-center gap-3 flex-wrap sm:flex-nowrap bg-gray-800/40 border border-gray-800 rounded-lg px-3 py-2">
+                      <label className="flex items-center gap-2 text-xs text-gray-300 flex-1 min-w-0 cursor-pointer">
+                        <input type="checkbox" checked={on}
+                          onChange={e => setFormC(p => ({ ...p, [d.aplica]: e.target.checked, ...(e.target.checked ? {} : { [d.venc]: "" }) }))}
+                          className="w-4 h-4 rounded accent-purple-600 shrink-0" />
+                        <span className="truncate">{d.label}</span>
+                      </label>
+                      {on ? (
+                        <div className="w-full sm:w-44 shrink-0">
+                          <Input type="date" value={formC[d.venc] || ""} onChange={e => setFormC(p => ({ ...p, [d.venc]: e.target.value }))} />
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-gray-600 sm:w-44 shrink-0">No aplica</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="pt-2 border-t border-gray-800">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Programar tareas iniciales</p>
+                <button type="button" onClick={() => setFormTareas(a => [...a, nuevaTareaDraft()])} className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"><Plus size={12} /> Agregar tarea</button>
+              </div>
+              <p className="text-[11px] text-gray-600 mb-2">Opcional. Tareas puntuales o periódicas que el contratista verá en su portal.</p>
+              <div className="space-y-3">
+                {formTareas.map((d, i) => (
+                  <div key={i} className="bg-gray-800/40 border border-gray-800 rounded-lg p-2.5 relative">
+                    <button type="button" onClick={() => setFormTareas(a => a.filter((_, j) => j !== i))} className="absolute top-2 right-2 text-gray-600 hover:text-red-400"><X size={13} /></button>
+                    <TareaCampos v={d} set={nd => setFormTareas(a => a.map((x, j) => j === i ? nd : x))} />
+                  </div>
+                ))}
               </div>
             </div>
             <FormField label="Observaciones"><Input value={formC.observaciones} onChange={e=>setFormC(p=>({...p,observaciones:e.target.value}))} placeholder="Notas, condiciones especiales, restricciones..." /></FormField>
