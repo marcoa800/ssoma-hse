@@ -295,7 +295,7 @@ export default function HomeModulo({ profile, role, platform, setPlatform, navig
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {cards.map(card => {
             const cc = CM[card.color] || CM.gray;
             const isHydroLocked = hydroBloqueado(card.id);

@@ -110,7 +110,7 @@ export default function FatigaModulo({ workers, empresaId }) {
       {subtab === "cronograma" && <CronogramaActividades programa="fatiga" empresaId={empresaId} workers={workers} />}
 
       {subtab === "eval" && <>
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <KpiCard label="Evaluaciones este mes" value={thisMes.length} sub="Registros del mes actual" accentColor="blue" />
         <KpiCard label="Riesgo Moderado" value={moderados.length} sub="Score Epworth 11–16" accentColor="amber" />
         <KpiCard label="Riesgo Severo" value={severos.length} sub="Epworth ≥ 17 — Alerta" accentColor="red" />
@@ -206,14 +206,14 @@ export default function FatigaModulo({ workers, empresaId }) {
         <Modal title={editing ? "Editar — Fatiga y Somnolencia" : "Nueva Evaluación — Fatiga y Somnolencia"} onClose={closeModal} wide>
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4 text-xs text-gray-400">
             <p className="font-semibold text-gray-300 mb-1">Escala de Epworth — Referencia</p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <span className="text-emerald-400">0–5: Sin somnolencia</span>
               <span className="text-blue-400">6–10: Leve</span>
               <span className="text-amber-400">11–16: Moderado</span>
               <span className="text-red-400">17–24: Severo ⚠</span>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Trabajador *">
               <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
                 <option value="">Seleccionar...</option>

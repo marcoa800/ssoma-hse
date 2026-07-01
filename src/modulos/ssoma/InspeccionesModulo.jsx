@@ -136,7 +136,7 @@ function InspeccionesGenerico({ empresaId }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label={`Inspecciones ${anio}`} value={delAnio.length} sub="realizadas este año" accentColor="blue" />
         <KpiCard label="Insatisfactorias" value={insatisfactorias.length} sub="requieren atención" accentColor={insatisfactorias.length > 0 ? "red" : "emerald"} />
         <KpiCard label="Hallazgos abiertos" value={hallazgosAbiertos.length} sub="pendientes de cierre" accentColor={hallazgosAbiertos.length > 0 ? "amber" : "emerald"} />
@@ -185,7 +185,7 @@ function InspeccionesGenerico({ empresaId }) {
               <div className="flex flex-wrap gap-1.5 mb-2.5">
                 <Badge color={RESULTADO_COLOR[i.resultado]||"gray"}>{i.resultado}</Badge>
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                 <div className="truncate"><span className="text-gray-600">Inspector:</span> <span className="text-gray-400">{i.inspector||"—"}</span></div>
                 <div>
                   <button onClick={()=>openDetail(i)} className="text-blue-400">

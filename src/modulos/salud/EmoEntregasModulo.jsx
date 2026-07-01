@@ -291,7 +291,7 @@ export default function EmoEntregasModulo({ workers = [], empresaId }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Programados" value={programadas} sub="entregas registradas" accentColor="blue" />
         <KpiCard label="Falta subir archivos" value={sinArchivos} sub="PDF / audio pendiente" accentColor="amber" />
         <KpiCard label="Pendientes de firma" value={pendientesFirma} sub="esperan al trabajador" accentColor="red" />

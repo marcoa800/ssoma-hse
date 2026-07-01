@@ -398,7 +398,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
             </div>
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-white font-semibold text-sm mb-4">Dimensiones y Recursos del Puesto</h3>
-              <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 {[["dim_largo","Largo (m)"],["dim_ancho","Ancho (m)"],["dim_alto","Alto (m)"]].map(([k,lbl]) => (
                   <div key={k}>
                     <label className="text-xs text-gray-500 mb-1 block">{lbl}</label>
@@ -618,7 +618,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
               </div>
               {form.ergo_posturas_incomodas && (
                 <div className="px-5 pb-4 pt-2 border-t border-amber-900/40 bg-amber-900/10">
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
                     {["Manos > cabeza","Codos > hombro","Espalda inclinada > 30°","Espalda extendida > 30°","Cuello doblado/girado > 30°","Sentado con espalda girada > 30°","De cuclillas o rodillas"].map(op => (
                       <label key={op} className="flex items-center gap-2 cursor-pointer py-0.5">
                         <input type="checkbox" checked={(form.ergo_posturas_detalle||[]).includes(op)} onChange={() => toggleArr("ergo_posturas_detalle", op)} className="accent-amber-500 w-3.5 h-3.5" />
@@ -823,7 +823,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
             {(form.fotos_urls || []).length > 0 && (
               <div className="mt-4">
                 <p className="text-xs text-gray-500 mb-2">{form.fotos_urls.length} foto(s) adjunta(s)</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {form.fotos_urls.map((url, i) => (
                     <div key={i} className="relative group rounded-xl overflow-hidden border border-gray-800 aspect-square">
                       <img src={url} alt={`Foto ${i+1}`} className="w-full h-full object-cover" />
@@ -844,7 +844,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2"><CheckCircle size={16} className="text-blue-400" />Conclusiones y Recomendaciones</h3>
             {/* Resumen de riesgo */}
-            <div className="grid grid-cols-3 gap-3 mb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
               <div className={`rounded-xl border p-3 text-center ${fisicoCount > 0 ? "border-orange-800 bg-orange-900/20" : "border-gray-800 bg-gray-800/30"}`}>
                 <div className="text-2xl font-bold text-white">{fisicoCount}</div>
                 <div className="text-xs text-gray-500 mt-0.5">Riesgos físicos</div>
@@ -918,7 +918,7 @@ export default function CaracterizacionRiesgoModulo({ empresaId }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <KpiCard label="Total evaluaciones"  value={records.length} sub="Puestos caracterizados"    accentColor="blue"    />
         <KpiCard label="Completadas"         value={completados}    sub="Evaluaciones finalizadas"   accentColor="emerald" />
         <KpiCard label="Borradores"          value={borradores}     sub="Pendientes de completar"    accentColor="amber"   />

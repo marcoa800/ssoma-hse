@@ -66,7 +66,7 @@ export default function SSOMADashboard({ empresaId, workers, onNavigate, esOilGa
         <p className="text-gray-600 text-xs mt-0.5">Seguridad, Salud Ocupacional y Medio Ambiente — {anio}</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label={`Accidentes ${anio}`} value={accLaborales.filter(a=>new Date(a.fecha_evento).getFullYear()===anio).length} sub={`${delMes.filter(a=>a.tipo==="Accidente Laboral").length} este mes`} accentColor="red" />
         <KpiCard label="Días perdidos" value={diasPerdidos} sub={`año ${anio}`} accentColor="amber" />
         <KpiCard label="Incidentes peligrosos" value={incPeligrosos.filter(a=>new Date(a.fecha_evento).getFullYear()===anio).length} sub={`año ${anio}`} accentColor="purple" />
@@ -117,7 +117,7 @@ export default function SSOMADashboard({ empresaId, workers, onNavigate, esOilGa
       {/* ── Acceso rápido a módulos ── */}
       <div className="mb-4">
         <div className="text-xs text-gray-600 font-medium uppercase tracking-wider mb-3">Acceso rápido</div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {[
             { id: "racs",        label: "RACs",             sub: "Actos y condiciones",       icon: ClipboardList, color: "text-amber-400 bg-amber-900/20 border-amber-900/40" },
             { id: "iperc",       label: "IPERC",            sub: "Matriz de riesgos",          icon: AlertTriangle, color: "text-red-400 bg-red-900/20 border-red-900/40" },

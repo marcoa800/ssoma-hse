@@ -218,7 +218,7 @@ function ResumenContratista({ contratista: c, resumen, stats }) {
   return (
     <div className="space-y-4">
       {/* Números juntos (panorama) */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {statCards.map(s => (
           <div key={s.lbl} className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
             <div className={`text-2xl font-bold leading-none ${s.cls}`}>{s.val}</div>
@@ -471,7 +471,7 @@ function NuevoRegistro({ tipo, empresaId, contratista, tareas = [], onCancel, on
           {(CATEGORIAS[tipo] || []).map(c => <option key={c}>{c}</option>)}
         </select>
       </Field>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Fecha"><input type="date" value={form.fecha} onChange={e => set("fecha", e.target.value)} className={inp} /></Field>
         <Field label="Tu nombre"><input value={form.reportante} onChange={e => set("reportante", e.target.value)} className={inp} /></Field>
       </div>

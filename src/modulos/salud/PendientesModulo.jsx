@@ -267,7 +267,7 @@ export default function PendientesModulo({ empresaId, userId }) {
       </div>
 
       {/* Resumen / alertas */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
         <div className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5">
           <div className="text-xs text-gray-500 flex items-center gap-1"><ListTodo size={12} /> Pendientes</div>
           <div className="text-xl font-bold text-white">{pendientes}</div>
@@ -407,7 +407,7 @@ export default function PendientesModulo({ empresaId, userId }) {
                     </select>
                     {subTot(r) > 0 && <span className="text-[11px] text-gray-400 bg-gray-800 rounded px-2 py-1">{subDone(r)}/{subTot(r)} subt.</span>}
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     <input list="resp-list" defaultValue={r.responsable || ''} key={`mr-${r.id}-${r.responsable}`} onBlur={e => updateRow(r.id, { responsable: e.target.value || null })}
                       placeholder="Responsable" className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-gray-300 placeholder-gray-600 focus:outline-none" />
                     <input type="date" value={r.fecha_limite || ''} onChange={e => updateRow(r.id, { fecha_limite: e.target.value || null })}

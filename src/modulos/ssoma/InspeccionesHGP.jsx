@@ -169,7 +169,7 @@ export default function InspeccionesHGP({ empresaId, empresaInfo = EMPRESA_HGP, 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label={`Inspecciones ${anio}`} value={delAnio.length} sub="realizadas este año" accentColor="blue" />
         <KpiCard label="Total registros" value={registros.length} sub="histórico" accentColor="purple" />
         <KpiCard label="Con no conformidades" value={conNoConforme.length} sub="requieren atención" accentColor={conNoConforme.length ? "amber" : "emerald"} />
@@ -883,7 +883,7 @@ function FormularioEvento({ empresaId, plantilla, registro, empresaInfo, onCance
       </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Sistema</p>
             <div className="flex gap-2">
@@ -908,7 +908,7 @@ function FormularioEvento({ empresaId, plantilla, registro, empresaInfo, onCance
 
         <div>
           <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Nivel de riesgo</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {["bajo", "medio", "alto"].map(l => (
               <Tog key={l} active={nivel === l} onClick={() => setNivel(l)} color={nivelColorBtn(l)}>
                 {plantilla.niveles[l].label}

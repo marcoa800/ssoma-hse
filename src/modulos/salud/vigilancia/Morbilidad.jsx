@@ -107,7 +107,7 @@ export default function MorbilidadModulo({ workers, empresaId }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <KpiCard label="Consultas este mes" value={delMes.length} sub={`${records.length} total registradas`} accentColor="blue" />
         <KpiCard label="Dx más frecuente" value={dxFrecuente} sub="diagnóstico con más recurrencias" accentColor="purple" />
         <KpiCard label="Días perdidos (mes)" value={diasPerdidosMes} sub="días de reposo acumulados" accentColor="red" />
@@ -160,7 +160,7 @@ export default function MorbilidadModulo({ workers, empresaId }) {
                   {workers.filter(w => w.estado === "Cesado").sort((a,b)=>a.nombre.localeCompare(b.nombre,"es")).map(w => <option key={w.id} value={w.id}>{w.nombre} (Cesado)</option>)}
               </Select>
             </FormField>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Fecha Consulta *">
                 <Input type="date" value={form.fecha_consulta} onChange={e => setForm(f => ({ ...f, fecha_consulta: e.target.value }))} />
               </FormField>
@@ -171,7 +171,7 @@ export default function MorbilidadModulo({ workers, empresaId }) {
             <FormField label="Diagnóstico *">
               <Input value={form.diagnostico} onChange={e => setForm(f => ({ ...f, diagnostico: e.target.value }))} placeholder="Descripción del diagnóstico médico" />
             </FormField>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Tipo de Atención">
                 <Select value={form.tipo_atencion} onChange={e => setForm(f => ({ ...f, tipo_atencion: e.target.value }))}>
                   {["Consulta", "Emergencia", "Hospitalización", "Tópico empresa"].map(t => <option key={t}>{t}</option>)}
@@ -183,7 +183,7 @@ export default function MorbilidadModulo({ workers, empresaId }) {
                 </Select>
               </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Días de Reposo">
                 <Input type="number" min="0" value={form.dias_reposo} onChange={e => setForm(f => ({ ...f, dias_reposo: e.target.value }))} placeholder="0" />
               </FormField>

@@ -237,7 +237,7 @@ export default function ContratistasModulo({ empresaId }) {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <KpiCard label="Personal activo" value={activos.length} sub={`${selPersonal.length} registrados`} accentColor="blue" />
           <KpiCard label="Trabajos en ejecución" value={trabActivos.length} sub={`${selTrabajos.length} total`} accentColor="amber" />
           <KpiCard label="Docs empresa"
@@ -433,7 +433,7 @@ export default function ContratistasModulo({ empresaId }) {
                       {p.es_brigadista && <Badge color="blue">🛡 Brigada</Badge>}
                     </div>
                     {p.restriccion_medica && <div className="text-xs text-gray-500 mb-2">{p.restriccion_medica}</div>}
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                       <div className="flex items-center gap-1.5"><span className="text-gray-600">SCTR:</span> {p.sctr_venc ? <DateChip fecha={p.sctr_venc}/> : <span className="text-red-600">Sin fecha</span>}</div>
                       <div><span className="text-gray-600">EMO:</span> <span className="text-gray-400">{p.fecha_emo ? `${p.tipo_emo||"—"} ${fmtFecha(p.fecha_emo)}` : "Pendiente"}</span></div>
                       <div><span className="text-gray-600">Inducción:</span> <span className={p.induccion_fecha ? "text-green-400 font-mono" : "text-red-500"}>{p.induccion_fecha ? `✓ ${p.induccion_fecha}` : "Pendiente"}</span></div>
@@ -596,7 +596,7 @@ export default function ContratistasModulo({ empresaId }) {
                     <Input value={formP.dni} onChange={e=>setFormP(p=>({...p,dni:e.target.value}))} placeholder="12345678" maxLength={8} />
                   </FormField>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                   <FormField label="Fecha de nacimiento">
                     <Input type="date" value={formP.fecha_nacimiento} onChange={e=>setFormP(p=>({...p,fecha_nacimiento:e.target.value}))} />
                   </FormField>
@@ -782,7 +782,7 @@ export default function ContratistasModulo({ empresaId }) {
               {selPersonal.filter(p=>p.estado==="Activo").length > 0 && (
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-2">Personal asignado a este trabajo</p>
-                  <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
                     {selPersonal.filter(p=>p.estado==="Activo").map(p=>(
                       <label key={p.id} className="flex items-center gap-2 p-2.5 bg-gray-800 border border-gray-700 rounded-lg cursor-pointer hover:border-gray-600 transition-colors">
                         <input type="checkbox" checked={(formT.personal_asignado||[]).includes(p.id)}
@@ -854,7 +854,7 @@ export default function ContratistasModulo({ empresaId }) {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Total contratistas" value={contratistas.length} sub={`${totalActivos} activos`} accentColor="blue" />
         <KpiCard label="Trabajos activos" value={trabActTotal} sub="en ejecución ahora" accentColor="amber" />
         <KpiCard label="Docs vencidos" value={conVencidos} sub="contratistas con alerta roja" accentColor={conVencidos>0?"red":"emerald"} />
@@ -919,7 +919,7 @@ export default function ContratistasModulo({ empresaId }) {
                   <Badge color={compBadge}>{compLabel}</Badge>
                   <Badge color={c.estado==="Activo"?"green":c.estado==="Suspendido"?"amber":"red"}>{c.estado}</Badge>
                 </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                   <div><span className="text-gray-600">Personal:</span> <span className={ps.length>0?"text-blue-400 font-bold":"text-gray-500"}>{ps.length}</span></div>
                   <div><span className="text-gray-600">Trabajos activos:</span> <span className={ts.length>0?"text-amber-400 font-bold":"text-gray-500"}>{ts.length}</span></div>
                 </div>

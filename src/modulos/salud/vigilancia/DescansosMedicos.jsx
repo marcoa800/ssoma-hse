@@ -244,7 +244,7 @@ export default function DescansosMedicosModulo({ workers, empresaId }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <KpiCard label="Activos hoy" value={activos.length} sub={`${activos.length === 1 ? "trabajador" : "trabajadores"} con reposo activo`} accentColor="red" />
         <KpiCard label="Días acumulados (mes)" value={diasMes} sub={`en ${mesActual.length} descanso${mesActual.length !== 1 ? "s" : ""} del mes`} accentColor="amber" />
         <KpiCard label="Próximos a vencer" value={proximos.length} sub="vencen en los próximos 7 días" accentColor="blue" />
@@ -341,7 +341,7 @@ export default function DescansosMedicosModulo({ workers, empresaId }) {
             <FormField label="Diagnóstico">
               <Input value={form.diagnostico} onChange={e => setForm(f => ({ ...f, diagnostico: e.target.value }))} placeholder="Descripción clínica del diagnóstico" />
             </FormField>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 gap-3">
               <FormField label="Fecha Inicio *">
                 <Input type="date" value={form.fecha_inicio} onChange={e => setForm(f => ({ ...f, fecha_inicio: e.target.value }))} />
               </FormField>
@@ -352,7 +352,7 @@ export default function DescansosMedicosModulo({ workers, empresaId }) {
                 <Input value={totalDiasForm === "" ? "" : `${totalDiasForm} día${totalDiasForm === 1 ? "" : "s"}`} disabled placeholder="Automático" className="opacity-70" />
               </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Control 1 (seguimiento)">
                 <Input type="date" value={form.control_1} onChange={e => setForm(f => ({ ...f, control_1: e.target.value }))} />
               </FormField>
@@ -360,7 +360,7 @@ export default function DescansosMedicosModulo({ workers, empresaId }) {
                 <Input type="date" value={form.control_2} onChange={e => setForm(f => ({ ...f, control_2: e.target.value }))} />
               </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Médico Responsable">
                 <Input value={form.medico_responsable} onChange={e => setForm(f => ({ ...f, medico_responsable: e.target.value }))} placeholder="Dr. Apellidos" />
               </FormField>

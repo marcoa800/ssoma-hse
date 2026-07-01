@@ -165,7 +165,7 @@ export default function PublicRacForm({ empresaId }) {
         <div>
           <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Categorización del riesgo</p>
           <p className="text-xs text-gray-600 mb-3">Identifica el peligro potencial asociado (puedes marcar varios)</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {CATEGORIAS_RIESGO.map(cat => (
               <button key={cat} onClick={() => toggleCat(cat)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs text-left transition-all ${categorias.includes(cat) ? "bg-blue-900/50 border-blue-600 text-blue-300" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"}`}>
                 <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${categorias.includes(cat) ? "bg-blue-600 border-blue-600" : "border-gray-600"}`}>
@@ -192,7 +192,7 @@ export default function PublicRacForm({ empresaId }) {
             </div>
           )}
           {fotos.length < 2 && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="flex flex-col items-center justify-center gap-2 py-5 bg-gray-800 border border-gray-700 border-dashed rounded-xl cursor-pointer hover:border-blue-600 hover:bg-gray-800/60 transition-all">
                 <span className="text-2xl">📷</span>
                 <span className="text-xs text-gray-400 font-medium">Tomar Foto</span>

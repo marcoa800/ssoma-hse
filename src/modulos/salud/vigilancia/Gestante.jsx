@@ -124,7 +124,7 @@ export default function GestanteModulo({ workers, empresaId }) {
       {subtab === "cronograma" && <CronogramaActividades programa="gestante" empresaId={empresaId} workers={workers} />}
 
       {subtab === "eval" && <>
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <KpiCard label="Gestantes activas" value={activas.length} sub="Estado: Gestante" accentColor="purple" />
         <KpiCard label="Control próx. 7 días" value={proximasControl.length} sub="Requieren atención" accentColor="amber" />
         <KpiCard label="Parto en 30 días" value={proximasParto.length} sub="Fecha probable próxima" accentColor="blue" />
@@ -222,7 +222,7 @@ export default function GestanteModulo({ workers, empresaId }) {
 
       {showModal && (
         <Modal title={editing ? "Editar Ficha — Trabajadora Gestante" : "Nueva Ficha — Trabajadora Gestante"} onClose={closeModal} wide>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Trabajadora *">
               <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
                 <option value="">Seleccionar...</option>

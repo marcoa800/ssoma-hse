@@ -87,7 +87,7 @@ export default function AdminDashboard({ workers = [], empresaId }) {
   return (
     <div>
       {/* ── KPIs ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Personal Activo" value={activos} sub={`de ${total} registrados`} accentColor="blue" />
         <KpiCard label="Cesados" value={cesados} sub="dados de baja" accentColor="gray" />
         <KpiCard label="Descansos Activos" value={activosDesc.length} sub="con reposo vigente hoy" accentColor="red" />

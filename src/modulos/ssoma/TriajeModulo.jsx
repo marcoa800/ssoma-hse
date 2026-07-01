@@ -111,7 +111,7 @@ export default function TriajeModulo({ empresaId, empresa }) {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Total triajes", value: triajes.length, color: "text-blue-400", sub: "registros" },
           { label: "Hoy", value: hoyCount, color: "text-emerald-400", sub: "nuevos" },
@@ -339,7 +339,7 @@ export default function TriajeModulo({ empresaId, empresa }) {
               {/* Signos vitales */}
               <div>
                 <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Signos Vitales</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[["🌡 Temperatura", selected.temperatura ? `${selected.temperatura} °C` : null],
                     ["💉 P. Arterial", selected.presion_arterial],
                     ["💧 Saturación O₂", selected.saturacion ? `${selected.saturacion} %` : null],

@@ -88,7 +88,7 @@ export default function SeguimientoPanel({ programa, empresaId, workers = [], ca
         <Btn size="sm" variant="primary" onClick={openNew}><Plus size={13} /> Nuevo control</Btn>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <KpiCard label="Controles" value={items.length} sub="registrados" accentColor="blue" />
         <KpiCard label="Por vencer" value={porVencer} sub="próximo ≤ 15 días" accentColor="amber" />
         <KpiCard label="Vencidos" value={vencidos} sub="control pendiente" accentColor="red" />

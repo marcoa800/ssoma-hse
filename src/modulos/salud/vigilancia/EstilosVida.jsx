@@ -174,7 +174,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
       {subtab === "cronograma" && <CronogramaActividades programa="estilos" empresaId={empresaId} workers={workers} />}
 
       {subtab === "eval" && <>
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <KpiCard label="Evaluaciones este mes" value={thisMes.length} sub="Registros del mes actual" accentColor="blue" />
         <KpiCard label="Sobrepeso / Obesidad" value={conSobrepeso.length} sub="IMC ≥ 25" accentColor="amber" />
         <KpiCard label="Con hábitos de riesgo" value={conHabitos.length} sub="Fumador y/o alcohol" accentColor="red" />
@@ -309,7 +309,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
 
       {showModal && (
         <Modal title={editing ? "Editar — Estilos de Vida Saludable" : "Nueva Evaluación — Estilos de Vida Saludable"} onClose={closeModal} wide>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Trabajador *">
               <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
                 <option value="">Seleccionar...</option>
@@ -324,7 +324,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
 
             <div className="col-span-2">
               <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">Antropometría</p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <FormField label="Peso (kg)">
                   <Input type="number" step="0.1" placeholder="70.5" value={form.peso} onChange={e => setForm({ ...form, peso: e.target.value })} />
                 </FormField>
@@ -340,7 +340,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
                   </div>
                 </FormField>
               </div>
-              <div className="grid grid-cols-2 gap-3 mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <FormField label="Perímetro Abdominal (cm)">
                   <Input type="number" step="0.5" placeholder="90" value={form.perimetro_abdominal} onChange={e => setForm({ ...form, perimetro_abdominal: e.target.value })} />
                 </FormField>
@@ -355,7 +355,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
 
             <div className="col-span-2">
               <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">Signos Vitales / Laboratorio</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Presión Sistólica (mmHg)">
                   <Input type="number" placeholder="120" value={form.presion_sistolica} onChange={e => setForm({ ...form, presion_sistolica: e.target.value })} />
                 </FormField>
@@ -378,7 +378,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
               <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">Hábitos y Estilo de Vida</p>
 
               {/* Actividad física */}
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <FormField label="Nivel de Actividad Física">
                   <Select value={form.nivel_actividad} onChange={e => setForm({ ...form, nivel_actividad: e.target.value })}>
                     <option>Sedentario</option><option>Leve</option><option>Moderado</option><option>Intenso</option>
@@ -399,7 +399,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
                   <span className="text-sm text-gray-300 font-medium">Tabaco / Fumador</span>
                 </label>
                 {form.fumador && (
-                  <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                     <FormField label="Frecuencia">
                       <Select value={form.tabaco_frecuencia} onChange={e => setForm({ ...form, tabaco_frecuencia: e.target.value })}>
                         <option value="">Seleccionar...</option>
@@ -420,7 +420,7 @@ export default function EstilosVidaModulo({ workers, empresaId }) {
                   <span className="text-sm text-gray-300 font-medium">Consume alcohol</span>
                 </label>
                 {form.consume_alcohol && (
-                  <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                     <FormField label="Tipo de bebida">
                       <Select value={form.alcohol_tipo} onChange={e => setForm({ ...form, alcohol_tipo: e.target.value })}>
                         <option value="">Seleccionar...</option>

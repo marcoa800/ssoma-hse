@@ -148,7 +148,7 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Eventos este mes" value={delMes.length} sub={`${records.length} total registrados`} accentColor="red" />
         <KpiCard label="Días perdidos (mes)" value={diasMes} sub="días de baja laboral" accentColor="amber" />
         <KpiCard label="Sin investigar" value={sinInvestigar} sub="investigación pendiente" accentColor="red" />
@@ -187,7 +187,7 @@ export default function AccidentesModulo({ workers, empresaId, empresa }) {
               <Badge color={r.tipo === "Accidente Laboral" || r.tipo === "Accidente de Trayecto" ? "red" : r.tipo === "Incidente Peligroso" ? "amber" : "gray"}>{r.tipo}</Badge>
               <Badge color={gravColor(r.gravedad)}>{r.gravedad}</Badge>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
               <div className="truncate"><span className="text-gray-600">Área / Lugar:</span> <span className="text-gray-400">{r.lugar || r.area_puesto || "—"}</span></div>
               <div><span className="text-gray-600">Días perdidos:</span> <span className="text-gray-400 font-mono font-bold text-white">{r.dias_perdidos ?? 0}</span></div>
               <div><span className="text-gray-600">Investigación:</span> <Badge color={investColor(r.estado_investigacion)}>{r.estado_investigacion}</Badge></div>

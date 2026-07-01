@@ -427,7 +427,7 @@ export default function MonitoreoComind({ empresaId }) {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Total monitoreos" value={records.length} sub="registros" accentColor="blue" />
         <KpiCard label="No conformes" value={noConf} sub="requieren acción" accentColor={noConf ? "red" : "emerald"} />
         <KpiCard label="Con plazo activo" value={conPlazo} sub="pendientes de cierre" accentColor="amber" />

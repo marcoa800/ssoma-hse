@@ -650,7 +650,7 @@ export default function TopicoModulo({ empresaId, empresa }) {
               El módulo detecta automáticamente las columnas del Excel buscando palabras clave en los encabezados. Compatible con la mayoría de plantillas de registro de atenciones médicas.
             </div>
             <p className="font-semibold text-white">Columnas que detecta automáticamente:</p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {[
                 ["Nombre del paciente","NOMBRE DEL PACIENTE"],
                 ["DNI","N° DNI"],
@@ -707,7 +707,7 @@ export default function TopicoModulo({ empresaId, empresa }) {
               {selected.requiere_seguimiento && <Badge color="purple">🔁 Requiere seguimiento</Badge>}
             </div>
             {/* Info del paciente */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-800/40 rounded-xl p-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-gray-800/40 rounded-xl p-3 text-xs">
               <div><p className="text-gray-600 mb-0.5">Fecha</p><p className="text-gray-200 font-mono">{fmtFecha(selected.fecha)} {selected.hora || ""}</p></div>
               <div><p className="text-gray-600 mb-0.5">DNI</p><p className="text-gray-200 font-mono">{selected.dni || "—"}</p></div>
               <div><p className="text-gray-600 mb-0.5">Edad / Sexo</p><p className="text-gray-200">{selected.edad || "—"} años · {selected.sexo || "—"}</p></div>
@@ -830,7 +830,7 @@ export default function TopicoModulo({ empresaId, empresa }) {
         <Modal title={formRec.id ? "Editar atención" : "Registrar atención"} onClose={() => setFormRec(null)} wide>
           <div className="space-y-4">
             {/* Datos del paciente */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div className="col-span-2"><FormField label="Nombre del paciente *">
                 <Input value={formRec.nombre_paciente} list="topico-trab-list" onChange={e => setNombrePaciente(e.target.value)} placeholder="Escribe o elige un trabajador…" />
                 <datalist id="topico-trab-list">{trabajadores.map(t => <option key={t.dni || t.nombre} value={t.nombre} />)}</datalist>
@@ -862,7 +862,7 @@ export default function TopicoModulo({ empresaId, empresa }) {
             })()}
 
             {/* Tipo / característica / grupo */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <FormField label="Tipo de atención">
                 <select value={formRec.tipo_atencion} onChange={e => setFR("tipo_atencion", e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
                   {["Nueva", "Control", "Referencia"].map(t => <option key={t}>{t}</option>)}
@@ -990,7 +990,7 @@ export default function TopicoModulo({ empresaId, empresa }) {
               </div>
               {catForm && (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="col-span-2"><FormField label="Nombre *"><Input value={catForm.nombre} onChange={e => setCF("nombre", e.target.value)} placeholder="Paracetamol" /></FormField></div>
                     <FormField label="Concentración"><Input value={catForm.concentracion} onChange={e => setCF("concentracion", e.target.value)} placeholder="500mg" /></FormField>
                     <FormField label="Presentación"><Input value={catForm.presentacion} onChange={e => setCF("presentacion", e.target.value)} placeholder="Tableta" /></FormField>
@@ -1160,7 +1160,7 @@ export default function TopicoModulo({ empresaId, empresa }) {
           {view === "dashboard" && (
             <div>
               {/* KPIs */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 mb-6">
                 <KpiCard label="Total atenciones" value={total} sub="registros" accentColor="blue" />
                 <KpiCard label="Consultas nuevas" value={nuevas} sub={`${total ? Math.round(nuevas/total*100) : 0}% del total`} accentColor="blue" />
                 <KpiCard label="Accidentes laborales" value={accidentes} sub="reportados" accentColor={accidentes > 0 ? "red" : "emerald"} />
@@ -1294,7 +1294,7 @@ export default function TopicoModulo({ empresaId, empresa }) {
                         <span key={p} className="text-[10px] px-1.5 py-0.5 bg-red-900/20 border border-red-900/40 text-red-400 rounded">{PARTES_CUERPO.find(x => x.id === p)?.label || p}</span>
                       ))}
                     </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                       <div><span className="text-gray-600">Fecha:</span> <span className="text-gray-400 font-mono">{fmtFecha(r.fecha)}</span></div>
                       <div><span className="text-gray-600">Característica:</span> <span className="text-gray-400">{r.caracteristica || "—"}</span></div>
                       <div className="col-span-2"><span className="text-gray-600">Diagnóstico:</span> <span className="text-gray-300">{r.diagnostico1 || "—"}</span>{r.cie10_1 && <span className="text-[10px] text-blue-500 font-mono ml-1">{r.cie10_1}</span>}</div>

@@ -127,7 +127,7 @@ function TareaCampos({ v, set }) {
       {v.tipo === "puntual" ? (
         <FormField label="Fecha límite"><Input type="date" value={v.fecha_limite} onChange={e => set({ ...v, fecha_limite: e.target.value })} /></FormField>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <FormField label="Frecuencia"><Select value={v.frecuencia} onChange={e => set({ ...v, frecuencia: e.target.value })}>{FRECUENCIAS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></FormField>
           <FormField label="N° veces"><Input type="number" min={1} max={52} value={v.veces} onChange={e => set({ ...v, veces: e.target.value })} /></FormField>
           <FormField label="1ra fecha"><Input type="date" value={v.fecha_base} onChange={e => set({ ...v, fecha_base: e.target.value })} /></FormField>
@@ -860,7 +860,7 @@ export default function ContratistasModulo({ empresaId, empresa, profile }) {
                     <Input value={formP.dni} onChange={e=>setFormP(p=>({...p,dni:e.target.value}))} placeholder="12345678" maxLength={8} />
                   </FormField>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                   <FormField label="Fecha de nacimiento">
                     <Input type="date" value={formP.fecha_nacimiento} onChange={e=>setFormP(p=>({...p,fecha_nacimiento:e.target.value}))} />
                   </FormField>
@@ -892,7 +892,7 @@ export default function ContratistasModulo({ empresaId, empresa, profile }) {
                     <Input type="date" value={formP.fecha_ingreso_proyecto} onChange={e=>setFormP(p=>({...p,fecha_ingreso_proyecto:e.target.value}))} />
                   </FormField>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <FormField label="Frente de trabajo">
                     <Input value={formP.frente_trabajo} onChange={e=>setFormP(p=>({...p,frente_trabajo:e.target.value}))} placeholder="Frente A, Planta, Almacén Central..." />
                   </FormField>
@@ -951,7 +951,7 @@ export default function ContratistasModulo({ empresaId, empresa, profile }) {
               {/* ── 3. Aptitudes especiales y roles ── */}
               <div className="border-t border-gray-800 pt-4">
                 <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mb-3">3 — Aptitudes especiales y roles</p>
-                <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <FormField label="Aptitud — Trabajos en Altura Estructural">
                     <Select value={formP.apto_altura} onChange={e=>setFormP(p=>({...p,apto_altura:e.target.value}))}>
                       <option>No aplica</option><option>Sí</option><option>No</option>
@@ -985,7 +985,7 @@ export default function ContratistasModulo({ empresaId, empresa, profile }) {
               {/* ── 4. Inducción y EPP ── */}
               <div className="border-t border-gray-800 pt-4">
                 <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mb-3">4 — Inducción SST y EPP</p>
-                <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <FormField label="Inducción SST — Fecha de realización">
                     <Input type="date" value={formP.induccion_fecha} onChange={e=>setFormP(p=>({...p,induccion_fecha:e.target.value}))} />
                   </FormField>
@@ -997,7 +997,7 @@ export default function ContratistasModulo({ empresaId, empresa, profile }) {
                   </FormField>
                 </div>
                 {formP.epp_entregado && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <FormField label="Fecha de entrega EPP">
                       <Input type="date" value={formP.epp_fecha} onChange={e=>setFormP(p=>({...p,epp_fecha:e.target.value}))} />
                     </FormField>
@@ -1023,7 +1023,7 @@ export default function ContratistasModulo({ empresaId, empresa, profile }) {
               <FormField label="Descripción del trabajo *">
                 <Input value={formT.descripcion} onChange={e=>setFormT(p=>({...p,descripcion:e.target.value}))} placeholder="Ej: Instalación de sistema contra incendios en almacén principal" />
               </FormField>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Área / Ubicación"><Input value={formT.area} onChange={e=>setFormT(p=>({...p,area:e.target.value}))} placeholder="Planta, Almacén, Oficinas..." /></FormField>
                 <FormField label="Nivel de riesgo">
                   <Select value={formT.nivel_riesgo} onChange={e=>setFormT(p=>({...p,nivel_riesgo:e.target.value}))}>
@@ -1046,7 +1046,7 @@ export default function ContratistasModulo({ empresaId, empresa, profile }) {
               {selPersonal.filter(p=>p.estado==="Activo").length > 0 && (
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-2">Personal asignado a este trabajo</p>
-                  <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
                     {selPersonal.filter(p=>p.estado==="Activo").map(p=>(
                       <label key={p.id} className="flex items-center gap-2 p-2.5 bg-gray-800 border border-gray-700 rounded-lg cursor-pointer hover:border-gray-600 transition-colors">
                         <input type="checkbox" checked={(formT.personal_asignado||[]).includes(p.id)}
@@ -1118,7 +1118,7 @@ export default function ContratistasModulo({ empresaId, empresa, profile }) {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Total contratistas" value={contratistas.length} sub={`${totalActivos} activos`} accentColor="blue" />
         <KpiCard label="Trabajos activos" value={trabActTotal} sub="en ejecución ahora" accentColor="amber" />
         <KpiCard label="Docs vencidos" value={conVencidos} sub="contratistas con alerta roja" accentColor={conVencidos>0?"red":"emerald"} />
@@ -1218,11 +1218,11 @@ export default function ContratistasModulo({ empresaId, empresa, profile }) {
       {showModalC && (
         <Modal title={editingC?"Editar contratista":"Nuevo contratista"} onClose={()=>setShowModalC(false)} wide>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Nombre de empresa *"><Input value={formC.nombre} onChange={e=>setFormC(p=>({...p,nombre:e.target.value}))} placeholder="Razón social" /></FormField>
               <FormField label="RUC"><Input value={formC.ruc} onChange={e=>setFormC(p=>({...p,ruc:e.target.value}))} placeholder="20XXXXXXXXX" maxLength={11} /></FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Rubro / Actividad"><Input value={formC.rubro} onChange={e=>setFormC(p=>({...p,rubro:e.target.value}))} placeholder="Construcción, Mantenimiento, Limpieza..." /></FormField>
               <FormField label="Estado"><Select value={formC.estado} onChange={e=>setFormC(p=>({...p,estado:e.target.value}))}><option>Activo</option><option>Suspendido</option><option>Inactivo</option></Select></FormField>
             </div>

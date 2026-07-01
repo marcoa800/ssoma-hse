@@ -56,7 +56,7 @@ export default function PendientesPanel({ empresaId }) {
         <p className="text-gray-500 text-xs max-w-xl">Controles y evaluaciones de todos los programas de vigilancia que están por vencer o ya vencidos.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
         <KpiCard label="Vencidos" value={vencidos.length} sub="requieren acción" accentColor="red" />
         <KpiCard label="Por vencer (≤15 días)" value={porVencer.length} sub="programar pronto" accentColor="amber" />
       </div>

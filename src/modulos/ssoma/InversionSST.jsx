@@ -187,7 +187,7 @@ function DetalleGastos({ empresaId }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Inversión total" value={fmtUSD(totalGeneral)} sub={`${records.length} registros`} accentColor="emerald" />
         <KpiCard label={`Inversión ${now.getFullYear()}`} value={fmtUSD(gastoAnio)} sub="este año" accentColor="blue" />
         <KpiCard label="Filtrado" value={fmtUSD(totalFiltrado)} sub={`${filtered.length} registros`} accentColor="violet" />
@@ -407,7 +407,7 @@ function ResumenMensual({ empresaId }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Plan anual" value={fmtUSD(planAnual)} sub={fmtWan(planAnual, tc)} accentColor="blue" />
         <KpiCard label="Acumulado" value={fmtUSD(acumulado)} sub={fmtWan(acumulado, tc)} accentColor="emerald" />
         <KpiCard label="% ejecutado" value={`${pctEjec.toFixed(1)}%`} sub={`del plan ${fAnio}`} accentColor={pctEjec > 90 ? "red" : pctEjec > 60 ? "amber" : "emerald"} />

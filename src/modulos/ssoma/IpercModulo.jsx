@@ -84,7 +84,7 @@ export default function IpercModulo({ empresaId }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label="IPERCs registrados" value={records.length} sub="total documentos" accentColor="blue" />
         <KpiCard label="Vigentes" value={vigentes.length} sub="dentro del plazo" accentColor="emerald" />
         <KpiCard label="Por actualizar" value={porVencer.length} sub="próximos 30 días" accentColor="amber" />
@@ -126,7 +126,7 @@ export default function IpercModulo({ empresaId }) {
                   ? <a href={r.url_documento} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"><Download size={12} />Abrir documento</a>
                   : <span className="text-gray-700 text-xs">Sin link</span>}
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                 <div><span className="text-gray-600">Elaboración:</span> <span className="text-gray-400 font-mono">{r.fecha_elaboracion || "—"}</span></div>
                 <div><span className="text-gray-600">Próx. revisión:</span> <span className="text-gray-400 font-mono">{r.fecha_revision || "—"}</span></div>
                 <div className="truncate"><span className="text-gray-600">Responsable:</span> <span className="text-gray-400">{r.responsable || "—"}</span></div>

@@ -442,7 +442,7 @@ export default function HallazgosHGP({ empresaId }) {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Abiertos" value={kAbiertos} sub="requieren acción" accentColor={kAbiertos ? "red" : "emerald"} />
         <KpiCard label="En proceso" value={kEnProceso} sub="en seguimiento" accentColor={kEnProceso ? "amber" : "emerald"} />
         <KpiCard label="Cerrados" value={kCerrados} sub="levantados" accentColor="green" />
@@ -495,7 +495,7 @@ export default function HallazgosHGP({ empresaId }) {
                 {h.tipo_hallazgo && <Badge color={TIPO_COLOR[h.tipo_hallazgo] || "gray"}>{h.tipo_hallazgo.replace("Clasificados en Riesgo ", "").replace("Riesgo ", "").substring(0, 20)}</Badge>}
                 {h.foto_inicial_url && <span className="text-[10px] text-blue-500">📷 con foto</span>}
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                 <div className="truncate"><span className="text-gray-600">Supervisor:</span> <span className="text-gray-400">{h.supervisor_reportante || "—"}</span></div>
                 <div>
                   <span className="text-gray-600">F. Límite:</span>{" "}

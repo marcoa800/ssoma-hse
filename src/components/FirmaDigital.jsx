@@ -91,7 +91,7 @@ export function FirmaPad({ rol, value, onChange }) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
       <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mb-2"><PenLine size={12} /> {rol}</div>
-      <div className="grid grid-cols-2 gap-2 mb-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
         <input value={nombre} onChange={e => { setNombre(e.target.value); }} onBlur={() => emit()} placeholder="Nombre y apellidos"
           className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500" />
         <input value={dni} onChange={e => { setDni(e.target.value); }} onBlur={() => emit()} placeholder="DNI"

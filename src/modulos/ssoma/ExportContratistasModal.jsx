@@ -137,7 +137,7 @@ export function ExportContratistasModal({ registros = [], contratistas = [], loc
           </div>
           {modo === "mes"
             ? <input type="month" value={mes} onChange={e => setMes(e.target.value)} className={inp} />
-            : <div className="grid grid-cols-2 gap-3"><input type="date" value={desde} onChange={e => setDesde(e.target.value)} className={inp} /><input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className={inp} /></div>}
+            : <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><input type="date" value={desde} onChange={e => setDesde(e.target.value)} className={inp} /><input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className={inp} /></div>}
         </div>
 
         {/* Contratistas */}

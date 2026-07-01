@@ -208,7 +208,7 @@ export default function PublicTriajeForm({ empresaId }) {
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
               <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Activity size={16} className="text-blue-500" /> Signos Vitales</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[["temperatura","Temp (°C)","number"],["presionArterial","P. Arterial","text"],["saturacion","Sat O₂ (%)","number"],["frecuenciaCardiaca","FC (lpm)","number"]].map(([k,p,t]) => (
                   <input key={k} type={t} value={form[k]} onChange={e => fi(k, e.target.value)} placeholder={p} className="border border-gray-300 rounded-xl px-3 py-3 text-base focus:outline-none focus:border-blue-400 w-full" style={{fontSize:"16px"}} />
                 ))}

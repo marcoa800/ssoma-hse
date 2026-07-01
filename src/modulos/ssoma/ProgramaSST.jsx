@@ -87,7 +87,7 @@ export default function ProgramaSST({ empresaId }) {
       {form && (
         <Modal title={form.id ? "Editar programa" : "Agregar Programa Anual"} onClose={() => setForm(null)}>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Año"><Input type="number" value={form.anio} onChange={e => setForm(f => ({ ...f, anio: e.target.value }))} /></FormField>
               <FormField label="Nombre"><Input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} /></FormField>
             </div>

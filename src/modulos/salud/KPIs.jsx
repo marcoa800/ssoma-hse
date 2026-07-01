@@ -65,7 +65,7 @@ export default function KPIs({ kpis, setKpis, empresaId }) {
         <Select value={filterMes} onChange={e => setFilterMes(e.target.value)} style={{ width: 160 }}><option value="">Todos los meses</option>{meses.map(m => <option key={m}>{m}</option>)}</Select>
         <Input placeholder="Buscar indicador..." value={filterNombre} onChange={e => setFilterNombre(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         {filtered.map(k => { const val = k.real ?? k.valor_real ?? 0; const ok = isKpiMet(k); return (
           <div key={k.id} className={`bg-gray-900 border border-gray-800 border-l-4 rounded-xl p-4 relative ${ok ? "border-l-emerald-500" : "border-l-red-500"}`}>
             {puedeEliminar() && (

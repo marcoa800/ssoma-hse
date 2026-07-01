@@ -131,7 +131,7 @@ export default function ATSPetarModulo({ empresaId }) {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard label="Total este año" value={docAnio.length} sub="ATS + PETAR emitidos" accentColor="amber" />
         <KpiCard label="Vigentes" value={vigentes.length} sub="permisos activos" accentColor={vigentes.length > 0 ? "emerald" : "gray"} />
         <KpiCard label="ATS emitidos" value={atsDocs.length} sub="análisis de trabajo" accentColor="blue" />
@@ -186,7 +186,7 @@ export default function ATSPetarModulo({ empresaId }) {
             </div>
             {d.descripcion && <div className="text-xs text-gray-400 mb-2">{d.descripcion}</div>}
             <div className="mb-2"><Badge color={ATS_ESTADO_COLOR[d.estado] || "gray"}>{d.estado}</Badge></div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
               <div className="truncate"><span className="text-gray-600">Área:</span> <span className="text-gray-400">{d.area}{d.ubicacion ? ` · ${d.ubicacion}` : ""}</span></div>
               <div className="truncate"><span className="text-gray-600">Supervisor:</span> <span className="text-gray-400">{d.supervisor || "—"}</span></div>
               <div className="truncate"><span className="text-gray-600">Resp. SSOMA:</span> <span className="text-gray-400">{d.responsable_ssoma || "—"}</span></div>
@@ -289,7 +289,7 @@ export default function ATSPetarModulo({ empresaId }) {
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 resize-none" />
             </FormField>
             <FormField label="EPPs requeridos">
-              <div className="grid grid-cols-2 gap-1.5 mt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-1">
                 {EPPS_COMUNES.map(epp => (
                   <label key={epp} className="flex items-center gap-2 cursor-pointer group">
                     <input type="checkbox" checked={form.epps_requeridos.includes(epp)} onChange={() => toggleEpp(epp)}

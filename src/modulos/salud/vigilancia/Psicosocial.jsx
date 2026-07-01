@@ -119,7 +119,7 @@ export default function PsicosocialModulo({ workers, empresaId }) {
       {subtab === "cronograma" && <CronogramaActividades programa="psicosocial" empresaId={empresaId} workers={workers} />}
 
       {subtab === "eval" && <>
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <KpiCard label="Evaluaciones este mes" value={thisMes.length} sub="Registros del mes actual" accentColor="blue" />
         <KpiCard label="Riesgo Alto / Muy Alto" value={altoRiesgo.length} sub="Requieren intervención" accentColor="amber" />
         <KpiCard label="Derivaciones activas" value={derivados.length} sub="Psicólogo / Psiquiatría" accentColor="purple" />
@@ -212,7 +212,7 @@ export default function PsicosocialModulo({ workers, empresaId }) {
             <span className="text-[10px] px-2 py-1 rounded bg-red-900/40 text-red-400 border border-red-800 font-mono shrink-0">CONFIDENCIAL</span>
             <p className="text-xs text-red-400">La información registrada es de carácter médico confidencial y de uso exclusivo del equipo de salud.</p>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Trabajador *">
               <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
                 <option value="">Seleccionar...</option>

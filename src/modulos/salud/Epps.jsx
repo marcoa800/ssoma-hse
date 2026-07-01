@@ -103,7 +103,7 @@ export default function EppModulo({ workers, empresaId }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Registros totales" value={records.length} sub={`${workersConEpp} trabajadores con EPP`} accentColor="blue" />
         <KpiCard label="EPPs vencidos" value={vencidos.length} sub="requieren reposición inmediata" accentColor="red" />
         <KpiCard label="Por vencer (30 días)" value={porVencer.length} sub="próxima reposición" accentColor="amber" />
@@ -160,7 +160,7 @@ export default function EppModulo({ workers, empresaId }) {
                 <span className="text-xs text-gray-300 font-medium">{r.tipo_epp}</span>
                 <Badge color={estadoColor(estadoReal)}>{estadoReal}</Badge>
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                 {r.descripcion && <div className="col-span-2"><span className="text-gray-600">Descripción:</span> <span className="text-gray-400">{r.descripcion}</span></div>}
                 <div><span className="text-gray-600">Talla:</span> <span className="text-gray-400 font-mono">{r.talla || "—"}</span></div>
                 <div><span className="text-gray-600">Cantidad:</span> <span className="text-gray-400 font-mono">{r.cantidad}</span></div>

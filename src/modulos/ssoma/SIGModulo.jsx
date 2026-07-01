@@ -262,7 +262,7 @@ export default function SIGModulo({ empresaId }) {
       </div>
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
         {[
           { label: "Total documentos",      value: kpis.total,     color: "text-blue-400",    bg: "border-blue-900/40" },
           { label: "Vigentes",              value: kpis.vigentes,  color: "text-emerald-400", bg: "border-emerald-900/40" },
@@ -289,7 +289,7 @@ export default function SIGModulo({ empresaId }) {
 
       {/* ── Filtros ── */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
           <div className="relative col-span-2 md:col-span-1 lg:col-span-2">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600" />
             <input value={search} onChange={e => setSearch(e.target.value)}
@@ -381,7 +381,7 @@ export default function SIGModulo({ empresaId }) {
                       {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                     <div className="truncate"><span className="text-gray-600">Área:</span> <span className="text-gray-400">{item.area || "—"}</span></div>
                     <div className="truncate"><span className="text-gray-600">Norma:</span> <span className="text-gray-400">{item.norma || "—"}</span></div>
                     <div className="truncate"><span className="text-gray-600">Responsable:</span> <span className="text-gray-400">{item.responsable || "—"}</span></div>

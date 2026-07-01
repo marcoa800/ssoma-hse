@@ -210,7 +210,7 @@ export default function ExamenModulo({ empresaId, role, empresaNombre = '' }) {
             </Btn>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <KpiCard label="Rindieron" value={lista.length} sub={filtroSede ? `sede ${filtroSede}` : 'trabajadores'} accentColor="blue"/>
           <KpiCard label="Aprobados" value={aprobados} sub={`${lista.length ? Math.round(aprobados/lista.length*100) : 0}% tasa`} accentColor="emerald"/>
           <KpiCard label="Promedio" value={prom} sub="de 10 preguntas" accentColor="amber"/>
@@ -431,7 +431,7 @@ function EditorExamen({ empresaId, examen, onBack }) {
                 placeholder="Escribe la pregunta aquí..."
                 className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-blue-500 resize-none"/>
             </FormField>
-            <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
               {LETRAS.map(l=>(
                 <div key={l} className={`flex items-center gap-2 rounded-lg border p-2 cursor-pointer transition-all ${p.correcta===l?'bg-emerald-900/30 border-emerald-700':'bg-gray-800 border-gray-700'}`}
                   onClick={()=>setP(i,'correcta',l)}>

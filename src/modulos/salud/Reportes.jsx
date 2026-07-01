@@ -205,7 +205,7 @@ export default function ReportesModulo({ workers, trainings, empresaId, empresa 
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
         <div className="text-sm font-semibold text-white mb-3">Próximos reportes</div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             { label: "Reporte de Accidentabilidad", desc: "TFIA, TFGA, días perdidos y estadísticas" },
             { label: "Informe de Capacitaciones", desc: "Asistencia y horas por área y trabajador" },

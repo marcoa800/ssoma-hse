@@ -193,7 +193,7 @@ export default function HomologacionModulo({ empresaId }) {
       </div>
 
       {/* ── KPIs ── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { label: "Completados",  value: completados, color: "text-green-400",  sub: `de ${aplicables.length} que aplican` },
           { label: "Pendientes",   value: pendientes,  color: "text-gray-400",   sub: "sin iniciar" },
@@ -343,7 +343,7 @@ export default function HomologacionModulo({ empresaId }) {
                   {item.aplica ? "✓ Aplica" : "N/A"}
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                 <div className="truncate"><span className="text-gray-600">Responsable:</span> <span className="text-gray-400">{item.responsable || "—"}</span></div>
                 <div className="truncate">
                   <span className="text-gray-600">Evidencia:</span>{" "}

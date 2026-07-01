@@ -673,7 +673,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                   </div>
                 </div>
                 <div className="text-xs text-gray-400 mb-2">{w.cargo || "Sin cargo"}</div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs border-t border-gray-800 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs border-t border-gray-800 pt-2">
                   <div><span className="text-gray-600">Cese:</span> <span className="text-gray-400 font-mono">{fmtFecha(w.fecha_cese)}</span></div>
                   <div className="truncate"><span className="text-gray-600">Motivo:</span> <span className="text-gray-400">{w.motivo_cese || "—"}</span></div>
                 </div>
@@ -740,7 +740,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
           <Btn size="sm" variant="primary" onClick={() => openModal()}><Plus size={13} /> Registrar</Btn>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 mb-4 md:flex md:flex-wrap md:items-center">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4 md:flex md:flex-wrap md:items-center">
         <Input placeholder="Buscar nombre o DNI..." value={filter.text} onChange={e => setFilter(f => ({ ...f, text: e.target.value }))} className="col-span-2 w-full md:w-auto md:flex-1 md:min-w-[160px]" />
         <MultiSelect value={filter.cargo} onChange={v => setFilter(f => ({ ...f, cargo: v }))} options={cargos} placeholder="Puestos" className="md:w-[180px]" />
         {esGrupoCafe && <MultiSelect value={filter.sede} onChange={v => setFilter(f => ({ ...f, sede: v }))} options={sedes} placeholder="Sedes" className="md:w-[160px]" />}
@@ -792,7 +792,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
                 {esMultisel && w.tipo_vinculacion && <Badge color={w.tipo_vinculacion === "Planilla" ? "green" : "blue"}>{w.tipo_vinculacion}</Badge>}
                 {!esGrupoCafe && <Badge color={w.epp_recibido ? "green" : "gray"}>{w.epp_recibido ? "EPP ✓" : "Sin EPP"}</Badge>}
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                 <div><span className="text-gray-600">Última EMO:</span> <span className="text-gray-400 font-mono">{fmtFecha(w.ultima_emo)}</span></div>
                 <div><span className="text-gray-600">Vigente:</span> <span className={`font-mono font-medium ${isVenc ? "text-red-400" : soonVenc ? "text-amber-400" : "text-gray-400"}`}>{vigencia || "—"}</span></div>
                 {w.celular && <div><span className="text-gray-600">Cel:</span> <span className="text-gray-400 font-mono">{w.celular}</span></div>}

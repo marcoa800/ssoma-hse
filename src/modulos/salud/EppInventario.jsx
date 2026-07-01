@@ -163,7 +163,7 @@ export default function EppInventario({ empresaId }) {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label="Stock total" value={stockTotal} sub="unidades en almacén" accentColor={stockTotal < 10 ? "red" : "emerald"} />
         <KpiCard label="Ingresos (mes)" value={ingresosMes} sub="unidades recibidas" accentColor="blue" />
         <KpiCard label="Salidas (mes)" value={salidasMes} sub="unidades entregadas" accentColor="amber" />
@@ -275,7 +275,7 @@ export default function EppInventario({ empresaId }) {
           {/* Tipo de movimiento */}
           <div className="mb-4">
             <p className="text-[11px] text-gray-500 font-medium uppercase tracking-wide mb-2">Tipo de movimiento</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {TIPOS.map(t => (
                 <button key={t.id} type="button" onClick={() => setForm(f => ({ ...f, tipo: t.id }))}
                   className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs font-medium transition-all ${form.tipo === t.id

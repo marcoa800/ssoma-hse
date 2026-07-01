@@ -263,7 +263,7 @@ export default function PlanSOModulo({ empresaId }) {
             </div>
             <div>
               <p className="text-white font-semibold mb-2">Estados disponibles</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {[["⏳ Programado","Actividad prevista, aún no iniciada","gray"],["🔵 En proceso","Actividad en ejecución","blue"],["✅ Completado","Actividad finalizada y entregable listo","green"],["❌ Cancelado","Actividad descartada o postergada","red"]].map(([e,d,c])=>(
                   <div key={e} className="bg-gray-800 rounded-lg p-3">
                     <span className={`text-xs font-bold text-${c}-400`}>{e}</span>
@@ -310,7 +310,7 @@ export default function PlanSOModulo({ empresaId }) {
       </div>
 
       {/* KPIs globales */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <div className="text-2xl font-bold text-blue-400">{totalActs}</div>
           <div className="text-xs text-gray-500 mt-0.5">Total actividades</div>

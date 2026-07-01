@@ -192,7 +192,7 @@ export default function InspeccionesSIG({ empresaId, empresa }) {
         </div>
 
         {/* Cabecera */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 mb-3 grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 mb-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
           <FormField label="Fecha"><Input type="date" value={form.fecha || ""} onChange={e => setF("fecha", e.target.value)} /></FormField>
           <FormField label="Responsable *"><Input value={form.responsable} onChange={e => setF("responsable", e.target.value)} /></FormField>
           <FormField label="Área"><Input value={form.area} onChange={e => setF("area", e.target.value)} /></FormField>

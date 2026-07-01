@@ -115,7 +115,7 @@ export default function ProgramaCreatorModal({ empresaId, onClose, onCreated }) 
       {modo === "manual" ? (
         <div className="mt-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Actividades de este programa</p>
-          <div className="grid grid-cols-2 gap-1.5 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-4">
             {CATS.map(c => (
               <label key={c} className="flex items-center gap-2 text-sm text-gray-300 px-2 py-1.5 rounded-lg hover:bg-gray-800 cursor-pointer">
                 <input type="checkbox" checked={form.actividades.includes(c)} onChange={() => toggleCat(c)} className="w-4 h-4 accent-blue-600" />{c}

@@ -217,7 +217,7 @@ export default function AccionesCorrectivas({ empresaId, empresa }) {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <div className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5">
           <div className="text-xs text-gray-500 flex items-center gap-1"><AlertTriangle size={12} /> Abiertas</div>
           <div className="text-xl font-bold text-amber-400">{kAbiertas}</div>

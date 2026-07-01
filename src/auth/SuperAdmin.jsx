@@ -170,7 +170,7 @@ export default function SuperAdmin() {
         <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-orange-900/40 text-orange-400 border border-orange-800"><Settings size={11} /> SUPERADMIN</span>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         <KpiCard label="Empresas activas" value={empresas.filter(e => e.activa).length} sub={`de ${empresas.length} registradas`} accentColor="blue" />
         <KpiCard label="Usuarios totales" value={usuarios.length} sub="en todas las empresas" accentColor="emerald" />
         <KpiCard label="Empresas inactivas" value={empresas.filter(e => !e.activa).length} sub="suspendidas" accentColor="amber" />

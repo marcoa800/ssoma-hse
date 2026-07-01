@@ -97,7 +97,7 @@ export default function Dashboard({ workers, trainings }) {
   ].filter(d => d.value > 0);
   return (
     <div>
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
         <KpiCard label="Personal Activo" value={activos} sub={`de ${workers.length} registrados`} accentColor="blue" />
         <KpiCard label="Aptos con Restricción" value={conRestriccion} sub="requieren seguimiento" accentColor="amber" />
         <KpiCard label="EMOs por Vencer" value={emoVencer} sub="próximos 30 días" accentColor="red" />
@@ -166,7 +166,7 @@ export default function Dashboard({ workers, trainings }) {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="grid grid-cols-2 gap-2 flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1">
                 {[
                   { label: "Apto",           value: nApto,        color: "#10b981", bg: "bg-emerald-900/20 border-emerald-900/40" },
                   { label: "Con restricción",value: nRestriccion, color: "#f59e0b", bg: "bg-amber-900/20 border-amber-900/40"   },

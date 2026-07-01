@@ -99,7 +99,7 @@ export default function MonitoreoModulo({ empresaId }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <KpiCard label={`Monitoreos ${anioActual}`} value={delAnio.length} sub={`${records.length} registros en total`} accentColor="blue" />
         <KpiCard label="Superan límite permisible" value={superanLimite.length} sub="requieren medidas correctivas" accentColor="red" />
         <KpiCard label="Áreas monitoreadas" value={areasMonit} sub="áreas únicas registradas" accentColor="emerald" />
@@ -148,7 +148,7 @@ export default function MonitoreoModulo({ empresaId }) {
               </div>
             </div>
             <div className="mb-2.5">{r.supera_limite ? <Badge color="red">⚠ Supera límite</Badge> : <Badge color="green">✓ Dentro del límite</Badge>}</div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
               <div><span className="text-gray-600">Fecha:</span> <span className="text-gray-400 font-mono">{r.fecha_monitoreo}</span></div>
               <div className="truncate"><span className="text-gray-600">Laboratorio:</span> <span className="text-gray-400">{r.empresa_laboratorio || "—"}</span></div>
               <div><span className="text-gray-600">Resultado:</span> {r.resultado_valor != null ? <span className={`font-mono font-bold ${r.supera_limite ? "text-red-400" : "text-emerald-400"}`}>{r.resultado_valor} {r.unidad}</span> : <span className="text-gray-500">—</span>}</div>

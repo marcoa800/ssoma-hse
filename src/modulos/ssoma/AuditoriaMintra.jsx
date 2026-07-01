@@ -222,7 +222,7 @@ export default function AuditoriaMintra({ empresaId, empresa }) {
 
             <div>
               <p className="font-semibold text-white mb-2">Semáforo de cumplimiento</p>
-              <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                 <div className="bg-emerald-900/15 border border-emerald-900/40 rounded-lg p-2 text-center"><span className="text-emerald-400 font-bold">≥ 80%</span><div className="text-gray-500">Conforme</div></div>
                 <div className="bg-amber-900/15 border border-amber-900/40 rounded-lg p-2 text-center"><span className="text-amber-400 font-bold">50 – 79%</span><div className="text-gray-500">Por mejorar</div></div>
                 <div className="bg-red-900/15 border border-red-900/40 rounded-lg p-2 text-center"><span className="text-red-400 font-bold">&lt; 50%</span><div className="text-gray-500">Crítico</div></div>
@@ -259,7 +259,7 @@ export default function AuditoriaMintra({ empresaId, empresa }) {
                       <button onClick={() => eliminarAuditoria(a.id)} title="Eliminar" className="text-gray-700 hover:text-red-400"><Trash2 size={13} /></button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 sm:grid-cols-8 gap-1.5">
                     {MINTRA_LINEAMIENTOS.map(l => { const p = a.detalle?.[l.id] ?? 0; return (
                       <div key={l.id} className="text-center" title={`${l.id}. ${l.titulo}: ${p}%`}>
                         <div className="h-10 bg-gray-900 rounded relative overflow-hidden flex items-end">

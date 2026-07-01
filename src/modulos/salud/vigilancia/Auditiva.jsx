@@ -127,7 +127,7 @@ export default function AuditivaModulo({ workers, empresaId }) {
       {subtab === "cronograma" && <CronogramaActividades programa="auditiva" empresaId={empresaId} workers={workers} />}
 
       {subtab === "eval" && <>
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <KpiCard label="Evaluaciones este mes" value={thisMes.length} sub="Registros del mes actual" accentColor="blue" />
         <KpiCard label="Con hipoacusia" value={conHipoacusia.length} sub="Resultado anormal" accentColor="amber" />
         <KpiCard label="Exposición ≥ 95 dB" value={altoRiesgo.length} sub="Riesgo alto — control urgente" accentColor="red" />
@@ -222,13 +222,13 @@ export default function AuditivaModulo({ workers, empresaId }) {
         <Modal title={editing ? "Editar — Protección Auditiva" : "Nueva Evaluación — Protección Auditiva"} onClose={closeModal} wide>
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4 text-xs text-gray-400">
             <p className="font-semibold text-gray-300 mb-1">Referencia de exposición al ruido</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <span className="text-emerald-400">&lt; 85 dB: Sin riesgo</span>
               <span className="text-amber-400">85–94 dB: Riesgo — EPP obligatorio</span>
               <span className="text-red-400">≥ 95 dB: Riesgo alto ⚠</span>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Trabajador *">
               <Select value={form.trabajador_id} onChange={e => setForm({ ...form, trabajador_id: e.target.value })}>
                 <option value="">Seleccionar...</option>

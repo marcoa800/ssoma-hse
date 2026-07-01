@@ -122,7 +122,7 @@ export default function SeguimientoModulo({ workers, empresaId }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <KpiCard label="Casos activos" value={activos.length} sub={`${records.length} casos en total`} accentColor="red" />
         <KpiCard label="Prioridad alta" value={altaPrioridad.length} sub="requieren atención urgente" accentColor="amber" />
         <KpiCard label="Evaluaciones (7 días)" value={proximasEval.length} sub="próximas citas programadas" accentColor="blue" />
@@ -183,7 +183,7 @@ export default function SeguimientoModulo({ workers, empresaId }) {
                 <Badge color={prioColor(r.prioridad)}>{r.prioridad}</Badge>
                 <Badge color={estadoColor(r.estado)}>{r.estado}</Badge>
               </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
                 <div className="truncate"><span className="text-gray-600">Dx presuntivo:</span> <span className="text-gray-400">{r.diagnostico_presuntivo || "—"}</span></div>
                 <div><span className="text-gray-600">Próx. eval:</span> <span className={`font-mono ${isProx ? "text-amber-400 font-semibold" : "text-gray-400"}`}>{r.proxima_evaluacion || "—"}{isProx && " ⚠"}</span></div>
                 <div className="truncate"><span className="text-gray-600">Médico:</span> <span className="text-gray-400">{r.medico_responsable || "—"}</span></div>

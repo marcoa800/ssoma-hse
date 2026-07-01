@@ -290,7 +290,7 @@ export default function IndicadoresComind({ empresaId }) {
           <p className="text-xs text-blue-400 font-semibold uppercase tracking-wide mb-3">
             ✅ Importado: {MESES[lastImport.mes]} {lastImport.anio}
           </p>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               { label: "Trabajadores Admin.", value: lastImport.emp.trabajadores, icon: Users, color: "text-emerald-400" },
               { label: "HH Admin.", value: fmtN(lastImport.emp.hh), icon: Clock, color: "text-emerald-300" },
@@ -309,7 +309,7 @@ export default function IndicadoresComind({ empresaId }) {
 
       {/* ── Totales anuales ── */}
       {records.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
             <div className="text-xs text-gray-500 mb-1">Índice de Frecuencia (IF)</div>
             <div className="text-2xl font-bold text-amber-400">{fmt2(annualIF)}</div>
@@ -491,7 +491,7 @@ export default function IndicadoresComind({ empresaId }) {
             <div className="bg-blue-900/20 border border-blue-900/40 rounded-xl p-4">
               <p className="text-blue-300 font-semibold mb-2 flex items-center gap-2"><Upload size={14} /> Paso 1 — Importar el Excel de Horas Hombre</p>
               <p className="text-gray-400 text-xs mb-3">Cada mes el ingeniero recibe un Excel con las horas trabajadas. Súbelo con el botón <strong className="text-white">"Importar Horas Hombre"</strong> y el sistema extrae automáticamente:</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { hoja: "Hoja OBJ", area: "PRODUCCIÓN", col: "Columna 8 (Horas Lab.)", color: "emerald" },
                   { hoja: "Hoja EMP", area: "ADMINISTRATIVO", col: "Columna 8 (Total Horas lab.)", color: "blue" },
@@ -582,8 +582,8 @@ export default function IndicadoresComind({ empresaId }) {
       {editModal && (
         <Modal title={`${editModal.nuevo ? "Agregar" : "Editar"} — ${MESES[editModal.mes]} ${editModal.anio} · ${editModal.area}`}
           onClose={() => setEditModal(null)}>
-          <div className="grid grid-cols-2 gap-3 mb-2">
-            <div className="col-span-2 grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+            <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Trabajadores"><Input type="number" min="0" value={editForm.trabajadores || ""} onChange={e => setEditForm(f => ({ ...f, trabajadores: e.target.value, hh_capacitacion: calcCap(e.target.value) }))} /></FormField>
               <FormField label="HH Trabajadas"><Input type="number" step="0.01" min="0" value={editForm.hh_trabajadas || ""} onChange={e => setEF("hh_trabajadas", e.target.value)} /></FormField>
             </div>
@@ -593,7 +593,7 @@ export default function IndicadoresComind({ empresaId }) {
             </FormField>
             <div className="col-span-2 border-t border-gray-700 pt-2">
               <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Accidentes</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <FormField label="Leve"><Input type="number" min="0" value={editForm.acc_leve || ""} onChange={e => setEF("acc_leve", e.target.value)} /></FormField>
                 <FormField label="Incapacitante"><Input type="number" min="0" value={editForm.acc_incapacitante || ""} onChange={e => setEF("acc_incapacitante", e.target.value)} /></FormField>
                 <FormField label="Fatal"><Input type="number" min="0" value={editForm.acc_fatal || ""} onChange={e => setEF("acc_fatal", e.target.value)} /></FormField>
@@ -603,7 +603,7 @@ export default function IndicadoresComind({ empresaId }) {
             <FormField label="Días cargados"><Input type="number" step="0.01" min="0" value={editForm.dias_cargados || ""} onChange={e => setEF("dias_cargados", e.target.value)} /></FormField>
             <div className="col-span-2 border-t border-gray-700 pt-2">
               <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-2">Incidentes y Enf. Ocupacional</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <FormField label="Inc. Peligrosos"><Input type="number" min="0" value={editForm.inc_peligrosos || ""} onChange={e => setEF("inc_peligrosos", e.target.value)} /></FormField>
                 <FormField label="Inc. Leve"><Input type="number" min="0" value={editForm.inc_leve || ""} onChange={e => setEF("inc_leve", e.target.value)} /></FormField>
                 <FormField label="Enf. Ocupacional"><Input type="number" min="0" value={editForm.enf_ocupacional || ""} onChange={e => setEF("enf_ocupacional", e.target.value)} /></FormField>
@@ -611,7 +611,7 @@ export default function IndicadoresComind({ empresaId }) {
             </div>
             {/* Preview IF/IG/IA en tiempo real */}
             {efHH > 0 && (
-              <div className="col-span-2 bg-blue-900/15 border border-blue-900/30 rounded-lg p-3 grid grid-cols-3 gap-2 text-center">
+              <div className="col-span-2 bg-blue-900/15 border border-blue-900/30 rounded-lg p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                 <div><div className="text-[10px] text-gray-500">IF</div><div className="text-lg font-bold text-blue-400">{fmt2(preIF)}</div></div>
                 <div><div className="text-[10px] text-gray-500">IG</div><div className="text-lg font-bold text-orange-400">{fmt2(preIG)}</div></div>
                 <div><div className="text-[10px] text-gray-500">IA</div><div className="text-lg font-bold text-red-400">{fmt2(preIA)}</div></div>

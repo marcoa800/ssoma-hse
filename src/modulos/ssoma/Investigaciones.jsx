@@ -213,7 +213,7 @@ export default function Investigaciones({ empresaId, empresa }) {
   return (
     <div>
       {/* ── KPIs ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
           <div className="text-xs text-gray-500">Total</div>
           <div className="text-2xl font-bold text-white">{total}</div>

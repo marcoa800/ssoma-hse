@@ -125,7 +125,7 @@ export default function RacsModulo({ empresaId, empresa }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard label="RACs del mes" value={delMes.length} sub="reportes recibidos" accentColor="blue" />
         <KpiCard label="Abiertos" value={abiertos.length} sub="sin cierre" accentColor={abiertos.length>0?"red":"emerald"} />
         <KpiCard label="Cerrados" value={cerrados.length} sub="resueltos" accentColor="emerald" />
@@ -160,7 +160,7 @@ export default function RacsModulo({ empresaId, empresa }) {
               <Badge color={nivelColor(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge>
               <Badge color={estadoColor(r.estado)}>{r.estado}</Badge>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs border-t border-gray-800 pt-2.5">
               <div className="truncate"><span className="text-gray-600">Reportante:</span> <span className="text-gray-400">{r.nombre_reportante||"Anónimo"}</span></div>
             </div>
           </div>
@@ -243,7 +243,7 @@ export default function RacsModulo({ empresaId, empresa }) {
               </Select>
             </FormField>
             <FormField label="Categorización del riesgo">
-              <div className="grid grid-cols-2 gap-1.5 mt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-1">
                 {CATEGORIAS_RIESGO.map(cat=>(
                   <button key={cat} type="button" onClick={()=>rfToggleCat(cat)}
                     className={`text-left px-2.5 py-1.5 rounded-lg border text-xs transition-colors ${racForm.categorizacion.includes(cat) ? "bg-blue-900/40 border-blue-600 text-blue-300" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"}`}>
