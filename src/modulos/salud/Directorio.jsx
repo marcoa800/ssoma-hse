@@ -54,7 +54,7 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
   const toggleAptitud = (a) => setFilter(f => ({
     ...f, aptitud: f.aptitud.includes(a) ? f.aptitud.filter(x => x !== a) : [...f.aptitud, a]
   }));
-  const [sortAZ, setSortAZ] = useState(false);
+  const [sortDir, setSortDir] = useState(null); // null | "az" | "za"
   const [page, setPage] = useState(1);
   const PER_PAGE = 50;
   const [tooltip, setTooltip] = useState(null);
@@ -105,14 +105,14 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
       && (!filter.lectura || (filter.lectura === "si" ? !!w.lectura_emo : !w.lectura_emo))
       && (!filter.vinculacion || (w.tipo_vinculacion || "").toLowerCase() === filter.vinculacion.toLowerCase())
       && emoOk;
-  }).sort((a, b) => sortAZ ? a.nombre.localeCompare(b.nombre, "es") : 0);
+  }).sort((a, b) => sortDir === "az" ? a.nombre.localeCompare(b.nombre, "es") : sortDir === "za" ? b.nombre.localeCompare(a.nombre, "es") : 0);
 
   // Paginación (escritorio y móvil) — evita recorrer cientos de filas de un tirón
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const pageSafe = Math.min(page, totalPages);
   const paged = filtered.slice((pageSafe - 1) * PER_PAGE, pageSafe * PER_PAGE);
   // Volver a la página 1 cuando cambian filtros, orden o vista
-  useEffect(() => { setPage(1); }, [filter, sortAZ, vistaDir]);
+  useEffect(() => { setPage(1); }, [filter, sortDir, vistaDir]);
   // Medir el ancho real de la tabla para dimensionar la barra de scroll superior
   useEffect(() => {
     const measure = () => { if (tableScrollRef.current) setTableW(tableScrollRef.current.scrollWidth); };
@@ -737,9 +737,6 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
             <label className="cursor-pointer"><span className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-700 text-emerald-300 hover:bg-emerald-900/30 transition-all cursor-pointer ${ingImporting ? "opacity-50 pointer-events-none" : ""}`}><Upload size={13} /> {ingImporting ? "Importando..." : "Importar F. Ingreso"}</span><input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={importFechaIngreso} disabled={ingImporting} /></label>
           )}
           <Btn size="sm" onClick={exportExcel}><Download size={13} /> Exportar</Btn>
-          <Btn size="sm" variant={sortAZ ? "primary" : "default"} onClick={() => setSortAZ(v => !v)}>
-            {sortAZ ? "A→Z ✓" : "A→Z"}
-          </Btn>
           <Btn size="sm" variant="primary" onClick={() => openModal()}><Plus size={13} /> Registrar</Btn>
         </div>
       </div>
@@ -830,7 +827,14 @@ export default function Directorio({ workers, setWorkers, role, empresaId, empre
             <thead>
               <tr className="border-b border-gray-800">
                 {["Apellido y Nombre", "F. Nac / Edad", ...((esGrupoCafe || esComindustria) ? ["Género"] : []), "DNI", ...(esGrupoCafe ? ["Tipo Doc"] : []), "Puesto", ...(esComindustria ? ["F. Ingreso"] : []), ...(esGrupoCafe ? ["Sede"] : []), ...(esMultisel ? ["Vinculación", "Área"] : []), "Celular", "Correo", "Última EMO", "Duración", "Vigente Hasta", "Estado", "Aptitud", ...(!esGrupoCafe ? ["EPP"] : []), "Lectura EMO", ...(canSeeMedical ? ["Restricción"] : []), ""].map((h, i) => (
-                  <th key={h} className={`text-left text-xs text-gray-600 font-medium px-3 py-3 uppercase tracking-wide whitespace-nowrap sticky top-0 bg-gray-900 ${i === 0 ? "left-0 z-30 shadow-[2px_0_6px_rgba(0,0,0,0.4)]" : "z-20"}`}>{h}</th>
+                  <th key={h} className={`text-left text-xs text-gray-600 font-medium px-3 py-3 uppercase tracking-wide whitespace-nowrap sticky top-0 bg-gray-900 ${i === 0 ? "left-0 z-30 shadow-[2px_0_6px_rgba(0,0,0,0.4)]" : "z-20"}`}>
+                    {i === 0 ? (
+                      <button type="button" onClick={() => setSortDir(d => d === "az" ? "za" : d === "za" ? null : "az")}
+                        className="flex items-center gap-1 uppercase tracking-wide hover:text-gray-300 transition-colors" title="Ordenar por nombre">
+                        {h} <span className={sortDir ? "text-blue-400" : "text-gray-700"}>{sortDir === "za" ? "▼" : sortDir === "az" ? "▲" : "↕"}</span>
+                      </button>
+                    ) : h}
+                  </th>
                 ))}
               </tr>
             </thead>
